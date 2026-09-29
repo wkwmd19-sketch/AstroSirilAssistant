@@ -268,3 +268,34 @@ stars_processing:
       brightness_delta: -0.1
       saturation_delta: -0.02
       reason: 별 밀도가 높은 장면에서 별이 과도하게 지배하지 않도록 밝기/채도를 낮춤
+recombine:
+  processed_stars_default_weight: 1.0
+  unprocessed_stars_by_category:
+    GALAXY: 0.7
+    EMISSION_NEBULA: 0.65
+    REFLECTION_NEBULA: 0.7
+    DARK_NEBULA: 0.65
+    PLANETARY_NEBULA: 0.7
+    SUPERNOVA_REMNANT: 0.6
+    OPEN_CLUSTER: 1.0
+    GLOBULAR_CLUSTER: 0.95
+    MILKYWAY: 0.8
+    GENERAL_STARFIELD: 1.0
+    UNKNOWN: 0.8
+  feature_modifiers_if_unprocessed:
+    FAINT_OUTER_STRUCTURE:
+      weight_delta: -0.05
+      reason: 희미한 외곽 구조를 별이 가리지 않도록 재합성 별 가중치를 소폭 낮춤
+    LOW_SURFACE_BRIGHTNESS:
+      weight_delta: -0.1
+      reason: 저표면밝기 천체 신호를 보호하기 위해 별 가중치를 낮춤
+    FINE_FILAMENTS:
+      weight_delta: -0.05
+      reason: 미세 필라멘트와 별의 시각적 경쟁을 줄이는 방향
+    HIGH_STAR_DENSITY:
+      weight_delta: -0.1
+      reason: 별 밀도가 높은 장면에서 별 존재감을 줄이는 방향
+  limits:
+    star_weight:
+    - 0.0
+    - 1.5

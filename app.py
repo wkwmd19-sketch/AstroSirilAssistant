@@ -21,6 +21,7 @@ from astroauto.star_separation import preview_star_separation, apply_star_separa
 from astroauto.starless_processing import preview_starless_processing, apply_starless_processing, skip_starless_processing
 from astroauto.recommendations import recommend_starless, recommend_stars
 from astroauto.stars_processing import preview_stars_processing, apply_stars_processing, skip_stars_processing
+from astroauto.recombine import preview_recombine, apply_recombine, recommend_recombine
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -511,6 +512,29 @@ def cmd_stars_skip(args):
     print("Stars Processing을 건너뛰었습니다.")
     return 0
 
+
+def cmd_recombine_recommend(args):
+    rec = recommend_recombine(Path(args.project))
+    print(json.dumps(rec, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+def cmd_recombine_preview(args):
+    cfg = load_app_config()
+    jpg, preview_fits, meta = preview_recombine(
+        Path(args.project), cfg,
+        star_weight=args.star_weight,
+        rescale_output=args.rescale,
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Preview FITS: {preview_fits}")
+    print(f"Expression: {meta['expression']}")
+    return 0
+
+def cmd_recombine_apply(args):
+    raise PermissionError(
+        "CLI Recombine apply는 v0.12.0에서 preview_meta 승격 구조를 사용하므로 GUI 승인 경로를 사용하세요."
+    )
+
 def build_parser():
     parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.11.0")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -786,6 +810,17 @@ def build_parser():
     p = sub.add_parser("stars-skip", help="Stars Processing 건너뛰기")
     p.add_argument("project")
     p.set_defaults(func=cmd_stars_skip)
+
+
+    p = sub.add_parser("recombine-recommend", help="Pixel Math Recombine 추천값")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_recombine_recommend)
+
+    p = sub.add_parser("recombine-preview", help="Pixel Math Recombine 미리보기")
+    p.add_argument("project")
+    p.add_argument("--star-weight", type=float, default=1.0)
+    p.add_argument("--rescale", action="store_true")
+    p.set_defaults(func=cmd_recombine_preview)
 
     return parser
 

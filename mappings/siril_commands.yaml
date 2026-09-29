@@ -1,4 +1,4 @@
-schema_version: "0.11.0"
+schema_version: "0.12.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -185,3 +185,18 @@ STARS_PROCESS:
     require_preview_same_parameters_before_gui_apply: true
     preserve_main_layer: true
     note: "Brightness scaling changes star prominence, not geometric star radius."
+
+
+PIXEL_MATH_RECOMBINE:
+  executor: "SIRIL_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.12.0"
+  command_template: 'pm "$Main$ + $Stars$ * {star_weight}" -nosum {optional_rescale}'
+  defaults:
+    star_weight: 1.0
+    rescale_output: false
+  safety:
+    require_state: "STARS_PROCESSED"
+    require_preview_same_parameters_before_gui_apply: true
+    preserve_main_and_stars_inputs: true
+    fixed_metadata_option: "-nosum"
+    preview_promoted_without_recompute: true

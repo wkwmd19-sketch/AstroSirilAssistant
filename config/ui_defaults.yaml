@@ -80,3 +80,8 @@ stars_processing:
   saturation_amount: 0.08
   saturation_background_factor: 0.0
   saturation_hue_range: 6
+
+
+recombine:
+  star_weight: 1.0
+  rescale_output: false

@@ -7,6 +7,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .recombine import make_recombine_task
 
 def make_stars_process_task(skipped_starless: bool = False) -> dict:
     return {
@@ -42,7 +43,7 @@ def make_stars_process_task(skipped_starless: bool = False) -> dict:
         "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
     }
 
-def make_recombine_task(stars_skipped: bool = False) -> dict:
+def _legacy_make_recombine_task(stars_skipped: bool = False) -> dict:
     return {
         "task_id": "PIXEL_MATH_RECOMBINE",
         "title": "Pixel Math Recombine",
@@ -280,7 +281,7 @@ def apply_stars_processing(project_dir: Path, config: dict, confirmed: bool = Fa
     # current_file intentionally remains the Main/Starless layer.
     p["current_file"] = str(main)
     p["current_state"] = "STARS_PROCESSED"
-    p["next_task"] = make_recombine_task(stars_skipped=False)
+    p["next_task"] = make_recombine_task()
     save_project(pdir, project)
 
     payload = {
@@ -323,7 +324,7 @@ def skip_stars_processing(project_dir: Path):
     }
     p["current_file"] = str(main)
     p["current_state"] = "STARS_PROCESSED"
-    p["next_task"] = make_recombine_task(stars_skipped=True)
+    p["next_task"] = make_recombine_task()
     save_project(pdir, project)
 
     append_jsonl(pdir, {

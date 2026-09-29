@@ -56,6 +56,11 @@ from astroauto.stars_processing import (
     preview_stars_processing, apply_stars_processing,
     skip_stars_processing,
 )
+from astroauto.recombine import (
+    migrate_ready_for_recombine,
+    preview_recombine, apply_recombine,
+    recommend_recombine,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -80,7 +85,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.11.1")
+        self.title("AstroSirilAssistant v0.12.0")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
@@ -240,6 +245,20 @@ class App(tk.Tk):
             self.stars_sat_amount, self.stars_sat_bg, self.stars_sat_hue,
         ):
             var.trace_add("write", self._invalidate_stars_preview)
+
+        rc = self.ui_defaults.get("recombine", {})
+        self.recombine_star_weight = tk.StringVar(value=str(rc.get("star_weight", 1.0)))
+        self.recombine_rescale = tk.BooleanVar(value=bool(rc.get("rescale_output", False)))
+        self.recombine_preview_signature = None
+        self.recombine_preview_meta = None
+        self.recombine_recommendation = None
+        self.recombine_recommendation_var = tk.StringVar(value="추천값을 계산하지 않았습니다.")
+
+        for var in (
+            self.recombine_star_weight,
+            self.recombine_rescale,
+        ):
+            var.trace_add("write", self._invalidate_recombine_preview)
 
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
@@ -810,6 +829,7 @@ class App(tk.Tk):
         project = enrich_target_characteristics(pdir, only_if_empty=True)
         project = migrate_ready_for_starless(pdir)
         project = migrate_ready_for_stars(pdir)
+        project = migrate_ready_for_recombine(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -932,6 +952,9 @@ class App(tk.Tk):
 
         elif task_id == "STARS_PROCESS":
             self._build_stars_controls()
+
+        elif task_id == "PIXEL_MATH_RECOMBINE":
+            self._build_recombine_controls()
 
         else:
             ttk.Label(
@@ -3066,6 +3089,324 @@ class App(tk.Tk):
             self.status_var.set("Stars Processing 건너뜀")
         except Exception as e:
             messagebox.showerror("오류", str(e))
+
+    def _build_recombine_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="Pixel Math Recombine", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "recombine.what")
+        ttk.Label(
+            head,
+            text="Main + Stars × Weight",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "Pixel Math Recombine 도움말",
+            [
+                "recombine.what", "recombine.weight",
+                "recombine.nosum", "recombine.rescale",
+                "recombine.preview", "recombine.apply",
+            ],
+        ).pack(side="right")
+
+        rec_frame = ttk.LabelFrame(self.action_box, text="재합성 추천")
+        rec_frame.pack(fill="x", padx=10, pady=(0,8))
+
+        ttk.Label(
+            rec_frame,
+            textvariable=self.recombine_recommendation_var,
+            justify="left",
+            wraplength=900,
+        ).pack(anchor="w", padx=10, pady=(7,5))
+
+        rb = ttk.Frame(rec_frame)
+        rb.pack(anchor="w", padx=8, pady=(0,7))
+        ttk.Button(
+            rb, text="추천 다시 계산",
+            command=self.recombine_calculate_recommendation
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            rb, text="추천값 적용",
+            command=self.recombine_apply_recommendation
+        ).pack(side="left", padx=6)
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        def row_label(row, text, topic):
+            w = ttk.Label(body, text=text, width=22)
+            w.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
+            self.help.tooltip(w, topic)
+            return w
+
+        project = load_project(self.project_dir)
+        sep = project["project"].get("separation", {})
+        main = sep.get("recombine_main_file") or project["project"].get("current_file")
+        stars = (
+            sep.get("recombine_stars_file")
+            or sep.get("stars_processed_file")
+            or sep.get("stars_file")
+        )
+
+        row_label(0, "Main / Starless", "recombine.what")
+        ttk.Label(body, text=str(main), wraplength=760).grid(
+            row=0, column=1, columnspan=2, sticky="w", pady=3
+        )
+
+        row_label(1, "Stars", "recombine.what")
+        ttk.Label(body, text=str(stars), wraplength=760).grid(
+            row=1, column=1, columnspan=2, sticky="w", pady=3
+        )
+
+        row_label(2, "Star Weight", "recombine.weight")
+        ttk.Entry(
+            body, textvariable=self.recombine_star_weight, width=10
+        ).grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body, text="1.0 = 현재 Stars 레이어 그대로"
+        ).grid(row=2, column=2, sticky="w", padx=(8,0))
+
+        row_label(3, "Metadata", "recombine.nosum")
+        ttk.Label(
+            body, text="-nosum (고정)"
+        ).grid(row=3, column=1, sticky="w", pady=3)
+
+        row_label(4, "Rescale Output", "recombine.rescale")
+        ttk.Checkbutton(
+            body, variable=self.recombine_rescale
+        ).grid(row=4, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body, text="기본 OFF 권장"
+        ).grid(row=4, column=2, sticky="w", padx=(8,0))
+
+        self.recombine_expression_var = tk.StringVar(value="")
+        ttk.Label(
+            body, text="Expression", width=22
+        ).grid(row=5, column=0, sticky="w", pady=3)
+        ttk.Label(
+            body,
+            textvariable=self.recombine_expression_var,
+            font=("Consolas", 10),
+        ).grid(row=5, column=1, columnspan=2, sticky="w", pady=3)
+
+        ttk.Label(
+            body,
+            text="※ 이미 Non-linear 결과를 합성하므로 Preview JPEG에 AutoStretch를 추가하지 않습니다.",
+            wraplength=900,
+        ).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=7, column=0, columnspan=3, sticky="w")
+        ttk.Button(
+            buttons, text="Recombine 미리보기",
+            command=self.recombine_preview
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="승인 후 적용",
+            command=self.recombine_apply
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+        self._refresh_recombine_expression()
+
+        try:
+            self._calculate_recombine_recommendation(show_status=False)
+        except Exception as e:
+            self.recombine_recommendation_var.set(
+                f"추천 계산을 완료하지 못했습니다: {e}\n현재 입력값으로 수동 진행할 수 있습니다."
+            )
+
+    def _refresh_recombine_expression(self):
+        try:
+            weight = float(self.recombine_star_weight.get())
+            expr = f"$Main$ + $Stars$ * {weight:g}"
+        except Exception:
+            expr = "$Main$ + $Stars$ * ?"
+        if hasattr(self, "recombine_expression_var"):
+            self.recombine_expression_var.set(expr)
+
+    def _recombine_signature(self):
+        return (
+            self.recombine_star_weight.get().strip(),
+            bool(self.recombine_rescale.get()),
+        )
+
+    def _invalidate_recombine_preview(self, *args):
+        self.recombine_preview_signature = None
+        self.recombine_preview_meta = None
+        self._refresh_recombine_expression()
+
+    def _recombine_params(self):
+        return {
+            "star_weight": float(self.recombine_star_weight.get()),
+            "rescale_output": bool(self.recombine_rescale.get()),
+        }
+
+    def _format_recombine_recommendation(self, rec):
+        vals = rec["recommended_values"]
+        reasons = "\n".join(f"  • {x}" for x in rec.get("reasons", [])[:5])
+        prior = rec.get("prior_stars_brightness_scale")
+        effective = rec.get("effective_star_scale_vs_original_subtraction_layer")
+        prior_text = (
+            f"\nStars Processing Brightness={prior:g} → "
+            f"추천 Recombine 적용 시 원본 Stars 대비 실질 약 {effective:g}"
+            if prior is not None else
+            f"\n예상 Recombine 별 가중치: {effective:g}"
+        )
+        return (
+            f"추천 시작값: Star Weight={vals['star_weight']} / "
+            f"Rescale={'ON' if vals['rescale_output'] else 'OFF'}"
+            f"{prior_text}\n"
+            f"{rec.get('notice')}\n"
+            f"추천 근거:\n{reasons}"
+        )
+
+    def _calculate_recombine_recommendation(self, show_status=True):
+        if not self._require_project():
+            return None
+        rec = recommend_recombine(self.project_dir)
+        self.recombine_recommendation = rec
+        self.recombine_recommendation_var.set(
+            self._format_recombine_recommendation(rec)
+        )
+        if show_status:
+            self.status_var.set("Recombine 추천 계산 완료")
+        return rec
+
+    def recombine_calculate_recommendation(self):
+        try:
+            self._calculate_recombine_recommendation(show_status=True)
+        except Exception as e:
+            messagebox.showerror("추천 계산 오류", str(e))
+
+    def recombine_apply_recommendation(self):
+        try:
+            rec = self.recombine_recommendation or self._calculate_recombine_recommendation(False)
+            vals = rec["recommended_values"]
+            self.recombine_star_weight.set(str(vals["star_weight"]))
+            self.recombine_rescale.set(bool(vals["rescale_output"]))
+            self.status_var.set("Recombine 추천 시작값을 입력란에 적용했습니다. 미리보기로 확인하세요.")
+        except Exception as e:
+            messagebox.showerror("추천값 적용 오류", str(e))
+
+    def recombine_preview(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._recombine_params()
+        except ValueError:
+            messagebox.showerror("오류", "Star Weight 숫자 값을 확인하세요.")
+            return
+
+        signature = self._recombine_signature()
+
+        def work():
+            return preview_recombine(
+                self.project_dir, self.cfg, **params
+            )
+
+        def done(result):
+            jpg, preview_fits, meta = result
+            self.recombine_preview_signature = signature
+            self.recombine_preview_meta = meta
+
+            clip = float(meta.get("max_highlight_clip_ratio", 0) or 0)
+            clip_note = (
+                f"주의: 최대 highlight clipping ratio={clip:.6f}"
+                if clip > 0.001 else
+                f"Highlight clipping ratio={clip:.6f}"
+            )
+
+            self.write(
+                "\nPixel Math Recombine 미리보기 완료\n"
+                f"Preview FITS: {preview_fits}\n"
+                f"JPEG: {jpg}\n"
+                f"Expression: {meta['expression']}\n"
+                f"Command: {meta['pm_command']}\n"
+                f"{clip_note}\n"
+            )
+            self.status_var.set("Recombine 미리보기 완료")
+            self._open_preview(jpg)
+
+            if clip > 0.001 and not params["rescale_output"]:
+                messagebox.showwarning(
+                    "하이라이트 확인",
+                    "Recombine 미리보기에서 일부 highlight clipping이 감지되었습니다.\n\n"
+                    "먼저 Star Weight를 낮춰 비교하는 것을 권장합니다.\n"
+                    "Rescale Output은 전체 톤을 바꿀 수 있으므로 두 번째 선택지로 사용하세요."
+                )
+
+        self.run_bg(
+            work,
+            operation="Pixel Math Recombine 미리보기",
+            on_success=done,
+        )
+
+    def recombine_apply(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._recombine_params()
+        except ValueError:
+            messagebox.showerror("오류", "Star Weight 숫자 값을 확인하세요.")
+            return
+
+        if (
+            self.recombine_preview_signature != self._recombine_signature()
+            or not self.recombine_preview_meta
+        ):
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 Recombine 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        ok = messagebox.askyesno(
+            "Pixel Math Recombine 실제 적용",
+            "확인한 미리보기 결과를 정식 Recombined FITS로 확정합니다.\n\n"
+            f"Expression: {self.recombine_preview_meta['expression']}\n"
+            f"Rescale: {params['rescale_output']}\n"
+            f"Metadata: -nosum\n\n"
+            "Main/Stars 원본 파일은 그대로 보존됩니다.\n진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_recombine(
+                self.project_dir,
+                self.cfg,
+                confirmed=True,
+                preview_meta=self.recombine_preview_meta,
+                **params,
+            )
+
+        def done(result):
+            project, output, payload = result
+            self.recombine_preview_signature = None
+            self.recombine_preview_meta = None
+            self._show_project_task(
+                project,
+                f"Pixel Math Recombine 완료\n출력: {output}"
+            )
+            self.status_var.set("Pixel Math Recombine 완료")
+            next_task = project["project"].get("next_task", {})
+            self._show_apply_success(
+                "Pixel Math Recombine",
+                output,
+                next_task.get("title"),
+            )
+
+        self.run_bg(
+            work,
+            operation="Pixel Math Recombine 실제 적용",
+            on_success=done,
+        )
 
     def _gradient_signature(self):
         return (

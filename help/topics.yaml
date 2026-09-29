@@ -1656,3 +1656,111 @@ topics:
 
 
       오류가 발생하면 기존처럼 상세 로그가 자동으로 열립니다.'
+  recombine.what:
+    title: Pixel Math Recombine
+    tooltip: Main/Starless와 Stars additive layer를 Pixel Math로 다시 합칩니다.
+    detail: 'Siril 1.4.4의 scriptable `pm` 명령을 사용합니다.
+
+
+      기본 표현식:
+
+      `$Main$ + $Stars$ * star_weight`
+
+
+      Pixel Math 변수는 작업 폴더의 이미지 이름을 `$...$`로 감싸 사용합니다.
+
+
+      v0.12.0은 Main/Stars를 임시 작업폴더에 복사해 `Main.fits`, `Stars.fits`라는 안정적인 변수명으로 계산합니다.'
+  recombine.weight:
+    title: Star Weight
+    tooltip: 재합성할 Stars 레이어의 최종 가중치입니다. 1.0은 현재 Stars 레이어를 그대로 더합니다.
+    detail: 'Star Weight는 Recombine 단계의 추가 곱셈값입니다.
+
+
+      중요:
+
+      Stars Processing 단계에서 이미 Brightness Scale을 적용했다면 그 효과가 Stars FITS에 들어 있습니다.
+
+
+      예:
+
+      Stars Processing Brightness = 0.6
+
+      Recombine Star Weight = 1.0
+
+      → 원본 subtraction Stars 대비 실질 약 0.6
+
+
+      같은 상황에서 Star Weight를 다시 0.6으로 두면
+
+      → 실질 약 0.36
+
+      가 되므로 별이 예상보다 많이 약해질 수 있습니다.
+
+
+      그래서 보정된 Stars를 사용하는 경우 기본 추천은 1.0입니다.'
+  recombine.nosum:
+    title: -nosum
+    tooltip: Main과 Stars의 노출시간 메타데이터를 합산하지 않습니다.
+    detail: 'Pixel Math의 `-nosum` 옵션을 항상 사용합니다.
+
+
+      Main과 Stars는 서로 다른 두 촬영 결과가 아니라 같은 촬영 데이터에서 분리된 레이어입니다.
+
+      노출시간/LIVETIME/STACKCNT를 단순 합산하면 메타데이터 의미가 왜곡될 수 있으므로 v0.12에서는 `-nosum`을 고정 사용합니다.'
+  recombine.rescale:
+    title: Rescale Output
+    tooltip: Pixel Math 결과를 0~1 범위로 다시 매핑합니다. 기본은 OFF입니다.
+    detail: 'Siril `pm`의 `-rescale 0 1` 옵션입니다.
+
+
+      OFF (권장 시작):
+
+      - Main과 Stars의 상대적인 픽셀 값을 그대로 합칩니다.
+
+      - 기존 톤 관계를 보존하기 쉽습니다.
+
+
+      ON:
+
+      - 최종 계산 결과 전체를 0~1로 다시 매핑합니다.
+
+      - clipping을 피할 수 있지만 전체 명암/색 관계가 바뀔 수 있습니다.
+
+
+      따라서 기본 OFF이며, 먼저 Star Weight를 조절해 하이라이트를 관리하는 것을 권장합니다.'
+  recombine.preview:
+    title: Recombine 미리보기
+    tooltip: Pixel Math 결과를 임시 FITS/JPEG로 만들고 clipping 통계를 확인합니다.
+    detail: '미리보기는 실제 작업파일을 변경하지 않습니다.
+
+
+      출력:
+
+      - 임시 Recombined FITS
+
+      - 표시용 JPEG
+
+      - highlight clipping 통계
+
+
+      이미 Non-linear이므로 추가 AutoStretch는 하지 않습니다.
+
+
+      설정이 바뀌지 않으면 승인 후 적용 시 미리보기 FITS를 그대로 정식 결과로 승격합니다.'
+  recombine.apply:
+    title: Recombine 승인 후 적용
+    tooltip: 확인한 Pixel Math 결과를 정식 Recombined FITS로 확정합니다.
+    detail: '결과:
+
+      `working\11_recombine\{TARGET}_11_recombined.fits`
+
+
+      State:
+
+      `RECOMBINED / NONLINEAR`
+
+
+      이후 다음 단계:
+
+      Final / Export'
