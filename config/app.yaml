@@ -1,5 +1,5 @@
 app:
-  version: "0.3.0"
+  version: "0.3.1"
   project_root: 'D:\AstroProjects_Auto'
   copy_input_into_project: true
 
@@ -17,3 +17,39 @@ analysis:
   max_samples_per_channel: 1500000
   histogram_bins: 2048
   clip_fraction: 0.0001
+
+calibration:
+  enabled: true
+  scan_extensions:
+    - ".fit"
+    - ".fits"
+    - ".fts"
+    - ".fits.fz"
+
+  compatibility:
+    dark:
+      exposure_relative_tolerance: 0.05
+      exposure_absolute_tolerance_sec: 0.5
+      gain_tolerance: 0.0
+      temperature_tolerance_c: 3.0
+      require_same_dimensions: true
+    flat:
+      require_same_dimensions: true
+      require_same_filter_when_known: true
+      require_same_bayer_pattern_when_known: true
+    bias:
+      require_same_dimensions: true
+      gain_tolerance: 0.0
+    dark_flat:
+      exposure_relative_tolerance: 0.05
+      exposure_absolute_tolerance_sec: 0.2
+      gain_tolerance: 0.0
+      temperature_tolerance_c: 3.0
+      require_same_dimensions: true
+
+  policy:
+    bias_darkflat_mode: "AUTO_DECIDE"
+    allow_no_bias_when_darkflat_used: true
+    allow_no_darkflat_when_bias_used: true
+    never_apply_calibration_twice: true
+    unknown_precalibrated_state_requires_user_confirmation: true

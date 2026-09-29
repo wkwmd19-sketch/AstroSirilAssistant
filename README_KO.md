@@ -1,79 +1,113 @@
-# AstroSirilAssistant v0.3 MVP
+# AstroSirilAssistant v0.3.1 — Calibration-aware MVP
 
-Siril을 중심으로 천체사진을 **반자동 분석/보정**하기 위한 첫 실행형 MVP입니다.
+v0.3에 **Dark / Bias / Flat / Dark-flat 관리와 검증 구조**를 추가한 보완판입니다.
 
-현재 v0.3에서 실제로 동작하는 범위:
+## 새 프로젝트 기본 경로
 
-1. `D:\AstroProjects_Auto` 프로젝트 생성
-2. 프로젝트명/최종 결과물 `_Auto` 규칙 적용
-3. FITS 파일 자동 탐색
-4. Siril CLI 자동 탐색 및 버전 확인
-5. Siril `jsonmetadata` 호출
-6. Astropy/Numpy로 FITS 히스토그램/통계 자동 계산
-7. FITS HISTORY 기반 Linear/Non-linear 보수적 판정
-8. `project.yaml` 상태 자동 업데이트
-9. 다음 작업 + 요약 설명 + 목적 + 주의사항 + 완료기준 출력
-10. 분석/명령 로그 저장
-11. 간단한 Windows GUI 제공
+`D:\AstroProjects_Auto\{대상}_{YYYY-MM-DD}_Auto\`
 
-아직 v0.3에서 **실제 적용 버튼이 활성화되지 않은 작업**:
+예:
 
-- Gradient Correction 실행
-- SPCC 실행
-- GHS 적용
-- StarNet 실행
-- Pixel Math 재합성
-- RAW 서브프레임 Calibration/Registration/Stacking
-- 은하수 지상/하늘 움직임 자동판별
+`D:\AstroProjects_Auto\M31_2026-09-29_Auto\`
 
-위 작업들은 스키마와 command adapter를 유지하면서 v0.4 이후 차례로 실제 실행 기능을 붙이는 구조입니다.
+## 새 폴더 구조
 
-## 중요: Siril 버전
+```text
+M31_2026-09-29_Auto\
+├─ input\
+│  └─ lights\
+├─ calibration\
+│  ├─ dark\
+│  ├─ bias\
+│  ├─ flat\
+│  ├─ dark_flat\
+│  └─ masters\
+├─ working\
+│  ├─ 00_calibrated\
+│  ├─ 01_registered\
+│  ├─ 02_stacked\
+│  ├─ 03_gradient\
+│  ├─ 04_color\
+│  ├─ 05_denoise\
+│  ├─ 06_stretch\
+│  ├─ 07_starnet\
+│  ├─ 08_starless\
+│  ├─ 09_recombine\
+│  └─ 10_final\
+├─ output\
+├─ logs\
+└─ temp\
+```
 
-2026-09 기준 Siril의 최신 안정판은 1.4.4입니다.
-이 MVP는 안정판 1.4.x를 우선 대상으로 하며 1.5 개발 계열도 버전 검출 후 허용하도록 작성되어 있습니다.
+## 캘리브레이션 상태
 
-## 설치
+입력은 반드시 다음 중 하나로 관리합니다.
 
-Python 3.11 또는 3.12 권장.
+- `RAW_UNCALIBRATED`
+- `PRECALIBRATED`
+- `UNKNOWN`
 
-`install_windows.bat`을 실행하면 `.venv`를 만들고 필요한 패키지를 설치합니다.
+`PRECALIBRATED` 입력에는 캘리브레이션을 다시 적용하지 않습니다.
 
-## GUI 실행
+## 입력 단계
 
-`run_gui.bat`
+- `LIGHT_SEQUENCE`
+- `SINGLE_LIGHT`
+- `REGISTERED_SEQUENCE`
+- `STACKED_LINEAR`
+- `STACKED_NONLINEAR`
+- `UNKNOWN`
 
-GUI에서:
+DWARF 등 스마트 망원경 결과물처럼 내부 처리 여부가 확실하지 않으면 `UNKNOWN`으로 유지하고 사용자 확인을 받습니다.
 
-1. 원본/스택 FITS 선택
-2. 대상명 입력 (예: M31)
-3. 대상 종류 선택
-4. 촬영일 입력
-5. `프로젝트 생성 + 분석` 클릭
+## 캘리브레이션 검사
 
-프로젝트 예:
+프로젝트 생성 후 보유한 파일을 다음 폴더에 넣습니다.
 
-`D:\AstroProjects_Auto\M31_2026-09-29_Auto`
+- Dark → `calibration\dark`
+- Bias → `calibration\bias`
+- Flat → `calibration\flat`
+- Dark-flat → `calibration\dark_flat`
 
-## CLI
+그 다음:
 
-환경 진단:
+`run_cli.bat calibration-check "D:\AstroProjects_Auto\M31_2026-09-29_Auto"`
 
-`python app.py doctor`
+프로그램은 각 FITS 헤더에서 가능한 범위 내에서 다음 조건을 읽고 비교합니다.
 
-새 프로젝트 생성:
+### Dark
+- 프레임 크기
+- 노출시간
+- Gain
+- 센서 온도(헤더에 있을 경우)
 
-`python app.py new --input "D:\photo\M31.fits" --target M31 --date 2026-09-29 --category GALAXY`
+### Flat
+- 프레임 크기
+- Filter
+- Bayer pattern
+- 광학계/필터 일치 여부는 메타데이터가 부족하면 사용자 확인
 
-기존 프로젝트 분석:
+### Bias
+- 프레임 크기
+- Gain(알 수 있을 경우)
 
-`python app.py analyze "D:\AstroProjects_Auto\M31_2026-09-29_Auto"`
+### Dark-flat
+- 프레임 크기
+- Flat 노출시간과의 일치
+- Gain
+- 온도(알 수 있을 경우)
 
-상태 확인:
+## 중요한 정책
 
-`python app.py status "D:\AstroProjects_Auto\M31_2026-09-29_Auto"`
+Bias와 Dark-flat은 **무조건 둘 다 요구하지 않습니다.**
+센서와 실제 촬영 방식에 따라 적절한 경로를 선택하도록 설계되어 있습니다.
 
-## 안전 원칙
+캘리브레이션 프레임이 없다고 해서 프로그램이 임의로 만들어내지 않습니다.
+없거나 불확실하면 그 영향을 설명하고 사용자의 선택을 받습니다.
 
-Linear/Non-linear 판정이 확실하지 않으면 `UNKNOWN`으로 남깁니다.
-UNKNOWN 상태에서 GHS 같은 큰 변경을 자동 적용하는 구조는 사용하지 않습니다.
+## 현재 한계
+
+v0.3.1은 캘리브레이션 프레임의 **감지/메타데이터 분석/호환성 검사/State 관리**까지 구현합니다.
+
+실제 Siril `preprocess`/master 생성/캘리브레이션 실행은 다음 구현 단계에서 연결합니다.
+이는 중복 캘리브레이션 방지와 센서별 정책을 먼저 안정화하기 위함입니다.

@@ -29,7 +29,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.3")
+        self.title("AstroSirilAssistant v0.3.1")
         self.geometry("900x700")
         self.cfg = load_app_config()
 
@@ -135,7 +135,7 @@ class App(tk.Tk):
             )
             project, report, task = analyze_project(pdir, self.cfg)
             text = (
-                f"프로젝트 생성 완료\n{pdir}\n\n"
+                f"프로젝트 생성 완료\n{pdir}\n캘리브레이션 폴더: {pdir / 'calibration'}\n\n"
                 f"Siril: {report['siril']['version']}\n"
                 f"이미지 shape: {report['pixel_statistics']['shape']}\n"
                 f"Linear 판정: {report['linearity_assessment']['status']}\n"

@@ -1,0 +1,65 @@
+schema_version: "0.3.1"
+
+calibration_policy:
+  input_status_values:
+    - "RAW_UNCALIBRATED"
+    - "PRECALIBRATED"
+    - "UNKNOWN"
+
+  source_stage_values:
+    - "LIGHT_SEQUENCE"
+    - "SINGLE_LIGHT"
+    - "REGISTERED_SEQUENCE"
+    - "STACKED_LINEAR"
+    - "STACKED_NONLINEAR"
+    - "UNKNOWN"
+
+  frame_types:
+    DARK:
+      purpose: "열신호/암전류 및 고정 패턴 성분 감소"
+      match_priority:
+        - "sensor"
+        - "dimensions"
+        - "exposure"
+        - "gain"
+        - "temperature_if_available"
+
+    FLAT:
+      purpose: "비네팅, 먼지 그림자, 픽셀별 감도차 보정"
+      match_priority:
+        - "optical_train"
+        - "dimensions"
+        - "filter_if_known"
+        - "bayer_pattern_if_known"
+      note: "Flat 노출시간은 Light와 같을 필요가 없습니다."
+
+    BIAS:
+      purpose: "최단 노출 readout offset 기준"
+      match_priority:
+        - "sensor"
+        - "dimensions"
+        - "gain_if_relevant"
+
+    DARK_FLAT:
+      purpose: "Flat과 같은 조건의 암프레임으로 Flat 보정"
+      match_priority:
+        - "sensor"
+        - "dimensions"
+        - "flat_exposure"
+        - "gain"
+        - "temperature_if_available"
+
+  decision_rules:
+    - id: "NO_DOUBLE_CALIBRATION"
+      when: "input_status == PRECALIBRATED"
+      action: "DO_NOT_APPLY_CALIBRATION"
+
+    - id: "BIAS_OR_DARKFLAT"
+      when: "flat_available"
+      action: "SELECT_SENSOR_APPROPRIATE_BIAS_OR_DARKFLAT"
+      note: "Bias와 Dark-flat을 무조건 동시에 요구하거나 중복 적용하지 않습니다."
+
+    - id: "MISSING_FRAMES_ALLOWED"
+      when: "some_calibration_frames_missing"
+      action: "EXPLAIN_IMPACT_AND_ASK_USER"
+      note: "없다고 임의 생성하지 않습니다."

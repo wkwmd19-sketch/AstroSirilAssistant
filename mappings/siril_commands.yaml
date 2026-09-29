@@ -41,3 +41,23 @@ command_mapping:
     executor: "SIRIL_CLI"
     command_family: "pm"
     implementation_status: "PLANNED"
+
+
+CALIBRATION_SCAN:
+  executor: "ASTROAUTO_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.3.1"
+  notes:
+    - "Dark/Bias/Flat/Dark-flat 폴더를 스캔하고 FITS 헤더 호환성을 검사"
+
+MASTER_CALIBRATION_FRAMES:
+  executor: "SIRIL_CLI"
+  implementation_status: "PLANNED_NEXT"
+  notes:
+    - "Master Dark/Bias/Flat/Dark-flat 생성은 센서/데이터 유형별 정책을 확정한 뒤 연결"
+
+PREPROCESS_LIGHTS:
+  executor: "SIRIL_CLI"
+  implementation_status: "PLANNED_NEXT"
+  guards:
+    - "PRECALIBRATED 입력에는 실행 금지"
+    - "호환성 검사와 사용자 승인 필요"

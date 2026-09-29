@@ -1,19 +1,25 @@
-# v0.4 예정 구현
+# 다음 구현 단계
 
-우선순위:
+## 최우선
 
-1. Linear 상태 GUI 확인 버튼
-2. Siril `subsky` Gradient Correction Preview/Apply
-3. 단계별 자동 저장/State 전이
-4. SPCC 자동 파라미터 준비
-5. GHS 추천 엔진
-6. GHS Preview/Apply
-7. StarNet runtime adapter
-8. Pixel Math 별 재합성
-9. 처리 로그 비교 리포트
+1. GUI에 입력 단계 확인 UI
+2. GUI에 `RAW_UNCALIBRATED / PRECALIBRATED` 확인 UI
+3. GUI에서 Dark/Bias/Flat/Dark-flat 폴더 열기/검사
+4. Master calibration frame 생성
+5. Siril 실제 Light calibration 실행
+6. Registration
+7. Stacking
 
-그 다음:
+## 그 다음
 
-10. RAW/FITS 서브프레임 Calibration/Registration/Stack
-11. 은하수 FIXED/TRACKED 프레임 움직임 분석
-12. Sequator 연계/대체 경로
+8. Gradient `subsky`
+9. SPCC
+10. GHS 추천/미리보기
+11. StarNet adapter
+12. Pixel Math 재합성
+
+## 은하수
+
+13. FIXED/TRACKED 움직임 분석
+14. 지상/하늘 분리 스택
+15. 필요 시 Sequator 연계

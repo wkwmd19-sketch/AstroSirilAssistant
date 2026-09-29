@@ -48,6 +48,17 @@ def analyze_project(project_dir: Path, config: dict):
     p["runtime"]["siril_version"] = info.version
     p["runtime"]["siril_executable"] = str(info.executable)
     p["current_state"] = "INPUT_ANALYZED"
+    # v0.3.1 migration safety: older projects may not yet have these fields.
+    p.setdefault("input_stage", {"source_stage": "UNKNOWN", "user_confirmed": False})
+    p.setdefault("calibration", {
+        "input_status": "UNKNOWN",
+        "user_confirmed": False,
+        "checked": False,
+        "recommended_action": "CHECK",
+        "frames": {},
+        "masters": {},
+        "compatibility": {},
+    })
     p["image_state"]["linearity"] = linearity["status"]
     p["image_state"]["linearity_confidence"] = linearity["confidence"]
     p["image_state"]["stretched"] = (
