@@ -42,6 +42,15 @@ from astroauto.star_separation import (
     preview_star_separation, apply_star_separation,
     skip_star_separation,
 )
+from astroauto.starless_processing import (
+    migrate_ready_for_starless,
+    preview_starless_processing, apply_starless_processing,
+    skip_starless_processing,
+)
+from astroauto.recommendations import (
+    enrich_target_characteristics, recommend_starless,
+    update_target_characteristics, feature_labels,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -66,7 +75,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.9.0")
+        self.title("AstroSirilAssistant v0.10.0")
         self.geometry("1050x820")
         self.minsize(880, 650)
         self.cfg = load_app_config()
@@ -192,6 +201,25 @@ class App(tk.Tk):
             self.starnet_native_mask,
         ):
             var.trace_add("write", self._invalidate_starnet_preview)
+
+        sl = self.ui_defaults.get("starless_processing", {})
+        self.starless_clahe_enabled = tk.BooleanVar(value=bool(sl.get("clahe_enabled", True)))
+        self.starless_clahe_clip = tk.StringVar(value=str(sl.get("clahe_clip_limit", 1.5)))
+        self.starless_tile = tk.StringVar(value=str(sl.get("clahe_tile_size", 12)))
+        self.starless_sat_enabled = tk.BooleanVar(value=bool(sl.get("saturation_enabled", True)))
+        self.starless_sat_amount = tk.StringVar(value=str(sl.get("saturation_amount", 0.10)))
+        self.starless_sat_bg = tk.StringVar(value=str(sl.get("saturation_background_factor", 1.10)))
+        self.starless_sat_hue = tk.StringVar(value=str(sl.get("saturation_hue_range", 6)))
+        self.starless_preview_signature = None
+        self.starless_recommendation = None
+        self.starless_recommendation_var = tk.StringVar(value="추천값을 계산하지 않았습니다.")
+
+        for var in (
+            self.starless_clahe_enabled, self.starless_clahe_clip, self.starless_tile,
+            self.starless_sat_enabled, self.starless_sat_amount,
+            self.starless_sat_bg, self.starless_sat_hue,
+        ):
+            var.trace_add("write", self._invalidate_starless_preview)
 
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
@@ -472,6 +500,8 @@ class App(tk.Tk):
         project = migrate_post_denoise_task(pdir)
         project = migrate_ready_for_ghs(pdir)
         project = migrate_ready_for_starnet(pdir)
+        project = enrich_target_characteristics(pdir, only_if_empty=True)
+        project = migrate_ready_for_starless(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -588,6 +618,9 @@ class App(tk.Tk):
 
         elif task_id == "STAR_SEPARATION":
             self._build_starnet_controls()
+
+        elif task_id == "STARLESS_PROCESS":
+            self._build_starless_controls()
 
         else:
             ttk.Label(
@@ -2004,6 +2037,406 @@ class App(tk.Tk):
             project = skip_star_separation(self.project_dir)
             self._show_project_task(project, "StarNet 건너뜀")
             self.status_var.set("StarNet 건너뜀")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def _build_starless_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="Starless Processing", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "starless.what")
+        ttk.Label(
+            head,
+            text="Target-aware Recommendation + CLAHE + Saturation",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "Starless Processing 도움말",
+            [
+                "recommendation.what", "recommendation.features",
+                "starless.what", "starless.clahe", "starless.clahe_clip",
+                "starless.tile", "starless.saturation",
+                "starless.background_factor", "starless.preview", "starless.apply",
+            ],
+        ).pack(side="right")
+
+        # Recommendation card
+        rec_frame = ttk.LabelFrame(self.action_box, text="천체 특징 기반 추천")
+        rec_frame.pack(fill="x", padx=10, pady=(0,8))
+
+        ttk.Label(
+            rec_frame,
+            textvariable=self.starless_recommendation_var,
+            justify="left",
+            wraplength=900,
+        ).pack(anchor="w", padx=10, pady=(7,5))
+
+        rec_buttons = ttk.Frame(rec_frame)
+        rec_buttons.pack(anchor="w", padx=8, pady=(0,7))
+        ttk.Button(
+            rec_buttons, text="추천 다시 계산", command=self.starless_calculate_recommendation
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            rec_buttons, text="추천값 적용", command=self.starless_apply_recommendation
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            rec_buttons, text="천체 특징 수정", command=self.edit_target_characteristics
+        ).pack(side="left", padx=6)
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        def row_label(row, text, topic):
+            w = ttk.Label(body, text=text, width=23)
+            w.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
+            self.help.tooltip(w, topic)
+            return w
+
+        row_label(0, "CLAHE Local Contrast", "starless.clahe")
+        ttk.Checkbutton(body, variable=self.starless_clahe_enabled).grid(
+            row=0, column=1, sticky="w", pady=3
+        )
+
+        row_label(1, "CLAHE Clip Limit", "starless.clahe_clip")
+        ttk.Entry(body, textvariable=self.starless_clahe_clip, width=10).grid(
+            row=1, column=1, sticky="w", pady=3
+        )
+
+        row_label(2, "CLAHE Tile Size", "starless.tile")
+        ttk.Entry(body, textvariable=self.starless_tile, width=10).grid(
+            row=2, column=1, sticky="w", pady=3
+        )
+
+        ttk.Separator(body, orient="horizontal").grid(
+            row=3, column=0, columnspan=3, sticky="ew", pady=(6,6)
+        )
+
+        row_label(4, "Saturation", "starless.saturation")
+        ttk.Checkbutton(body, variable=self.starless_sat_enabled).grid(
+            row=4, column=1, sticky="w", pady=3
+        )
+
+        row_label(5, "Saturation Amount", "starless.saturation")
+        ttk.Entry(body, textvariable=self.starless_sat_amount, width=10).grid(
+            row=5, column=1, sticky="w", pady=3
+        )
+
+        row_label(6, "Background Factor", "starless.background_factor")
+        ttk.Entry(body, textvariable=self.starless_sat_bg, width=10).grid(
+            row=6, column=1, sticky="w", pady=3
+        )
+
+        row_label(7, "Hue Range", "starless.saturation")
+        ttk.Combobox(
+            body,
+            textvariable=self.starless_sat_hue,
+            values=["6", "0", "1", "2", "3", "4", "5"],
+            state="readonly",
+            width=10,
+        ).grid(row=7, column=1, sticky="w", pady=3)
+        ttk.Label(body, text="6 = All").grid(row=7, column=2, sticky="w", padx=(8,0))
+
+        ttk.Label(
+            body,
+            text="※ 처리 순서: CLAHE → Saturation. 현재 Starless는 Non-linear이므로 미리보기에 AutoStretch를 추가하지 않습니다.",
+            wraplength=900,
+        ).grid(row=8, column=0, columnspan=3, sticky="w", pady=(6,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=9, column=0, columnspan=3, sticky="w")
+
+        ttk.Button(
+            buttons, text="Starless 미리보기", command=self.starless_preview
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="승인 후 적용", command=self.starless_apply
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons, text="Starless 보정 건너뛰기", command=self.starless_skip
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+
+        # Calculate on first display. The result is only displayed; it is not silently applied.
+        try:
+            self._calculate_starless_recommendation(show_status=False)
+        except Exception as e:
+            self.starless_recommendation_var.set(
+                f"추천 계산을 완료하지 못했습니다: {e}\n현재 입력값으로 수동 진행할 수 있습니다."
+            )
+
+    def _starless_signature(self):
+        return (
+            bool(self.starless_clahe_enabled.get()),
+            self.starless_clahe_clip.get().strip(),
+            self.starless_tile.get().strip(),
+            bool(self.starless_sat_enabled.get()),
+            self.starless_sat_amount.get().strip(),
+            self.starless_sat_bg.get().strip(),
+            self.starless_sat_hue.get().strip(),
+        )
+
+    def _invalidate_starless_preview(self, *args):
+        self.starless_preview_signature = None
+
+    def _starless_params(self):
+        return {
+            "clahe_enabled": bool(self.starless_clahe_enabled.get()),
+            "clahe_clip_limit": float(self.starless_clahe_clip.get()),
+            "clahe_tile_size": int(self.starless_tile.get()),
+            "saturation_enabled": bool(self.starless_sat_enabled.get()),
+            "saturation_amount": float(self.starless_sat_amount.get()),
+            "saturation_background_factor": float(self.starless_sat_bg.get()),
+            "saturation_hue_range": int(self.starless_sat_hue.get()),
+        }
+
+    def _format_starless_recommendation(self, rec):
+        ctx = rec["target_context"]
+        vals = rec["recommended_values"]
+        features = ", ".join(ctx.get("feature_labels") or []) or "추가 특징 없음"
+        reasons = "\n".join(f"  • {x}" for x in rec.get("reasons", [])[:6])
+        return (
+            f"추천 기준: {ctx.get('target_name')} / {ctx.get('category_label')} "
+            f"(source: {ctx.get('source')})\n"
+            f"특징: {features}\n"
+            f"추천 시작값: CLAHE={'ON' if vals['clahe_enabled'] else 'OFF'} "
+            f"Clip={vals['clahe_clip_limit']} Tile={vals['clahe_tile_size']} / "
+            f"Saturation={'ON' if vals['saturation_enabled'] else 'OFF'} "
+            f"Amount={vals['saturation_amount']} BG={vals['saturation_background_factor']}\n"
+            f"{rec.get('notice')}\n"
+            f"추천 근거:\n{reasons}"
+        )
+
+    def _calculate_starless_recommendation(self, show_status=True):
+        if not self._require_project():
+            return None
+        rec = recommend_starless(self.project_dir, self.cfg)
+        self.starless_recommendation = rec
+        self.starless_recommendation_var.set(
+            self._format_starless_recommendation(rec)
+        )
+        if show_status:
+            self.status_var.set("천체 특징 기반 추천 계산 완료")
+        return rec
+
+    def starless_calculate_recommendation(self):
+        try:
+            self._calculate_starless_recommendation(show_status=True)
+        except Exception as e:
+            messagebox.showerror("추천 계산 오류", str(e))
+
+    def starless_apply_recommendation(self):
+        try:
+            rec = self.starless_recommendation or self._calculate_starless_recommendation(False)
+            vals = rec["recommended_values"]
+
+            self.starless_clahe_enabled.set(bool(vals["clahe_enabled"]))
+            self.starless_clahe_clip.set(str(vals["clahe_clip_limit"]))
+            self.starless_tile.set(str(vals["clahe_tile_size"]))
+            self.starless_sat_enabled.set(bool(vals["saturation_enabled"]))
+            self.starless_sat_amount.set(str(vals["saturation_amount"]))
+            self.starless_sat_bg.set(str(vals["saturation_background_factor"]))
+            self.starless_sat_hue.set(str(vals.get("saturation_hue_range", 6)))
+
+            self.status_var.set("추천 시작값을 입력란에 적용했습니다. 미리보기로 확인하세요.")
+        except Exception as e:
+            messagebox.showerror("추천값 적용 오류", str(e))
+
+    def edit_target_characteristics(self):
+        if not self._require_project():
+            return
+
+        project = load_project(self.project_dir)
+        p = project["project"]
+        target = p.get("target", {})
+        current_category = target.get("category", "UNKNOWN")
+        current_features = set(target.get("features") or [])
+        labels = feature_labels()
+
+        win = tk.Toplevel(self)
+        win.title("천체 특징 수정")
+        win.geometry("560x620")
+        win.transient(self)
+
+        frame = ttk.Frame(win, padding=12)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(
+            frame,
+            text=f"대상: {p.get('target_name')}",
+            font=("", 12, "bold"),
+        ).pack(anchor="w", pady=(0,8))
+
+        cat_frame = ttk.Frame(frame)
+        cat_frame.pack(fill="x", pady=(0,8))
+        ttk.Label(cat_frame, text="Category", width=15).pack(side="left")
+        category_var = tk.StringVar(
+            value=ID_TO_LABEL.get(current_category, "모름/자동판단 대기")
+        )
+        ttk.Combobox(
+            cat_frame,
+            textvariable=category_var,
+            values=[x[0] for x in CATEGORIES],
+            state="readonly",
+            width=25,
+        ).pack(side="left")
+
+        ttk.Label(
+            frame,
+            text="Target Features — 추천 계산에 사용할 구조적 특징",
+        ).pack(anchor="w", pady=(6,4))
+
+        canvas = tk.Canvas(frame, highlightthickness=0)
+        scroll = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        canvas.create_window((0,0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        feature_vars = {}
+        for feature_id, label in labels.items():
+            var = tk.BooleanVar(value=feature_id in current_features)
+            feature_vars[feature_id] = var
+            ttk.Checkbutton(
+                inner,
+                text=f"{label}  ({feature_id})",
+                variable=var,
+            ).pack(anchor="w", pady=2)
+
+        bottom = ttk.Frame(win, padding=(12,4,12,12))
+        bottom.pack(fill="x")
+
+        def save():
+            selected = [k for k,v in feature_vars.items() if v.get()]
+            category_id = LABEL_TO_ID.get(category_var.get(), "UNKNOWN")
+            try:
+                update_target_characteristics(
+                    self.project_dir,
+                    category=category_id,
+                    features=selected,
+                    user_confirmed=True,
+                )
+                self.category_var.set(ID_TO_LABEL.get(category_id, category_var.get()))
+                win.destroy()
+                self._calculate_starless_recommendation(show_status=True)
+            except Exception as e:
+                messagebox.showerror("오류", str(e), parent=win)
+
+        ttk.Button(bottom, text="저장 + 추천 재계산", command=save).pack(side="right")
+        ttk.Button(bottom, text="취소", command=win.destroy).pack(side="right", padx=(0,8))
+
+    def starless_preview(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._starless_params()
+        except ValueError:
+            messagebox.showerror("오류", "Starless Processing 숫자 값을 확인하세요.")
+            return
+
+        signature = self._starless_signature()
+
+        def work():
+            return preview_starless_processing(
+                self.project_dir, self.cfg, **params
+            )
+
+        def done(result):
+            jpg, preview_fits, meta = result
+            self.starless_preview_signature = signature
+            self.write(
+                "\nStarless Processing 미리보기 완료\n"
+                f"Preview FITS: {preview_fits}\n"
+                f"JPEG: {jpg}\n"
+                f"Commands: {meta['commands']}\n"
+                "※ 이미 Non-linear이므로 AutoStretch를 추가하지 않았습니다.\n"
+            )
+            self.status_var.set("Starless Processing 미리보기 완료")
+            self._open_preview(jpg)
+
+        self.run_bg(
+            work,
+            operation="Starless Processing 미리보기",
+            on_success=done,
+        )
+
+    def starless_apply(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._starless_params()
+        except ValueError:
+            messagebox.showerror("오류", "Starless Processing 숫자 값을 확인하세요.")
+            return
+
+        if self.starless_preview_signature != self._starless_signature():
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 Starless 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        ok = messagebox.askyesno(
+            "Starless Processing 실제 적용",
+            "미리보기와 동일한 설정을 실제 Starless FITS에 적용합니다.\n\n"
+            f"CLAHE: {params['clahe_enabled']} / "
+            f"Clip={params['clahe_clip_limit']} / Tile={params['clahe_tile_size']}\n"
+            f"Saturation: {params['saturation_enabled']} / "
+            f"Amount={params['saturation_amount']} / BG={params['saturation_background_factor']}\n\n"
+            "Stars 레이어는 변경하지 않습니다.\n진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_starless_processing(
+                self.project_dir, self.cfg, confirmed=True, **params
+            )
+
+        def done(result):
+            project, output, payload = result
+            self.starless_preview_signature = None
+            self._show_project_task(
+                project,
+                f"Starless Processing 완료\n출력: {output}"
+            )
+            self.status_var.set("Starless Processing 완료")
+            next_task = project["project"].get("next_task", {})
+            self._show_apply_success(
+                "Starless Processing",
+                output,
+                next_task.get("title"),
+            )
+
+        self.run_bg(
+            work,
+            operation="Starless Processing 실제 적용",
+            on_success=done,
+        )
+
+    def starless_skip(self):
+        if not self._require_project():
+            return
+        ok = messagebox.askyesno(
+            "Starless 보정 건너뛰기",
+            "CLAHE / Saturation을 적용하지 않고 Stars Processing 단계로 이동할까요?"
+        )
+        if not ok:
+            return
+        try:
+            project = skip_starless_processing(self.project_dir)
+            self._show_project_task(project, "Starless Processing 건너뜀")
+            self.status_var.set("Starless Processing 건너뜀")
         except Exception as e:
             messagebox.showerror("오류", str(e))
 

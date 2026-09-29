@@ -1,4 +1,4 @@
-schema_version: "0.9.0"
+schema_version: "0.10.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -136,3 +136,28 @@ GHS_STRETCH:
     first_pass_requires_linear: true
     additional_pass_requires_explicit_user_action: true
     no_extra_autostretch_in_preview: true
+
+
+STARLESS_PROCESS:
+  executor: "SIRIL_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.10.0"
+  pipeline_order:
+    - "CLAHE"
+    - "SATURATION"
+  clahe:
+    command_template: "clahe {cliplimit} {tileSize}"
+    requires: "NONLINEAR"
+  saturation:
+    command_template: "satu {amount} {background_factor} {hue_range_index}"
+  recommendation:
+    engine: "TARGET_AWARE_V0.1"
+    inputs:
+      - "target.category"
+      - "target.features"
+      - "current image statistics"
+    policy: "starting-point only; user approval required"
+  safety:
+    require_starless: true
+    require_nonlinear: true
+    require_preview_same_parameters_before_gui_apply: true
+    never_modify_stars_layer: true

@@ -62,3 +62,13 @@ starnet:
   protect_highlights: true
   star_layer: "SUBTRACT"
   save_native_starmask: false
+
+
+starless_processing:
+  clahe_enabled: true
+  clahe_clip_limit: 1.5
+  clahe_tile_size: 12
+  saturation_enabled: true
+  saturation_amount: 0.10
+  saturation_background_factor: 1.10
+  saturation_hue_range: 6

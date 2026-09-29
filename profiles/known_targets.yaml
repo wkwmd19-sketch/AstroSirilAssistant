@@ -1,0 +1,48 @@
+schema_version: "0.1"
+
+targets:
+  M31:
+    aliases: ["NGC224", "ANDROMEDA", "ANDROMEDA GALAXY"]
+    category: "GALAXY"
+    subtypes: ["GALAXY_LARGE", "GALAXY_BRIGHT_CORE"]
+    features: ["BRIGHT_CORE", "DUST_LANES", "FAINT_OUTER_STRUCTURE", "HIGH_DYNAMIC_RANGE"]
+  M33:
+    aliases: ["NGC598", "TRIANGULUM GALAXY"]
+    category: "GALAXY"
+    subtypes: ["GALAXY_LARGE", "GALAXY_LOW_SURFACE_BRIGHTNESS"]
+    features: ["LOW_SURFACE_BRIGHTNESS", "FAINT_OUTER_STRUCTURE", "SPIRAL_ARMS"]
+  M51:
+    aliases: ["NGC5194", "WHIRLPOOL GALAXY"]
+    category: "GALAXY"
+    subtypes: ["GALAXY_SMALL", "GALAXY_BRIGHT_CORE"]
+    features: ["BRIGHT_CORE", "SPIRAL_ARMS", "DUST_LANES"]
+  M42:
+    aliases: ["NGC1976", "ORION NEBULA"]
+    category: "EMISSION_NEBULA"
+    subtypes: []
+    features: ["BRIGHT_CORE", "FAINT_OUTER_STRUCTURE", "HIGH_DYNAMIC_RANGE", "STRONG_EMISSION"]
+  IC1805:
+    aliases: ["HEART NEBULA"]
+    category: "EMISSION_NEBULA"
+    subtypes: []
+    features: ["WIDE_DIFFUSE", "FAINT_OUTER_STRUCTURE", "STRONG_EMISSION"]
+  IC1848:
+    aliases: ["SOUL NEBULA"]
+    category: "EMISSION_NEBULA"
+    subtypes: []
+    features: ["WIDE_DIFFUSE", "FAINT_OUTER_STRUCTURE", "STRONG_EMISSION"]
+  NGC1499:
+    aliases: ["CALIFORNIA NEBULA"]
+    category: "EMISSION_NEBULA"
+    subtypes: []
+    features: ["WIDE_DIFFUSE", "FAINT_OUTER_STRUCTURE", "STRONG_EMISSION"]
+  NGC281:
+    aliases: ["PACMAN NEBULA"]
+    category: "EMISSION_NEBULA"
+    subtypes: []
+    features: ["STRONG_EMISSION", "FAINT_OUTER_STRUCTURE"]
+  NGC6992:
+    aliases: ["EASTERN VEIL NEBULA", "C33"]
+    category: "SUPERNOVA_REMNANT"
+    subtypes: []
+    features: ["FINE_FILAMENTS", "STRONG_EMISSION", "FAINT_OUTER_STRUCTURE"]

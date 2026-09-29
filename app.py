@@ -18,6 +18,8 @@ from astroauto.denoise import preview_denoise, apply_denoise, skip_denoise
 from astroauto.deblur import preview_deblur, apply_deblur, skip_deblur
 from astroauto.ghs import preview_ghs, apply_ghs, begin_additional_ghs, finish_ghs
 from astroauto.star_separation import preview_star_separation, apply_star_separation, skip_star_separation
+from astroauto.starless_processing import preview_starless_processing, apply_starless_processing, skip_starless_processing
+from astroauto.recommendations import recommend_starless
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -38,7 +40,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.9.0")
+    print("AstroSirilAssistant v0.10.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -426,8 +428,50 @@ def cmd_starnet_skip(args):
     print("StarNet을 건너뛰었습니다.")
     return 0
 
+
+def _starless_cli_params(args):
+    return dict(
+        clahe_enabled=not args.no_clahe,
+        clahe_clip_limit=args.clahe_clip,
+        clahe_tile_size=args.clahe_tile,
+        saturation_enabled=not args.no_saturation,
+        saturation_amount=args.saturation,
+        saturation_background_factor=args.background_factor,
+        saturation_hue_range=args.hue_range,
+    )
+
+def cmd_starless_recommend(args):
+    cfg = load_app_config()
+    rec = recommend_starless(Path(args.project), cfg)
+    print(json.dumps(rec, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+def cmd_starless_preview(args):
+    cfg = load_app_config()
+    jpg, preview_fits, meta = preview_starless_processing(
+        Path(args.project), cfg, **_starless_cli_params(args)
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Preview FITS: {preview_fits}")
+    return 0
+
+def cmd_starless_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 Starless Processing 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, payload = apply_starless_processing(
+        Path(args.project), cfg, confirmed=True, **_starless_cli_params(args)
+    )
+    print(f"Starless Processing 완료: {output}")
+    return 0
+
+def cmd_starless_skip(args):
+    skip_starless_processing(Path(args.project))
+    print("Starless Processing을 건너뛰었습니다.")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.9.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.10.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -647,6 +691,34 @@ def build_parser():
     p = sub.add_parser("starnet-skip", help="StarNet 별 분리 건너뛰기")
     p.add_argument("project")
     p.set_defaults(func=cmd_starnet_skip)
+
+
+    def add_starless_args(p):
+        p.add_argument("project")
+        p.add_argument("--no-clahe", action="store_true")
+        p.add_argument("--clahe-clip", type=float, default=1.5)
+        p.add_argument("--clahe-tile", type=int, default=12)
+        p.add_argument("--no-saturation", action="store_true")
+        p.add_argument("--saturation", type=float, default=0.10)
+        p.add_argument("--background-factor", type=float, default=1.10)
+        p.add_argument("--hue-range", type=int, default=6)
+
+    p = sub.add_parser("starless-recommend", help="천체 특징 + 이미지 통계 기반 Starless 추천값")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_starless_recommend)
+
+    p = sub.add_parser("starless-preview", help="Starless CLAHE/Saturation 미리보기")
+    add_starless_args(p)
+    p.set_defaults(func=cmd_starless_preview)
+
+    p = sub.add_parser("starless-apply", help="승인 후 Starless Processing 실제 적용")
+    add_starless_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_starless_apply)
+
+    p = sub.add_parser("starless-skip", help="Starless Processing 건너뛰기")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_starless_skip)
 
     return parser
 

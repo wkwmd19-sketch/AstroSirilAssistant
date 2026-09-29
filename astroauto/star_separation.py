@@ -9,6 +9,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .starless_processing import make_starless_process_task
 
 STRIDE_PRESETS = {
     "LARGE": 384,
@@ -44,7 +45,7 @@ def make_star_separation_task() -> dict:
         "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
     }
 
-def make_starless_process_task() -> dict:
+def _legacy_make_starless_process_task() -> dict:
     return {
         "task_id": "STARLESS_PROCESS",
         "title": "Starless Processing",
