@@ -1,4 +1,23 @@
-# AstroSirilAssistant v0.5.1 — Help UI 정리 + SPCC Hotfix
+# AstroSirilAssistant v0.6.0 — 작업 상태 UX + Denoise
+
+## 새 UI
+- 승인 후 적용 성공 팝업
+- 실행 중 무한 Progress Bar
+- 실행 경과시간
+- 처리 중 주요 버튼 잠금
+- 상세 로그 보기/숨기기
+- 로그 복사
+- 오류 시 로그 자동 펼침
+
+## SPCC 다음 실제 단계
+`COLOR_CALIBRATED / LINEAR → DENOISE`
+
+기존 v0.5.x에서 SPCC까지 끝난 프로젝트도 `기존 프로젝트 열기`로 열면
+자동으로 Denoise 단계가 표시됩니다.
+
+---
+
+# AstroSirilAssistant v0.6.0 — Help UI 정리 + SPCC Hotfix
 
 - 파라미터별 `?` 버튼 → 섹션당 `도움말 ?` 1개로 정리
 - Tooltip은 항목명 Label에만 표시
@@ -7,7 +26,7 @@
 
 ---
 
-# AstroSirilAssistant v0.5.1 — SPCC + Common Help System
+# AstroSirilAssistant v0.6.0 — SPCC + Common Help System
 
 이번 버전의 오늘 테스트 범위:
 
@@ -30,7 +49,7 @@ GUI의 R/G/B 필터 입력은 다음 확장에 추가합니다.
 
 ---
 
-# AstroSirilAssistant v0.5.1 — Interactive single-FITS + Gradient
+# AstroSirilAssistant v0.6.0 — Interactive single-FITS + Gradient
 
 v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
 
@@ -42,7 +61,7 @@ v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리�
 
 ---
 
-# AstroSirilAssistant v0.5.1 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.6.0 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 

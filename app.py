@@ -14,6 +14,7 @@ from astroauto.logging_utils import append_jsonl
 from astroauto.state_actions import confirm_input_stage, confirm_calibration_status, confirm_star_trail_mode
 from astroauto.gradient import preview_gradient, apply_gradient
 from astroauto.spcc import fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc
+from astroauto.denoise import preview_denoise, apply_denoise, skip_denoise
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -34,7 +35,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.5.1")
+    print("AstroSirilAssistant v0.6.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -253,8 +254,41 @@ def cmd_spcc_apply(args):
     print(f"SPCC 완료: {output}")
     return 0
 
+
+def _denoise_cli_params(args):
+    return dict(
+        modulation=args.modulation,
+        cosmetic_correction=not args.no_cosmetic,
+        da3d=args.da3d,
+        independent_channels=args.independent,
+    )
+
+def cmd_denoise_preview(args):
+    cfg = load_app_config()
+    jpg, linear_preview, meta = preview_denoise(
+        Path(args.project), cfg, **_denoise_cli_params(args)
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Linear preview: {linear_preview}")
+    return 0
+
+def cmd_denoise_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 Denoise 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, payload = apply_denoise(
+        Path(args.project), cfg, confirmed=True, **_denoise_cli_params(args)
+    )
+    print(f"Denoise 완료: {output}")
+    return 0
+
+def cmd_denoise_skip(args):
+    project = skip_denoise(Path(args.project))
+    print("Denoise를 건너뛰었습니다.")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.5.1")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.6.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -373,6 +407,27 @@ def build_parser():
     add_spcc_args(p)
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_spcc_apply)
+
+
+    def add_denoise_args(p):
+        p.add_argument("project")
+        p.add_argument("--modulation", type=float, default=1.0)
+        p.add_argument("--no-cosmetic", action="store_true")
+        p.add_argument("--da3d", action="store_true")
+        p.add_argument("--independent", action="store_true")
+
+    p = sub.add_parser("denoise-preview", help="Siril Denoise 미리보기")
+    add_denoise_args(p)
+    p.set_defaults(func=cmd_denoise_preview)
+
+    p = sub.add_parser("denoise-apply", help="승인 후 Siril Denoise 실제 적용")
+    add_denoise_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_denoise_apply)
+
+    p = sub.add_parser("denoise-skip", help="Denoise 단계 건너뛰기")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_denoise_skip)
 
     return parser
 

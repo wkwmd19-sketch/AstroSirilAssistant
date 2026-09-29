@@ -15,3 +15,10 @@ spcc:
   catalog: "AUTO"
   bgtol_lower: -2.8
   bgtol_upper: 2.0
+
+
+denoise:
+  modulation: 1.0
+  cosmetic_correction: true
+  da3d: false
+  independent_channels: false

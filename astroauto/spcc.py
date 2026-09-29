@@ -10,6 +10,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .denoise import make_denoise_task
 
 SPCC_LIST_TYPES = (
     "oscsensor", "monosensor", "redfilter", "greenfilter",
@@ -390,26 +391,7 @@ def apply_spcc(project_dir: Path, config: dict, confirmed: bool = False, **param
         "bgtol_upper": params.get("bgtol_upper"),
     }
 
-    p["next_task"] = {
-        "task_id": "POST_SPCC_REVIEW",
-        "title": "SPCC 완료 / 다음 처리 선택",
-        "summary": "색보정이 완료되었습니다. 다음 버전에서는 Denoise / Deblur / GHS 경로를 실제 연결합니다.",
-        "purpose": "Linear 색보정 결과를 확인하고 다음 처리 단계를 준비합니다.",
-        "current_status": "COLOR_CALIBRATED / LINEAR",
-        "recommendations": {
-            "next": "Denoise / Deblur / GHS",
-            "status": "다음 구현 단계",
-        },
-        "cautions": [
-            "아직 실제 Stretch를 적용하지 않습니다.",
-            "SPCC 결과의 별색과 배경색이 자연스러운지 확인하세요.",
-        ],
-        "completion_criteria": [
-            "SPCC 결과 확인",
-            "Linear 상태 유지",
-        ],
-        "actions": ["CONFIRM"],
-    }
+    p["next_task"] = make_denoise_task()
     save_project(pdir, project)
 
     payload = {

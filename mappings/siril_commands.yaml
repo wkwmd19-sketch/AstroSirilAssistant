@@ -1,4 +1,4 @@
-schema_version: "0.5.1"
+schema_version: "0.6.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -64,3 +64,18 @@ command_mapping:
     executor: "SIRIL_NATIVE"
     command_family: "pm"
     implementation_status: "NEXT_AFTER_PREPROCESS"
+
+
+DENOISE:
+  executor: "SIRIL_NATIVE"
+  command_template: "denoise -mod={modulation} {optional_nocosmetic} {optional_da3d} {optional_indep}"
+  stable_supported: "1.4.4"
+  implementation_status: "IMPLEMENTED_V0.6.0"
+  defaults:
+    modulation: 1.0
+    cosmetic_correction: true
+    da3d: false
+    independent_channels: false
+  notes:
+    - "VST is intentionally omitted from the default stacked-image UI."
+    - "Preview is required before GUI apply."
