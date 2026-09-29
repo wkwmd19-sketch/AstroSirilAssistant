@@ -30,5 +30,9 @@ v0.14.0 ZIP에 들어 있던 Python 캐시는 그 태그에 원본대로 보존�
 최신 작업 트리에는 없으며, 이후 생성되는 캐시는 `.gitignore`로 제외됩니다.
 BAT의 CRLF를 포함한 원본 바이트 보존을 위해 `.gitattributes`에서 자동 줄바꿈 변환을 비활성화했습니다.
 
-원격 저장소는 아직 연결하지 않았습니다. `.git` 폴더를 포함한 저장소 전체를 보관해야
-커밋과 태그가 유지됩니다. GitHub 웹 파일 업로드만으로는 이력이 이전되지 않습니다.
+GitHub 저장소: [wkwmd19-sketch/AstroSirilAssistant](https://github.com/wkwmd19-sketch/AstroSirilAssistant)
+
+GitHub 저장소 생성 시 만들어진 초기 README 커밋도 병합해 보존했습니다.
+다른 PC에서는 이 저장소를 clone하면 버전 이력을 함께 가져올 수 있습니다.
+폴더를 직접 복사할 때는 `.git`까지 포함해야 커밋과 태그가 유지됩니다.
+GitHub 웹 파일 업로드만으로는 이력이 이전되지 않습니다.

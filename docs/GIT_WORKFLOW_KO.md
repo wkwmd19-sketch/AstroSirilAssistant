@@ -71,27 +71,41 @@ git merge --ff-only feature/next-change
 새 버전을 배포할 때 소스의 버전 표기와 CHANGELOG를 먼저 갱신해 커밋하고,
 그 커밋에 새 주석 태그를 붙입니다. 이미 배포한 태그는 이동하지 않습니다.
 
-## GitHub에 전체 이력 업로드
+## GitHub에서 가져오기와 업로드
 
-현재 원격 저장소는 연결되어 있지 않습니다.
-빈 GitHub 저장소를 준비하고, 아래 명령의 `YOUR_ACCOUNT`를 실제 계정으로 바꿉니다.
-원하는 저장소 이름이 다르면 이름도 변경합니다.
+공식 작업 저장소:
+[https://github.com/wkwmd19-sketch/AstroSirilAssistant](https://github.com/wkwmd19-sketch/AstroSirilAssistant)
+
+다른 PC에서 처음 가져올 때:
 
 ```shell
-git remote add origin https://github.com/YOUR_ACCOUNT/AstroSirilAssistant.git
+git clone https://github.com/wkwmd19-sketch/AstroSirilAssistant.git
+cd AstroSirilAssistant
+git tag --list --sort=version:refname
+```
+
+clone하면 `origin`이 자동으로 연결됩니다. 수정한 커밋과 새 버전 태그를 올릴 때:
+
+```shell
+git remote -v
 git push -u origin main
 git push origin --tags
 ```
 
-이미 origin이 설정되어 있으면 `git remote -v`로 목적지를 먼저 확인하고
-기존 원격 설정을 임의로 덮어쓰지 않습니다. 원격에 기존 커밋이 있으면
-강제 push하지 말고 이력을 먼저 비교합니다.
+다른 PC에서 올린 변경을 받기 전에는 현재 작업을 커밋해 둡니다.
 
-GitHub 웹 화면에서 파일만 업로드하면 이 21개 버전의 커밋·태그는 전달되지 않습니다.
-위 push 명령으로 저장소 이력을 올려야 합니다.
+```shell
+git switch main
+git pull --ff-only
+git fetch origin --tags
+```
 
-이후 작업을 다른 폴더나 PC에서 이어갈 때는 원격 저장소를 clone합니다.
-원격 연결 전에는 `.git`까지 포함한 전체 폴더를 보관합니다.
+기존 원격 설정이나 배포된 태그를 임의로 덮어쓰지 않습니다.
+원격과 이력이 갈라져 push나 fast-forward가 거부되면 먼저 변경을 비교합니다.
+
+저장소 생성 시의 초기 README 커밋은 원본 버전 이력과 병합해 보존했습니다.
+GitHub 웹 화면에서 파일만 업로드하면 과거 커밋·태그가 이전되지 않으므로
+다른 저장소로 옮길 때도 Git push를 사용합니다.
 
 ## 보존·검증 범위
 
