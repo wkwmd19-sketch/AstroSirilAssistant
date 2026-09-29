@@ -1,5 +1,5 @@
 app:
-  version: "0.12.0"
+  version: "0.13.0"
   project_root: 'D:\AstroProjects_Auto'
   copy_input_into_project: true
 

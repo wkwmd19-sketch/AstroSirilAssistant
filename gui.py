@@ -61,6 +61,11 @@ from astroauto.recombine import (
     preview_recombine, apply_recombine,
     recommend_recombine,
 )
+from astroauto.final_export import (
+    migrate_ready_for_final_export,
+    preview_final_export, apply_final_export,
+    final_basename,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -85,7 +90,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.12.0")
+        self.title("AstroSirilAssistant v0.13.0")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
@@ -259,6 +264,16 @@ class App(tk.Tk):
             self.recombine_rescale,
         ):
             var.trace_add("write", self._invalidate_recombine_preview)
+
+        fe = self.ui_defaults.get("final_export", {})
+        self.final_export_fits = tk.BooleanVar(value=bool(fe.get("export_fits", True)))
+        self.final_export_tiff = tk.BooleanVar(value=bool(fe.get("export_tiff16", True)))
+        self.final_export_png = tk.BooleanVar(value=bool(fe.get("export_png16", True)))
+        self.final_tiff_deflate = tk.BooleanVar(value=bool(fe.get("tiff_deflate", True)))
+        self.final_fits_checksum = tk.BooleanVar(value=bool(fe.get("fits_checksum", True)))
+        self.final_preview_quality = tk.StringVar(value=str(fe.get("preview_jpeg_quality", 95)))
+        self.final_preview_meta = None
+        self.final_preview_source = None
 
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
@@ -830,6 +845,7 @@ class App(tk.Tk):
         project = migrate_ready_for_starless(pdir)
         project = migrate_ready_for_stars(pdir)
         project = migrate_ready_for_recombine(pdir)
+        project = migrate_ready_for_final_export(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -955,6 +971,9 @@ class App(tk.Tk):
 
         elif task_id == "PIXEL_MATH_RECOMBINE":
             self._build_recombine_controls()
+
+        elif task_id == "FINALIZE_EXPORT":
+            self._build_final_export_controls()
 
         else:
             ttk.Label(
@@ -3407,6 +3426,299 @@ class App(tk.Tk):
             operation="Pixel Math Recombine 실제 적용",
             on_success=done,
         )
+
+    def _build_final_export_controls(self):
+        self._clear_actions()
+
+        project = load_project(self.project_dir)
+        p = project["project"]
+        current = p.get("current_file")
+        target = p.get("target_name")
+        base = final_basename(target)
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="Final / Export", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "final.what")
+        ttk.Label(
+            head,
+            text="최종 검토 + FITS / TIFF / PNG",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "Final / Export 도움말",
+            [
+                "final.what", "final.fits", "final.tiff",
+                "final.png", "final.checksum", "final.deflate",
+                "final.preview", "final.apply",
+            ],
+        ).pack(side="right")
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        def row_label(row, text, topic):
+            w = ttk.Label(body, text=text, width=22)
+            w.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
+            self.help.tooltip(w, topic)
+            return w
+
+        row_label(0, "현재 최종 이미지", "final.what")
+        ttk.Label(
+            body, text=str(current), wraplength=760
+        ).grid(row=0, column=1, columnspan=3, sticky="w", pady=3)
+
+        ttk.Label(body, text="Final Base Name", width=22).grid(
+            row=1, column=0, sticky="w", pady=3, padx=(0,8)
+        )
+        ttk.Label(
+            body, text=base, font=("Consolas", 10)
+        ).grid(row=1, column=1, columnspan=3, sticky="w", pady=3)
+
+        ttk.Separator(body, orient="horizontal").grid(
+            row=2, column=0, columnspan=4, sticky="ew", pady=(6,6)
+        )
+
+        row_label(3, "32-bit FITS", "final.fits")
+        ttk.Checkbutton(
+            body, variable=self.final_export_fits
+        ).grid(row=3, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body, text=f"output\\fits\\{base}.fits"
+        ).grid(row=3, column=2, columnspan=2, sticky="w", padx=(8,0))
+
+        row_label(4, "FITS Checksum", "final.checksum")
+        ttk.Checkbutton(
+            body, variable=self.final_fits_checksum
+        ).grid(row=4, column=1, sticky="w", pady=3)
+
+        row_label(5, "16-bit TIFF", "final.tiff")
+        ttk.Checkbutton(
+            body, variable=self.final_export_tiff
+        ).grid(row=5, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body, text=f"output\\tiff\\{base}.tif"
+        ).grid(row=5, column=2, columnspan=2, sticky="w", padx=(8,0))
+
+        row_label(6, "TIFF Deflate", "final.deflate")
+        ttk.Checkbutton(
+            body, variable=self.final_tiff_deflate
+        ).grid(row=6, column=1, sticky="w", pady=3)
+
+        row_label(7, "16-bit PNG", "final.png")
+        ttk.Checkbutton(
+            body, variable=self.final_export_png
+        ).grid(row=7, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body, text=f"output\\png\\{base}.png"
+        ).grid(row=7, column=2, columnspan=2, sticky="w", padx=(8,0))
+
+        ttk.Label(body, text="Preview JPEG Quality", width=22).grid(
+            row=8, column=0, sticky="w", pady=3, padx=(0,8)
+        )
+        ttk.Entry(
+            body, textvariable=self.final_preview_quality, width=8
+        ).grid(row=8, column=1, sticky="w", pady=3)
+
+        ttk.Label(
+            body,
+            text="※ PNG/TIFF는 현재 픽셀 결과를 저장하며 v0.13.0은 ICC/sRGB 프로파일 변환을 강제하지 않습니다.",
+            wraplength=900,
+        ).grid(row=9, column=0, columnspan=4, sticky="w", pady=(7,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=10, column=0, columnspan=4, sticky="w")
+
+        ttk.Button(
+            buttons,
+            text="최종 미리보기",
+            command=self.final_export_preview,
+        ).pack(side="left", padx=(0,6))
+
+        ttk.Button(
+            buttons,
+            text="승인 후 Finalize + Export",
+            command=self.final_export_apply,
+        ).pack(side="left", padx=6)
+
+        ttk.Button(
+            buttons,
+            text="Output 폴더 열기",
+            command=self.open_output_folder,
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(2, weight=1)
+
+    def _final_export_options(self):
+        return {
+            "export_fits": bool(self.final_export_fits.get()),
+            "export_tiff16": bool(self.final_export_tiff.get()),
+            "export_png16": bool(self.final_export_png.get()),
+            "tiff_deflate": bool(self.final_tiff_deflate.get()),
+            "fits_checksum": bool(self.final_fits_checksum.get()),
+            "preview_jpeg_quality": int(self.final_preview_quality.get()),
+        }
+
+    def final_export_preview(self):
+        if not self._require_project():
+            return
+
+        try:
+            quality = int(self.final_preview_quality.get())
+        except ValueError:
+            messagebox.showerror("오류", "Preview JPEG Quality 숫자 값을 확인하세요.")
+            return
+
+        def work():
+            return preview_final_export(
+                self.project_dir,
+                self.cfg,
+                preview_jpeg_quality=quality,
+            )
+
+        def done(result):
+            jpg, meta = result
+            self.final_preview_meta = meta
+            self.final_preview_source = meta.get("input_file")
+
+            clip = float(meta.get("max_highlight_clip_ratio", 0) or 0)
+            clip_note = (
+                f"주의: 최대 highlight clipping ratio={clip:.6f}"
+                if clip > 0.001 else
+                f"Highlight clipping ratio={clip:.6f}"
+            )
+
+            self.write(
+                "\nFinal 미리보기 완료\n"
+                f"JPEG: {jpg}\n"
+                f"{clip_note}\n"
+                "※ AutoStretch 없이 현재 Recombined 결과를 그대로 확인합니다.\n"
+            )
+            self.status_var.set("Final 미리보기 완료")
+            self._open_preview(jpg)
+
+            if clip > 0.001:
+                messagebox.showwarning(
+                    "Final 하이라이트 확인",
+                    "최종 이미지에서 일부 highlight clipping이 감지되었습니다.\n\n"
+                    "필요하면 이전 Recombine 단계의 Star Weight를 조정하거나 "
+                    "외부 최종 편집에서 하이라이트를 다시 검토하세요."
+                )
+
+        self.run_bg(
+            work,
+            operation="Final 미리보기",
+            on_success=done,
+        )
+
+    def final_export_apply(self):
+        if not self._require_project():
+            return
+
+        try:
+            options = self._final_export_options()
+        except ValueError:
+            messagebox.showerror("오류", "Final Export 숫자 값을 확인하세요.")
+            return
+
+        if not self.final_preview_meta:
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 Recombined 이미지의 Final 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        project = load_project(self.project_dir)
+        current = project["project"].get("current_file")
+        if str(current) != str(self.final_preview_meta.get("input_file")):
+            messagebox.showwarning(
+                "미리보기 다시 필요",
+                "현재 프로젝트 파일이 Final 미리보기 이후 변경되었습니다.\n미리보기를 다시 실행하세요."
+            )
+            return
+
+        selected = []
+        if options["export_fits"]:
+            selected.append("32-bit FITS")
+        if options["export_tiff16"]:
+            selected.append("16-bit TIFF")
+        if options["export_png16"]:
+            selected.append("16-bit PNG")
+
+        if not selected:
+            messagebox.showerror("오류", "FITS / TIFF / PNG 중 하나 이상을 선택하세요.")
+            return
+
+        ok = messagebox.askyesno(
+            "Finalize + Export",
+            "현재 Recombined 결과를 최종본으로 확정합니다.\n\n"
+            f"생성 형식: {', '.join(selected)}\n"
+            f"FITS Checksum: {options['fits_checksum']}\n"
+            f"TIFF Deflate: {options['tiff_deflate']}\n"
+            f"Base Name: {final_basename(project['project']['target_name'])}\n\n"
+            "진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_final_export(
+                self.project_dir,
+                self.cfg,
+                confirmed=True,
+                preview_meta=self.final_preview_meta,
+                **options,
+            )
+
+        def done(result):
+            project, outputs, payload = result
+            self.final_preview_meta = None
+            self.final_preview_source = None
+
+            lines = ["Final / Export 완료"]
+            for key, value in outputs.items():
+                if value:
+                    lines.append(f"{key}: {value}")
+
+            self._show_project_task(
+                project,
+                "\n".join(lines)
+            )
+            self.status_var.set("Final / Export 완료")
+
+            out_text = "\n".join(
+                str(v) for k, v in outputs.items()
+                if k != "working_final_fits" and v
+            )
+            messagebox.showinfo(
+                "기본 파이프라인 완료",
+                "Final / Export가 정상적으로 완료되었습니다.\n\n"
+                f"{out_text}\n\n"
+                "State: EXPORTED"
+            )
+
+        self.run_bg(
+            work,
+            operation="Finalize + Export",
+            on_success=done,
+        )
+
+    def open_output_folder(self):
+        if not self._require_project():
+            return
+        path = Path(self.project_dir) / "output"
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            if os.name == "nt":
+                os.startfile(str(path))
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", str(path)])
+        except Exception as e:
+            messagebox.showerror("폴더 열기 오류", str(e))
 
     def _gradient_signature(self):
         return (

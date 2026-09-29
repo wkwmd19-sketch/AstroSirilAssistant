@@ -1,4 +1,34 @@
-# AstroSirilAssistant v0.12.0 — Pixel Math Recombine
+# AstroSirilAssistant v0.13.0 — Final / Export
+
+기본 Deep-sky 파이프라인:
+
+`Gradient → SPCC → Denoise → Deblur → GHS → StarNet → Starless → Stars → Recombine → Final / Export`
+
+## v0.13 핵심
+- Final 미리보기 + highlight clipping 분석
+- Working Final 32-bit FITS 자동 저장
+- 선택적 32-bit FITS Export
+- 선택적 16-bit TIFF Export
+- 선택적 16-bit PNG Export
+- TIFF Deflate 무손실 압축
+- FITS CHECKSUM / DATASUM 옵션
+- Final 이름 `_Auto` 규칙 적용
+- 선택한 출력 파일 실제 존재 검증 후에만 State = EXPORTED
+- Output 폴더 열기 버튼
+- 기본 파이프라인 완료 화면
+
+최종 예:
+- `working\12_final\M31_12_final.fits`
+- `output\fits\M31_final_Auto.fits`
+- `output\tiff\M31_final_Auto.tif`
+- `output\png\M31_final_Auto.png`
+
+주의:
+v0.13.0은 ICC/sRGB 색공간 변환을 강제로 수행하지 않습니다.
+
+---
+
+# AstroSirilAssistant v0.13.0 — Pixel Math Recombine
 
 현재 실제 처리 흐름:
 
@@ -19,7 +49,7 @@ v0.11.1의 스크롤/로그 Pane 핫픽스도 그대로 포함합니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Dynamic UI Hotfix
+# AstroSirilAssistant v0.13.0 — Dynamic UI Hotfix
 
 v0.11.0의 Stars Processing 기능은 그대로 유지합니다.
 
@@ -33,7 +63,7 @@ v0.11.0의 Stars Processing 기능은 그대로 유지합니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Stars Processing + Dynamic UI
+# AstroSirilAssistant v0.13.0 — Stars Processing + Dynamic UI
 
 현재 실제 처리 흐름:
 
@@ -61,7 +91,7 @@ v0.11.0의 Stars Processing 기능은 그대로 유지합니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Starless Processing + Target-aware Recommendations
+# AstroSirilAssistant v0.13.0 — Starless Processing + Target-aware Recommendations
 
 현재 실제 흐름:
 
@@ -85,7 +115,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — StarNet / 별 분리
+# AstroSirilAssistant v0.13.0 — StarNet / 별 분리
 
 현재 실제 처리 흐름:
 
@@ -110,7 +140,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — GHS Stretch
+# AstroSirilAssistant v0.13.0 — GHS Stretch
 
 처리 흐름:
 
@@ -131,7 +161,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Deblur / Deconvolution
+# AstroSirilAssistant v0.13.0 — Deblur / Deconvolution
 
 이번 버전은 v0.6.0의 Denoise 다음 단계를 실제 구현합니다.
 
@@ -150,7 +180,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.12.0 — 작업 상태 UX + Denoise
+# AstroSirilAssistant v0.13.0 — 작업 상태 UX + Denoise
 
 ## 새 UI
 - 승인 후 적용 성공 팝업
@@ -169,7 +199,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Help UI 정리 + SPCC Hotfix
+# AstroSirilAssistant v0.13.0 — Help UI 정리 + SPCC Hotfix
 
 - 파라미터별 `?` 버튼 → 섹션당 `도움말 ?` 1개로 정리
 - Tooltip은 항목명 Label에만 표시
@@ -178,7 +208,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.12.0 — SPCC + Common Help System
+# AstroSirilAssistant v0.13.0 — SPCC + Common Help System
 
 이번 버전의 오늘 테스트 범위:
 
@@ -201,7 +231,7 @@ GUI의 R/G/B 필터 입력은 다음 확장에 추가합니다.
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Interactive single-FITS + Gradient
+# AstroSirilAssistant v0.13.0 — Interactive single-FITS + Gradient
 
 v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
 
@@ -213,7 +243,7 @@ v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리�
 
 ---
 
-# AstroSirilAssistant v0.12.0 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.13.0 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 

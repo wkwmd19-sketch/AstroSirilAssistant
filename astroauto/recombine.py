@@ -10,6 +10,7 @@ from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
 from .config import load_yaml, PACKAGE_ROOT
+from .final_export import make_final_export_task
 
 PROFILE_FILE = PACKAGE_ROOT / "profiles" / "recommendation_profiles.yaml"
 
@@ -38,7 +39,7 @@ def make_recombine_task() -> dict:
         "actions": ["PREVIEW", "RUN", "EDIT"],
     }
 
-def make_finalize_task() -> dict:
+def _legacy_make_finalize_task() -> dict:
     return {
         "task_id": "FINALIZE_EXPORT",
         "title": "Final / Export",
@@ -334,7 +335,7 @@ def apply_recombine(
     p["image_state"]["recombined"] = True
     p["image_state"]["linearity"] = "NONLINEAR"
     p["image_state"]["stretched"] = True
-    p["next_task"] = make_finalize_task()
+    p["next_task"] = make_final_export_task()
     save_project(pdir, project)
 
     payload = {

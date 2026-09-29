@@ -1,4 +1,4 @@
-schema_version: "0.12.0"
+schema_version: "0.13.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -200,3 +200,28 @@ PIXEL_MATH_RECOMBINE:
     preserve_main_and_stars_inputs: true
     fixed_metadata_option: "-nosum"
     preview_promoted_without_recompute: true
+
+
+FINALIZE_EXPORT:
+  executor: "SIRIL_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.13.0"
+  fits:
+    command_template: 'save "{path}" {optional_chksum}'
+    precision_path: "set32bits"
+  tiff16:
+    command_template: 'savetif "{path}" {optional_deflate}'
+    bits_per_channel: 16
+  png16:
+    command_template: 'savepng "{path}"'
+    bits_per_channel_when_source_is_16_or_32: 16
+  preview:
+    command_template: 'savejpg "{path}" {quality}'
+    autostretch: false
+  naming:
+    final_base: "{TARGET}_final_Auto"
+  safety:
+    require_state: "RECOMBINED"
+    require_final_preview: true
+    validate_output_files: true
+    preserve_source_recombined_file: true
+    icc_profile_conversion: false

@@ -1764,3 +1764,132 @@ topics:
       이후 다음 단계:
 
       Final / Export'
+  final.what:
+    title: Final / Export
+    tooltip: 최종 Recombined 이미지를 검토하고 FITS / TIFF / PNG로 저장합니다.
+    detail: 'Final / Export는 기본 파이프라인의 마지막 단계입니다.
+
+
+      입력:
+
+      - RECOMBINED / NONLINEAR
+
+
+      출력:
+
+      - Working Final FITS
+
+      - 선택적 32-bit FITS
+
+      - 선택적 16-bit TIFF
+
+      - 선택적 16-bit PNG
+
+      - 최종 확인용 JPEG
+
+
+      최종 파일명은 `{TARGET}_final_Auto` 규칙을 사용합니다.'
+  final.fits:
+    title: Final FITS 32-bit
+    tooltip: Siril 내부 32-bit float 경로로 최종 FITS를 저장합니다.
+    detail: 'Siril `set32bits` 후 `save`를 사용합니다.
+
+
+      기본 출력:
+
+      `output\fits\{TARGET}_final_Auto.fits`
+
+
+      FITS는 이후 재처리/과학적 데이터 보존용 최종본으로 적합합니다.'
+  final.tiff:
+    title: Final TIFF 16-bit
+    tooltip: Siril `savetif`로 16-bit per channel TIFF를 저장합니다.
+    detail: 'Siril 1.4.4의 `savetif`는 16-bit per channel TIFF를 저장합니다.
+
+
+      기본 출력:
+
+      `output\tiff\{TARGET}_final_Auto.tif`
+
+
+      Deflate를 켜면 무손실 압축을 사용합니다.
+
+
+      Photoshop 등 외부 이미지 편집기로 넘기기 좋은 포맷입니다.'
+  final.png:
+    title: Final PNG 16-bit
+    tooltip: 32-bit/16-bit 입력에서 Siril `savepng`는 16-bit per channel PNG를 저장합니다.
+    detail: 'Siril `savepng`를 사용합니다.
+
+
+      기본 출력:
+
+      `output\png\{TARGET}_final_Auto.png`
+
+
+      현재 Siril 소스가 32-bit이므로 16-bit per channel PNG로 저장됩니다.
+
+
+      주의:
+
+      v0.13.0은 PNG에 ICC/sRGB 프로파일을 강제로 변환/삽입하지 않습니다.
+
+      필요하면 Photoshop 등 색관리 가능한 프로그램에서 최종 sRGB 변환을 수행하세요.'
+  final.checksum:
+    title: FITS Checksum
+    tooltip: FITS CHECKSUM/DATASUM 키워드를 추가합니다.
+    detail: 'Siril `save ... -chksum` 옵션입니다.
+
+
+      ON이면 FITS 헤더에 CHECKSUM / DATASUM 검증 정보를 저장합니다.
+
+
+      기본값: ON'
+  final.deflate:
+    title: TIFF Deflate
+    tooltip: 16-bit TIFF를 무손실 Deflate 압축으로 저장합니다.
+    detail: 'Siril `savetif ... -deflate` 옵션입니다.
+
+
+      이미지 데이터는 손실 없이 압축됩니다.
+
+
+      기본값: ON'
+  final.preview:
+    title: Final 미리보기
+    tooltip: 현재 Recombined 픽셀을 변경하지 않고 JPEG와 clipping 통계로 최종 확인합니다.
+    detail: 'Final 미리보기는 픽셀 보정을 추가하지 않습니다.
+
+
+      - AutoStretch 없음
+
+      - 현재 Recombined 이미지 그대로 JPEG 생성
+
+      - highlight clipping 통계 계산
+
+
+      이 결과를 확인한 뒤 승인 후 Export를 진행합니다.'
+  final.apply:
+    title: Finalize + Export
+    tooltip: Working Final과 선택한 최종 출력 파일을 생성하고 프로젝트를 EXPORTED 상태로 완료합니다.
+    detail: '생성 예:
+
+
+      `working\12_final\M31_12_final.fits`
+
+
+      `output\fits\M31_final_Auto.fits`
+
+      `output\tiff\M31_final_Auto.tif`
+
+      `output\png\M31_final_Auto.png`
+
+
+      완료 State:
+
+      `EXPORTED`
+
+
+      다음:
+
+      기본 파이프라인 완료'

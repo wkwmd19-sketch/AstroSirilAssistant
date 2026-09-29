@@ -22,6 +22,7 @@ from astroauto.starless_processing import preview_starless_processing, apply_sta
 from astroauto.recommendations import recommend_starless, recommend_stars
 from astroauto.stars_processing import preview_stars_processing, apply_stars_processing, skip_stars_processing
 from astroauto.recombine import preview_recombine, apply_recombine, recommend_recombine
+from astroauto.final_export import preview_final_export, apply_final_export
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -535,6 +536,17 @@ def cmd_recombine_apply(args):
         "CLI Recombine apply는 v0.12.0에서 preview_meta 승격 구조를 사용하므로 GUI 승인 경로를 사용하세요."
     )
 
+
+def cmd_final_preview(args):
+    cfg = load_app_config()
+    jpg, meta = preview_final_export(
+        Path(args.project), cfg,
+        preview_jpeg_quality=args.quality,
+    )
+    print(f"Final preview: {jpg}")
+    print(f"Highlight clipping: {meta['max_highlight_clip_ratio']}")
+    return 0
+
 def build_parser():
     parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.11.0")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -821,6 +833,12 @@ def build_parser():
     p.add_argument("--star-weight", type=float, default=1.0)
     p.add_argument("--rescale", action="store_true")
     p.set_defaults(func=cmd_recombine_preview)
+
+
+    p = sub.add_parser("final-preview", help="Final Export 전 최종 미리보기")
+    p.add_argument("project")
+    p.add_argument("--quality", type=int, default=95)
+    p.set_defaults(func=cmd_final_preview)
 
     return parser
 

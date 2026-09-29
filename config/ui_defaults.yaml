@@ -85,3 +85,12 @@ stars_processing:
 recombine:
   star_weight: 1.0
   rescale_output: false
+
+
+final_export:
+  export_fits: true
+  export_tiff16: true
+  export_png16: true
+  tiff_deflate: true
+  fits_checksum: true
+  preview_jpeg_quality: 95

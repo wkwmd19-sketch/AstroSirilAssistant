@@ -1,16 +1,17 @@
 {
-  "package": "AstroSirilAssistant_v0.12.0",
-  "version": "0.12.0",
+  "package": "AstroSirilAssistant_v0.13.0",
+  "version": "0.13.0",
   "features": [
-    "Siril 1.4.4 Pixel Math recombination via pm",
-    "Main + Stars * Star Weight expression",
-    "Fixed -nosum metadata behavior",
-    "Optional -rescale 0 1, default OFF",
-    "Target/state-aware Recombine recommendation",
-    "Avoid double-applying prior Stars brightness scaling",
-    "Preview highlight clipping analysis",
-    "Preview FITS promoted on Apply without recompute",
-    "RECOMBINED state and Final/Export next task",
+    "Final review preview with clipping analysis",
+    "Working final 32-bit FITS",
+    "Optional final 32-bit FITS export",
+    "Optional final 16-bit TIFF export",
+    "Optional final 16-bit PNG export",
+    "TIFF deflate and FITS checksum options",
+    "Final _Auto filename policy",
+    "Output file existence validation",
+    "EXPORTED state and PIPELINE_COMPLETE task",
+    "Output-folder button",
     "v0.11.1 dynamic UI hotfix preserved"
   ],
   "python_files": {
@@ -21,6 +22,7 @@
     "astroauto/config.py": "OK",
     "astroauto/deblur.py": "OK",
     "astroauto/denoise.py": "OK",
+    "astroauto/final_export.py": "OK",
     "astroauto/fits_analysis.py": "OK",
     "astroauto/ghs.py": "OK",
     "astroauto/gradient.py": "OK",
@@ -44,6 +46,7 @@
     "tests/test_calibration_logic.py": "OK",
     "tests/test_deblur_command.py": "OK",
     "tests/test_denoise_command.py": "OK",
+    "tests/test_final_export.py": "OK",
     "tests/test_ghs_command.py": "OK",
     "tests/test_gradient_command.py": "OK",
     "tests/test_help_catalog.py": "OK",
@@ -91,10 +94,9 @@
   "python_errors": [],
   "yaml_errors": [],
   "core_runtime_checks": {
-    "pm_expression": true,
-    "pm_default": true,
-    "pm_rescale": true,
-    "recombine_help": true,
+    "final_basename": true,
+    "final_validate": true,
+    "final_help": true,
     "dynamic_ui_hotfix_preserved": true
   }
 }
