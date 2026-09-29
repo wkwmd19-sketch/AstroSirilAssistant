@@ -1,4 +1,4 @@
-schema_version: "0.8.0"
+schema_version: "0.9.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -28,13 +28,27 @@ command_mapping:
     executor: "SIRIL_NATIVE"
     command_template: 'stack {sequence} rej winsorized 3 3 -norm=addscale -weight=wfwhm "-out={output_stem}" -32b'
 
-  STARNET_STABLE:
-    executor: "SIRIL_NATIVE"
-    command_template: 'starnet {options}'
-    stable_supported: "1.4.4"
-    notes:
-      - "Siril 1.4.4 stable에는 scriptable starnet 명령이 존재"
-      - "linear 입력에는 -stretch 옵션 사용 가능"
+  STARNET:
+    executor: "SIRIL_PY_SCRIPT"
+    implementation_status: "IMPLEMENTED_V0.9.0"
+    command_template: "pyscript StarNet.py --no-linear --stride {stride} {upsample_flag} {highlight_flag} --masks subtract"
+    script_family: "StarNetAstro/StarNet.py"
+    supported_starnet2: "2.5.0+"
+    qualified_user_path:
+      - "Windows StarNet2 2.6.2 supported by current official script"
+    defaults:
+      stride: 256
+      upsample: false
+      protect_highlights: true
+      stars_layer: "subtract"
+    output:
+      starless: "working/08_starnet/{TARGET}_08_starless.fits"
+      stars: "working/08_starnet/{TARGET}_08_stars.fits"
+    safety:
+      require_nonlinear: true
+      linear_flag: "--no-linear"
+      require_preview_same_parameters_before_gui_apply: true
+      promote_preview_without_recompute: true
 
   GRADIENT_CORRECTION:
     executor: "SIRIL_NATIVE"

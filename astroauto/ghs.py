@@ -7,6 +7,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .star_separation import make_star_separation_task
 
 CLIP_MODES = {"clip", "rescale", "rgbblend", "globalrescale"}
 LUMINANCE_MODES = {"HUMAN", "EVEN", "INDEPENDENT"}
@@ -69,7 +70,7 @@ def make_ghs_review_task(pass_count: int) -> dict:
         "actions": ["EDIT", "CONFIRM"],
     }
 
-def make_starnet_task() -> dict:
+def _legacy_make_starnet_task() -> dict:
     return {
         "task_id": "STAR_SEPARATION",
         "title": "StarNet / 별 분리",
@@ -429,7 +430,7 @@ def finish_ghs(project_dir: Path):
         raise ValueError("적용된 GHS Pass가 없습니다.")
     stretch["additional_pass_mode"] = False
     stretch["completed"] = True
-    p["next_task"] = make_starnet_task()
+    p["next_task"] = make_star_separation_task()
     save_project(pdir, project)
 
     append_jsonl(pdir, {

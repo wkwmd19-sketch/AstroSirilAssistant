@@ -37,6 +37,11 @@ from astroauto.ghs import (
     preview_ghs, apply_ghs,
     begin_additional_ghs, finish_ghs,
 )
+from astroauto.star_separation import (
+    migrate_ready_for_starnet,
+    preview_star_separation, apply_star_separation,
+    skip_star_separation,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -61,7 +66,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.8.0")
+        self.title("AstroSirilAssistant v0.9.0")
         self.geometry("1050x820")
         self.minsize(880, 650)
         self.cfg = load_app_config()
@@ -167,6 +172,26 @@ class App(tk.Tk):
             self.ghs_manual_clip,
         ):
             var.trace_add("write", self._invalidate_ghs_preview)
+
+        sn = self.ui_defaults.get("starnet", {})
+        self.starnet_stride_preset = tk.StringVar(value=str(sn.get("stride_preset", "STANDARD")))
+        self.starnet_custom_stride = tk.StringVar(value=str(sn.get("stride", 256)))
+        self.starnet_upsample = tk.BooleanVar(value=bool(sn.get("upsample", False)))
+        self.starnet_protect_highlights = tk.BooleanVar(value=bool(sn.get("protect_highlights", True)))
+        self.starnet_native_mask = tk.BooleanVar(value=bool(sn.get("save_native_starmask", False)))
+        self.starnet_preview_signature = None
+        self.starnet_preview_meta = None
+        self.starnet_preview_starless_jpg = None
+        self.starnet_preview_stars_jpg = None
+        self.starnet_starless_view_btn = None
+        self.starnet_stars_view_btn = None
+
+        for var in (
+            self.starnet_stride_preset, self.starnet_custom_stride,
+            self.starnet_upsample, self.starnet_protect_highlights,
+            self.starnet_native_mask,
+        ):
+            var.trace_add("write", self._invalidate_starnet_preview)
 
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
@@ -446,6 +471,7 @@ class App(tk.Tk):
         project = migrate_post_spcc_task(pdir)
         project = migrate_post_denoise_task(pdir)
         project = migrate_ready_for_ghs(pdir)
+        project = migrate_ready_for_starnet(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -559,6 +585,9 @@ class App(tk.Tk):
 
         elif task_id == "GHS_REVIEW":
             self._build_ghs_review_controls()
+
+        elif task_id == "STAR_SEPARATION":
+            self._build_starnet_controls()
 
         else:
             ttk.Label(
@@ -1659,6 +1688,322 @@ class App(tk.Tk):
                 "Stretch 완료",
                 "GHS Stretch를 완료했습니다.\n\n다음 단계: StarNet / 별 분리"
             )
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def _build_starnet_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="StarNet / 별 분리", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "starnet.what")
+        ttk.Label(
+            head,
+            text="StarNet2 2.5+ / Siril Python Script",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "StarNet / 별 분리 도움말",
+            [
+                "starnet.what", "starnet.engine", "starnet.linear",
+                "starnet.stride", "starnet.upsample", "starnet.highlights",
+                "starnet.starlayer", "starnet.native_mask",
+                "starnet.preview", "starnet.apply", "starnet.skip",
+            ],
+        ).pack(side="right")
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        def row_label(row, text, topic):
+            label = ttk.Label(body, text=text, width=21)
+            label.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
+            self.help.tooltip(label, topic)
+            return label
+
+        row_label(0, "Engine", "starnet.engine")
+        ttk.Label(body, text="pyscript StarNet.py").grid(row=0, column=1, sticky="w", pady=3)
+
+        row_label(1, "Linear Data", "starnet.linear")
+        ttk.Label(body, text="OFF — 현재 Non-linear / --no-linear").grid(
+            row=1, column=1, sticky="w", pady=3
+        )
+
+        row_label(2, "Stride", "starnet.stride")
+        stride_frame = ttk.Frame(body)
+        stride_frame.grid(row=2, column=1, sticky="w", pady=3)
+
+        stride_combo = ttk.Combobox(
+            stride_frame,
+            textvariable=self.starnet_stride_preset,
+            values=["STANDARD", "LARGE", "SMALL", "CUSTOM"],
+            state="readonly",
+            width=14,
+        )
+        stride_combo.pack(side="left")
+        stride_combo.bind("<<ComboboxSelected>>", lambda e: self._refresh_starnet_ui())
+
+        ttk.Label(stride_frame, text="  값").pack(side="left")
+        self.starnet_stride_entry = ttk.Entry(
+            stride_frame, textvariable=self.starnet_custom_stride, width=7
+        )
+        self.starnet_stride_entry.pack(side="left", padx=(4,0))
+        self.starnet_stride_value_label = ttk.Label(stride_frame, text="")
+        self.starnet_stride_value_label.pack(side="left", padx=(8,0))
+
+        row_label(3, "2x Upsampling", "starnet.upsample")
+        ttk.Checkbutton(body, variable=self.starnet_upsample).grid(
+            row=3, column=1, sticky="w", pady=3
+        )
+
+        row_label(4, "Protect Highlights", "starnet.highlights")
+        ttk.Checkbutton(body, variable=self.starnet_protect_highlights).grid(
+            row=4, column=1, sticky="w", pady=3
+        )
+
+        row_label(5, "Stars Layer", "starnet.starlayer")
+        ttk.Label(body, text="SUBTRACT — Original - Starless").grid(
+            row=5, column=1, sticky="w", pady=3
+        )
+
+        row_label(6, "Native Starmask", "starnet.native_mask")
+        ttk.Checkbutton(body, variable=self.starnet_native_mask).grid(
+            row=6, column=1, sticky="w", pady=3
+        )
+
+        ttk.Label(
+            body,
+            text="※ Standard 256은 망원경 이미지 권장 시작값입니다. "
+                 "미리보기 결과는 승인 시 재계산 없이 그대로 확정됩니다.",
+            wraplength=850,
+        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=8, column=0, columnspan=3, sticky="w")
+
+        ttk.Button(
+            buttons, text="StarNet 미리보기", command=self.starnet_preview
+        ).pack(side="left", padx=(0,6))
+
+        self.starnet_starless_view_btn = ttk.Button(
+            buttons, text="Starless 보기", command=self.starnet_open_starless_preview
+        )
+        self.starnet_starless_view_btn.pack(side="left", padx=6)
+        self.starnet_starless_view_btn.state(["disabled"])
+
+        self.starnet_stars_view_btn = ttk.Button(
+            buttons, text="Stars 보기", command=self.starnet_open_stars_preview
+        )
+        self.starnet_stars_view_btn.pack(side="left", padx=6)
+        self.starnet_stars_view_btn.state(["disabled"])
+
+        ttk.Button(
+            buttons, text="승인 후 적용", command=self.starnet_apply
+        ).pack(side="left", padx=6)
+
+        ttk.Button(
+            buttons, text="StarNet 건너뛰기", command=self.starnet_skip
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+        self._refresh_starnet_ui()
+
+    def _refresh_starnet_ui(self):
+        if not hasattr(self, "starnet_stride_entry"):
+            return
+        preset = self.starnet_stride_preset.get().upper()
+        values = {"STANDARD": 256, "LARGE": 384, "SMALL": 128}
+
+        try:
+            if preset == "CUSTOM":
+                self.starnet_stride_entry.state(["!disabled"])
+                self.starnet_stride_value_label.configure(text="Custom")
+            else:
+                self.starnet_stride_entry.state(["disabled"])
+                value = values.get(preset, 256)
+                self.starnet_custom_stride.set(str(value))
+                labels = {
+                    "STANDARD": "Standard / Telescope",
+                    "LARGE": "Large / Wide landscape",
+                    "SMALL": "Small / slower",
+                }
+                self.starnet_stride_value_label.configure(
+                    text=f"{value} — {labels.get(preset, '')}"
+                )
+        except Exception:
+            pass
+
+    def _starnet_signature(self):
+        return (
+            self.starnet_stride_preset.get().strip().upper(),
+            self.starnet_custom_stride.get().strip(),
+            bool(self.starnet_upsample.get()),
+            bool(self.starnet_protect_highlights.get()),
+            bool(self.starnet_native_mask.get()),
+        )
+
+    def _invalidate_starnet_preview(self, *args):
+        self.starnet_preview_signature = None
+        self.starnet_preview_meta = None
+        self.starnet_preview_starless_jpg = None
+        self.starnet_preview_stars_jpg = None
+        for btn in (
+            getattr(self, "starnet_starless_view_btn", None),
+            getattr(self, "starnet_stars_view_btn", None),
+        ):
+            if btn:
+                try:
+                    btn.state(["disabled"])
+                except Exception:
+                    pass
+
+    def _starnet_params(self):
+        preset = self.starnet_stride_preset.get().strip().upper()
+        stride = int(self.starnet_custom_stride.get())
+        return {
+            "stride_preset": preset,
+            "stride": stride,
+            "upsample": bool(self.starnet_upsample.get()),
+            "protect_highlights": bool(self.starnet_protect_highlights.get()),
+            "save_native_starmask": bool(self.starnet_native_mask.get()),
+        }
+
+    def starnet_preview(self):
+        if not self._require_project():
+            return
+
+        try:
+            params = self._starnet_params()
+        except ValueError:
+            messagebox.showerror("오류", "Stride 값을 확인하세요.")
+            return
+
+        signature = self._starnet_signature()
+
+        def work():
+            return preview_star_separation(
+                self.project_dir, self.cfg, **params
+            )
+
+        def done(meta):
+            self.starnet_preview_signature = signature
+            self.starnet_preview_meta = meta
+            self.starnet_preview_starless_jpg = Path(meta["starless_jpg"])
+            self.starnet_preview_stars_jpg = Path(meta["stars_jpg"])
+
+            self.write(
+                "\nStarNet 미리보기 완료\n"
+                f"Starless FITS: {meta['starless_fits']}\n"
+                f"Stars FITS: {meta['stars_fits']}\n"
+                f"Starless JPEG: {meta['starless_jpg']}\n"
+                f"Stars JPEG: {meta['stars_jpg']}\n"
+                f"명령: {meta['command']}\n"
+                "※ 승인 후 적용 시 설정이 같으면 StarNet을 다시 계산하지 않습니다.\n"
+            )
+            self.status_var.set("StarNet 미리보기 완료")
+
+            try:
+                self.starnet_starless_view_btn.state(["!disabled"])
+                self.starnet_stars_view_btn.state(["!disabled"])
+            except Exception:
+                pass
+
+            self._open_preview(self.starnet_preview_starless_jpg)
+
+        self.run_bg(
+            work,
+            operation="StarNet 별 분리 미리보기",
+            on_success=done,
+        )
+
+    def starnet_open_starless_preview(self):
+        if self.starnet_preview_starless_jpg and self.starnet_preview_starless_jpg.exists():
+            self._open_preview(self.starnet_preview_starless_jpg)
+
+    def starnet_open_stars_preview(self):
+        if self.starnet_preview_stars_jpg and self.starnet_preview_stars_jpg.exists():
+            self._open_preview(self.starnet_preview_stars_jpg)
+
+    def starnet_apply(self):
+        if not self._require_project():
+            return
+
+        try:
+            params = self._starnet_params()
+        except ValueError:
+            messagebox.showerror("오류", "Stride 값을 확인하세요.")
+            return
+
+        if (
+            self.starnet_preview_signature != self._starnet_signature()
+            or not self.starnet_preview_meta
+        ):
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 StarNet 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        ok = messagebox.askyesno(
+            "StarNet 실제 적용",
+            "확인한 StarNet 미리보기 결과를 정식 작업파일로 확정합니다.\n\n"
+            f"Stride: {params['stride_preset']} / {params['stride']}\n"
+            f"2x Upsampling: {params['upsample']}\n"
+            f"Protect Highlights: {params['protect_highlights']}\n"
+            f"Native Starmask: {params['save_native_starmask']}\n"
+            f"Stars Layer: SUBTRACT\n\n"
+            "StarNet AI 계산은 다시 실행하지 않습니다.\n"
+            "진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_star_separation(
+                self.project_dir,
+                self.cfg,
+                confirmed=True,
+                preview_meta=self.starnet_preview_meta,
+                **params,
+            )
+
+        def done(result):
+            project, starless, stars, payload = result
+            self._show_project_task(
+                project,
+                f"StarNet 별 분리 완료\nStarless: {starless}\nStars: {stars}"
+            )
+            self.status_var.set("StarNet 별 분리 완료")
+            next_task = project["project"].get("next_task", {})
+            self._show_apply_success(
+                "StarNet 별 분리",
+                f"{starless}\nStars: {stars}",
+                next_task.get("title"),
+            )
+
+        self.run_bg(
+            work,
+            operation="StarNet 결과 정식 적용",
+            on_success=done,
+        )
+
+    def starnet_skip(self):
+        if not self._require_project():
+            return
+        ok = messagebox.askyesno(
+            "StarNet 건너뛰기",
+            "별 분리를 하지 않고 현재 Non-linear 이미지를 그대로 유지할까요?"
+        )
+        if not ok:
+            return
+        try:
+            project = skip_star_separation(self.project_dir)
+            self._show_project_task(project, "StarNet 건너뜀")
+            self.status_var.set("StarNet 건너뜀")
         except Exception as e:
             messagebox.showerror("오류", str(e))
 

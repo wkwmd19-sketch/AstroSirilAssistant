@@ -17,6 +17,7 @@ from astroauto.spcc import fetch_spcc_lists, inspect_wcs, preview_spcc, apply_sp
 from astroauto.denoise import preview_denoise, apply_denoise, skip_denoise
 from astroauto.deblur import preview_deblur, apply_deblur, skip_deblur
 from astroauto.ghs import preview_ghs, apply_ghs, begin_additional_ghs, finish_ghs
+from astroauto.star_separation import preview_star_separation, apply_star_separation, skip_star_separation
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -37,7 +38,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.8.0")
+    print("AstroSirilAssistant v0.9.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -384,8 +385,49 @@ def cmd_ghs_finish(args):
     print("GHS Stretch를 완료하고 StarNet 단계로 이동했습니다.")
     return 0
 
+
+def _starnet_cli_params(args):
+    return dict(
+        stride_preset=args.stride_preset,
+        stride=args.stride,
+        upsample=args.upsample,
+        protect_highlights=not args.disable_highlights,
+        save_native_starmask=args.native_starmask,
+    )
+
+def cmd_starnet_preview(args):
+    cfg = load_app_config()
+    meta = preview_star_separation(
+        Path(args.project), cfg, **_starnet_cli_params(args)
+    )
+    print(f"Starless FITS: {meta['starless_fits']}")
+    print(f"Stars FITS: {meta['stars_fits']}")
+    print(f"Starless JPEG: {meta['starless_jpg']}")
+    print(f"Stars JPEG: {meta['stars_jpg']}")
+    return 0
+
+def cmd_starnet_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 StarNet 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, starless, stars, payload = apply_star_separation(
+        Path(args.project),
+        cfg,
+        confirmed=True,
+        preview_meta=None,
+        **_starnet_cli_params(args),
+    )
+    print(f"Starless: {starless}")
+    print(f"Stars: {stars}")
+    return 0
+
+def cmd_starnet_skip(args):
+    skip_star_separation(Path(args.project))
+    print("StarNet을 건너뛰었습니다.")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.8.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.9.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -579,6 +621,32 @@ def build_parser():
     p = sub.add_parser("ghs-finish", help="GHS Stretch 완료 후 StarNet 단계로 이동")
     p.add_argument("project")
     p.set_defaults(func=cmd_ghs_finish)
+
+
+    def add_starnet_args(p):
+        p.add_argument("project")
+        p.add_argument(
+            "--stride-preset",
+            choices=["STANDARD", "LARGE", "SMALL", "CUSTOM"],
+            default="STANDARD",
+        )
+        p.add_argument("--stride", type=int, default=256)
+        p.add_argument("--upsample", action="store_true")
+        p.add_argument("--disable-highlights", action="store_true")
+        p.add_argument("--native-starmask", action="store_true")
+
+    p = sub.add_parser("starnet-preview", help="StarNet2 Starless/Stars 미리보기")
+    add_starnet_args(p)
+    p.set_defaults(func=cmd_starnet_preview)
+
+    p = sub.add_parser("starnet-apply", help="승인 후 StarNet2 별 분리 실제 적용")
+    add_starnet_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_starnet_apply)
+
+    p = sub.add_parser("starnet-skip", help="StarNet 별 분리 건너뛰기")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_starnet_skip)
 
     return parser
 

@@ -796,3 +796,173 @@ topics:
       - StarNet / Stars Separation
 
       Stretch 완료 후에도 현재 Non-linear FITS가 프로젝트의 current_file로 유지됩니다.
+
+  starnet.what:
+    title: "StarNet / 별 분리"
+    tooltip: "현재 Non-linear 이미지에서 별을 제거해 Starless와 Stars 레이어를 분리합니다."
+    detail: |
+      StarNet은 천체사진에서 별을 제거해 배경 천체(은하/성운)와 별을 분리하는 AI 도구입니다.
+
+      AstroSirilAssistant v0.9.0은 Siril 1.4.x의 최신 권장 경로에 맞춰
+      내장 legacy `starnet` 명령 대신 Python script wrapper를 사용합니다.
+
+      실행 방식:
+      `pyscript StarNet.py ...`
+
+      현재 Siril 공식 StarNet.py는 StarNet2 2.5.0 이상을 지원하며,
+      스크립트 소스에는 Windows StarNet2 2.6.2도 테스트 대상으로 명시되어 있습니다.
+
+      현재 처리 위치:
+      GHS 완료 / Non-linear → StarNet → Starless + Stars
+
+  starnet.engine:
+    title: "StarNet Engine"
+    tooltip: "StarNet2 2.5+를 지원하는 Siril Python script 경로를 사용합니다."
+    detail: |
+      Siril 1.4.x에는 legacy StarNet 명령이 남아 있지만,
+      Siril 공식 문서는 StarNet 2.5 이상에서는 Python script인 `StarNet.py` 사용을 안내합니다.
+
+      AstroSirilAssistant v0.9.0은:
+      - Siril `pyscript StarNet.py`
+      - StarNet2 2.5+
+      를 기본 경로로 사용합니다.
+
+      사용자의 StarNet2가 표준 설치 경로에 있으면 StarNet.py가 자동 탐색합니다.
+
+  starnet.linear:
+    title: "Linear Data"
+    tooltip: "현재 GHS 완료 이미지이므로 OFF로 자동 고정됩니다. StarNet에는 --no-linear로 전달됩니다."
+    detail: |
+      StarNet.py는 Linear 이미지와 이미 Stretch된 이미지를 구분합니다.
+
+      현재 AstroSirilAssistant 워크플로에서는:
+      - GHS가 완료됨
+      - image_state = NONLINEAR
+      이므로 Linear Data는 자동으로 OFF입니다.
+
+      실제 명령:
+      `--no-linear`
+
+      사용자가 실수로 Linear 옵션을 켜서 불필요한 pre-stretch/inverse-stretch가 들어가지 않도록
+      이 단계에서는 직접 수정할 수 없게 합니다.
+
+  starnet.stride:
+    title: "Stride"
+    tooltip: "StarNet 타일의 겹침 간격입니다. 망원경 이미지는 Standard 256이 권장 시작값입니다."
+    detail: |
+      StarNet은 이미지를 타일 단위로 처리합니다.
+      Stride는 타일 이동 간격을 정합니다.
+
+      Siril 공식 StarNet.py preset:
+      - Large: 384 — 초광각/풍경 이미지
+      - Standard: 256 — 망원경 이미지
+      - Small: 128 — 매우 큰 별에서 도움될 수 있으나 느림
+
+      StarNet 개발자는 기본 256 사용을 강하게 권장합니다.
+
+      DWARF 3로 촬영한 M31 같은 망원경 이미지는 Standard 256에서 시작하는 것이 적합합니다.
+
+  starnet.upsample:
+    title: "2x Upsampling"
+    tooltip: "StarNet 처리 전 이미지를 2배 확대합니다. 작은 별 제거에 도움될 수 있지만 처리시간이 크게 늘어납니다."
+    detail: |
+      2x Upsampling을 켜면 StarNet 실행 전에 이미지를 2배 확대하고,
+      처리 후 원래 크기로 되돌립니다.
+
+      장점:
+      - 매우 작고 촘촘한 별의 제거 품질이 좋아질 수 있습니다.
+
+      단점:
+      - 처리시간이 크게 증가합니다.
+      - Siril 문서 기준 처리량이 약 4배로 늘 수 있습니다.
+      - 매우 큰 별에서는 오히려 결과가 나빠질 수 있습니다.
+
+      기본값: OFF
+
+  starnet.highlights:
+    title: "Protect Highlights"
+    tooltip: "포화 또는 포화에 가까운 밝은 영역을 Starless 결과에 할당할 때 보호합니다."
+    detail: |
+      StarNet2의 Highlight Protection입니다.
+
+      ON:
+      - 밝은 별/핵 주변의 포화 또는 근포화 하이라이트를 보호하는 방향입니다.
+      - AstroSirilAssistant 기본값입니다.
+
+      OFF:
+      - StarNet2 2.5.3 이상에서만 지원됩니다.
+
+      사용자의 StarNet2 2.6.2에서는 지원되는 옵션입니다.
+
+  starnet.starlayer:
+    title: "Stars Layer"
+    tooltip: "Original - Starless 방식으로 Stars 레이어를 만듭니다. 이후 Pixel Math의 덧셈 재합성에 적합합니다."
+    detail: |
+      v0.9.0의 기본 Stars 레이어는 Siril StarNet.py의 `subtract` 출력입니다.
+
+      계산 개념:
+      Stars = Original - Starless
+
+      이 방식을 기본으로 한 이유:
+      이후 Pixel Math에서 다음 형태의 재합성을 사용할 수 있기 때문입니다.
+
+      `Main + Stars * star_weight`
+
+      예:
+      `Main + Stars * 0.6`
+
+      이는 이전 M31 수동 보정에서 사용한 재합성 방식과도 잘 맞습니다.
+
+  starnet.native_mask:
+    title: "Native Starmask"
+    tooltip: "StarNet 자체가 생성한 Starmask도 추가로 저장합니다. 기본 Stars 레이어와는 별도 보조 파일입니다."
+    detail: |
+      기본 Stars 레이어(Subtraction) 외에 StarNet의 native starmask를 함께 저장할 수 있습니다.
+
+      기본값: OFF
+
+      이 파일은 이후 마스크 기반 별 조정에 사용할 수 있지만,
+      v0.9.0의 기본 Pixel Math 재합성용 Stars 파일은 Subtraction 레이어입니다.
+
+  starnet.preview:
+    title: "StarNet 미리보기"
+    tooltip: "StarNet을 실제로 한 번 실행해 Starless와 Stars를 임시 생성하고 결과를 확인합니다."
+    detail: |
+      StarNet은 처리 시간이 긴 AI 작업이므로 v0.9.0에서는 효율을 위해
+      미리보기에서 만든 결과를 그대로 '승인 후 적용'에 사용할 수 있습니다.
+
+      미리보기:
+      - 임시 Starless FITS
+      - 임시 Stars FITS
+      - Starless JPEG
+      - Stars JPEG
+      를 생성합니다.
+
+      승인할 때 설정이 바뀌지 않았다면 StarNet을 다시 계산하지 않고
+      미리보기 결과를 프로젝트 작업 폴더로 승격합니다.
+
+  starnet.apply:
+    title: "StarNet 승인 후 적용"
+    tooltip: "확인한 미리보기 결과를 Starless/Stars 정식 작업파일로 확정합니다."
+    detail: |
+      현재 미리보기와 설정이 동일하면 StarNet을 다시 실행하지 않습니다.
+
+      결과:
+      - `working\08_starnet\{TARGET}_08_starless.fits`
+      - `working\08_starnet\{TARGET}_08_stars.fits`
+
+      State:
+      - STARS_SEPARATED
+      - current_file = Starless
+      - stars_removed = true
+
+      원래 GHS 결과는 삭제하지 않으며 프로젝트에 source_file로 기록됩니다.
+
+  starnet.skip:
+    title: "StarNet 건너뛰기"
+    tooltip: "별 분리를 하지 않고 현재 Non-linear 이미지를 그대로 유지합니다."
+    detail: |
+      성단처럼 별 자체가 주대상인 경우 StarNet이 필요하지 않을 수 있습니다.
+
+      이 경우 현재 Stretch 결과를 그대로 유지하고
+      별 분리 이후의 Starless/Stars 분기 파이프라인은 사용하지 않습니다.

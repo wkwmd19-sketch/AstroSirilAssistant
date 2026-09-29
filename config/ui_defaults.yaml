@@ -52,3 +52,13 @@ ghs:
     hp: 1.0
     luminance_mode: "HUMAN"
     clip_mode: "rgbblend"
+
+
+starnet:
+  engine: "PY_SCRIPT"
+  stride_preset: "STANDARD"
+  stride: 256
+  upsample: false
+  protect_highlights: true
+  star_layer: "SUBTRACT"
+  save_native_starmask: false
