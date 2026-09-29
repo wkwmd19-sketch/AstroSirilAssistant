@@ -4,11 +4,18 @@ from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 from datetime import date
 import threading
+import time
 
 from astroauto.config import load_app_config
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 from astroauto.siril import get_siril_info
+from astroauto.ui_theme import (
+    apply_astro_theme,
+    apply_screen_aware_geometry,
+    style_text_widget,
+    style_canvas,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -27,10 +34,12 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.4.1 - Deep Sky Sequence")
-        self.geometry("980x790")
+        self.title("AstroSirilAssistant v0.14.0 · Deep Sky Sequence")
+        apply_screen_aware_geometry(self)
+        self.palette = apply_astro_theme(self)
+
         self.cfg = load_app_config()
-        self.project_dir = None
+        self.project_dir: Path | None = None
 
         self.target = tk.StringVar(value="M31")
         self.capture_date = tk.StringVar(value=date.today().isoformat())
@@ -47,13 +56,74 @@ class SequenceApp(tk.Tk):
             "bias": tk.StringVar(),
             "dark_flats": tk.StringVar(),
         }
+
         self.status = tk.StringVar(value="대기 중")
+        self.operation_var = tk.StringVar(value="대기 중")
+        self.elapsed_var = tk.StringVar(value="")
+        self.logs_visible = False
+        self._log_sash_ratio = 0.68
+        self._busy = False
+        self._busy_started = None
+        self._busy_timer_id = None
+        self._busy_disabled_widgets = []
+
         self._build()
 
+    # ------------------------------------------------------------------
+    # Modern responsive shell: same UX policy as run_gui.bat
+    # ------------------------------------------------------------------
     def _build(self):
-        f = ttk.Frame(self, padding=12)
-        f.pack(fill="both", expand=True)
+        shell = ttk.Frame(self)
+        shell.pack(fill="both", expand=True)
 
+        self.main_pane = ttk.Panedwindow(shell, orient=tk.VERTICAL)
+        self.main_pane.pack(fill="both", expand=True)
+
+        holder = ttk.Frame(self.main_pane)
+        self.main_pane.add(holder, weight=5)
+        holder.rowconfigure(0, weight=1)
+        holder.columnconfigure(0, weight=1)
+
+        self.canvas = tk.Canvas(
+            holder,
+            highlightthickness=0,
+            borderwidth=0,
+            yscrollincrement=24,
+        )
+        style_canvas(self.canvas, self.palette)
+        self.scroll = ttk.Scrollbar(holder, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.scroll.set)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.scroll.grid(row=0, column=1, sticky="ns")
+
+        f = ttk.Frame(self.canvas, padding=16)
+        self.workspace_inner = f
+        self.workspace_window_id = self.canvas.create_window((0,0), window=f, anchor="nw")
+        f.bind("<Configure>", self._on_inner_configure)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+
+        self.bind_all("<MouseWheel>", self._on_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._on_linux_wheel, add="+")
+        self.bind_all("<Button-5>", self._on_linux_wheel, add="+")
+
+        # Header
+        header = ttk.Frame(f, style="Surface.TFrame", padding=(16,13))
+        header.grid(row=0, column=0, sticky="ew", pady=(0,12))
+        title_col = ttk.Frame(header, style="Surface.TFrame")
+        title_col.pack(side="left", fill="x", expand=True)
+        ttk.Label(
+            title_col, text="AstroSirilAssistant", style="Title.TLabel"
+        ).pack(anchor="w")
+        ttk.Label(
+            title_col,
+            text="Deep-sky sequence · Calibration → Registration → Stack",
+            style="Subtitle.TLabel",
+        ).pack(anchor="w", pady=(2,0))
+        ttk.Label(header, text="SEQUENCE", style="Badge.TLabel").pack(side="right")
+
+        # Source folders
+        source = ttk.LabelFrame(f, text="촬영 프레임", style="Card.TLabelframe")
+        source.grid(row=1, column=0, sticky="ew", pady=(0,10))
         rows = [
             ("Lights 폴더", "lights"),
             ("Dark 폴더", "darks"),
@@ -62,57 +132,383 @@ class SequenceApp(tk.Tk):
             ("Dark-flat 폴더", "dark_flats"),
         ]
         for i, (label, key) in enumerate(rows):
-            ttk.Label(f, text=label).grid(row=i, column=0, sticky="w", pady=3)
-            ttk.Entry(f, textvariable=self.paths[key], width=72).grid(row=i, column=1, sticky="ew")
-            ttk.Button(f, text="선택", command=lambda k=key: self.pick(k)).grid(row=i, column=2, padx=4)
+            ttk.Label(source, text=label, width=18).grid(row=i, column=0, sticky="w", pady=4)
+            ttk.Entry(source, textvariable=self.paths[key]).grid(
+                row=i, column=1, sticky="ew", padx=(8,0), pady=4
+            )
+            ttk.Button(source, text="선택", command=lambda k=key: self.pick(k)).grid(
+                row=i, column=2, padx=(8,0), pady=4
+            )
+        source.columnconfigure(1, weight=1)
 
-        r = 5
-        ttk.Label(f, text="대상명").grid(row=r, column=0, sticky="w")
-        ttk.Entry(f, textvariable=self.target).grid(row=r, column=1, sticky="ew")
-        r += 1
-        ttk.Label(f, text="촬영일").grid(row=r, column=0, sticky="w")
-        ttk.Entry(f, textvariable=self.capture_date).grid(row=r, column=1, sticky="ew")
-        r += 1
-        ttk.Label(f, text="대상 종류").grid(row=r, column=0, sticky="w")
-        ttk.Combobox(f, textvariable=self.category, state="readonly",
-                     values=[x[0] for x in CATEGORIES]).grid(row=r, column=1, sticky="ew")
-        r += 1
-        ttk.Label(f, text="카메라").grid(row=r, column=0, sticky="w")
-        ttk.Combobox(f, textvariable=self.camera_mode, state="readonly",
-                     values=["AUTO", "OSC", "MONO"]).grid(row=r, column=1, sticky="ew")
-        r += 1
-        ttk.Label(f, text="입력 Calibration 상태").grid(row=r, column=0, sticky="w")
-        ttk.Combobox(f, textvariable=self.input_status, state="readonly",
-                     values=["RAW_UNCALIBRATED", "PRECALIBRATED"]).grid(row=r, column=1, sticky="ew")
-        r += 1
-        ttk.Label(f, text="프로젝트 루트").grid(row=r, column=0, sticky="w")
-        ttk.Entry(f, textvariable=self.project_root).grid(row=r, column=1, sticky="ew")
-        ttk.Button(f, text="선택", command=self.pick_root).grid(row=r, column=2, padx=4)
-        r += 1
+        # Project / camera
+        project = ttk.LabelFrame(f, text="프로젝트 / 촬영 정보", style="Card.TLabelframe")
+        project.grid(row=2, column=0, sticky="ew", pady=(0,10))
+
+        ttk.Label(project, text="대상명", width=18).grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Entry(project, textvariable=self.target).grid(row=0, column=1, sticky="ew", padx=(8,0), pady=4)
+
+        ttk.Label(project, text="촬영일", width=18).grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Entry(project, textvariable=self.capture_date).grid(row=1, column=1, sticky="ew", padx=(8,0), pady=4)
+
+        ttk.Label(project, text="대상 종류", width=18).grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Combobox(
+            project, textvariable=self.category, state="readonly",
+            values=[x[0] for x in CATEGORIES]
+        ).grid(row=2, column=1, sticky="ew", padx=(8,0), pady=4)
+
+        ttk.Label(project, text="카메라", width=18).grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Combobox(
+            project, textvariable=self.camera_mode, state="readonly",
+            values=["AUTO", "OSC", "MONO"]
+        ).grid(row=3, column=1, sticky="ew", padx=(8,0), pady=4)
+
+        ttk.Label(project, text="입력 Calibration", width=18).grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Combobox(
+            project, textvariable=self.input_status, state="readonly",
+            values=["RAW_UNCALIBRATED", "PRECALIBRATED"]
+        ).grid(row=4, column=1, sticky="ew", padx=(8,0), pady=4)
+
+        ttk.Label(project, text="프로젝트 루트", width=18).grid(row=5, column=0, sticky="w", pady=4)
+        ttk.Entry(project, textvariable=self.project_root).grid(
+            row=5, column=1, sticky="ew", padx=(8,0), pady=4
+        )
+        ttk.Button(project, text="선택", command=self.pick_root).grid(
+            row=5, column=2, padx=(8,0), pady=4
+        )
 
         ttk.Checkbutton(
-            f,
-            text="원본을 프로젝트로 복사 (용량이 매우 커질 수 있음)",
+            project,
+            text="원본을 프로젝트로 복사 (저장공간 사용량 증가)",
             variable=self.copy_inputs,
-        ).grid(row=r, column=1, sticky="w", pady=4)
-        r += 1
+        ).grid(row=6, column=1, sticky="w", padx=(8,0), pady=(5,2))
+        project.columnconfigure(1, weight=1)
 
-        b = ttk.Frame(f)
-        b.grid(row=r, column=0, columnspan=3, sticky="ew", pady=8)
-        ttk.Button(b, text="Siril 확인", command=self.doctor).pack(side="left", padx=3)
-        ttk.Button(b, text="1. 프로젝트 생성", command=self.create_project).pack(side="left", padx=3)
-        ttk.Button(b, text="2. 실행 계획 보기", command=self.show_plan).pack(side="left", padx=3)
-        ttk.Button(b, text="3. 승인 후 실제 실행", command=self.run_real).pack(side="left", padx=3)
-        r += 1
+        # Workflow actions
+        actions = ttk.LabelFrame(f, text="반자동 실행", style="Card.TLabelframe")
+        actions.grid(row=3, column=0, sticky="ew", pady=(0,10))
 
-        ttk.Label(f, textvariable=self.status).grid(row=r, column=0, columnspan=3, sticky="w")
-        r += 1
+        buttons = ttk.Frame(actions)
+        buttons.pack(fill="x")
+        ttk.Button(
+            buttons, text="Siril 연결 확인", command=self.doctor
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="1 · 프로젝트 생성", command=self.create_project,
+            style="Accent.TButton"
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons, text="2 · 실행 계획 보기", command=self.show_plan
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons, text="3 · 승인 후 실제 실행", command=self.run_real,
+            style="Success.TButton"
+        ).pack(side="left", padx=6)
 
-        self.out = tk.Text(f, wrap="word", height=26)
-        self.out.grid(row=r, column=0, columnspan=3, sticky="nsew", pady=(6,0))
-        f.columnconfigure(1, weight=1)
-        f.rowconfigure(r, weight=1)
+        ttk.Label(
+            actions,
+            text=(
+                "run_gui와 동일하게: 실행 상태/경과시간 표시 · 처리 중 버튼 잠금 · "
+                "오류 시 로그 자동 열기 · 로그 접기/복사 · 반응형 스크롤"
+            ),
+            style="Muted.TLabel",
+            wraplength=980,
+        ).pack(anchor="w", pady=(10,0))
 
+        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(12,8))
+        status_card.grid(row=4, column=0, sticky="ew", pady=(0,8))
+        ttk.Label(status_card, text="STATUS", style="Subtitle.TLabel").pack(side="left")
+        ttk.Label(status_card, textvariable=self.status, style="Subtitle.TLabel").pack(
+            side="left", padx=(10,0)
+        )
+
+        op = ttk.Frame(f)
+        op.grid(row=5, column=0, sticky="ew", pady=(3,4))
+        ttk.Label(op, textvariable=self.operation_var).pack(side="left")
+        self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
+        self.progress.pack(side="left", padx=(12,8), fill="x", expand=True)
+        ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+
+        log_toolbar = ttk.Frame(f)
+        log_toolbar.grid(row=6, column=0, sticky="ew", pady=(4,10))
+        self.log_toggle_btn = ttk.Button(
+            log_toolbar, text="▼ 상세 로그 보기", command=self.toggle_logs
+        )
+        self.log_toggle_btn.pack(side="left")
+        self.copy_log_btn = ttk.Button(
+            log_toolbar, text="로그 복사", command=self.copy_logs
+        )
+        self.copy_log_btn.pack(side="left", padx=(6,0))
+        ttk.Label(
+            log_toolbar,
+            text="로그 Pane 경계선을 드래그해 높이를 조절할 수 있습니다.",
+            style="Muted.TLabel",
+        ).pack(side="left", padx=(12,0))
+
+        f.columnconfigure(0, weight=1)
+
+        self.log_frame = ttk.LabelFrame(
+            self.main_pane, text="상세 로그", style="Card.TLabelframe"
+        )
+        self.out = tk.Text(self.log_frame, wrap="word", height=10)
+        style_text_widget(self.out, self.palette)
+        self.out.pack(side="left", fill="both", expand=True)
+        sb = ttk.Scrollbar(self.log_frame, command=self.out.yview)
+        sb.pack(side="right", fill="y")
+        self.out.configure(yscrollcommand=sb.set)
+
+    # ------------------------------------------------------------------
+    # Responsive scroll behavior (same fixed policy as main GUI)
+    # ------------------------------------------------------------------
+    def _bbox(self):
+        try:
+            return self.canvas.bbox("all")
+        except Exception:
+            return None
+
+    def _overflows(self):
+        bbox = self._bbox()
+        if not bbox:
+            return False
+        return (bbox[3] - bbox[1]) > self.canvas.winfo_height() + 2
+
+    def _sync_scroll(self):
+        bbox = self._bbox()
+        if not bbox:
+            return
+        self.canvas.configure(scrollregion=bbox)
+        if self._overflows():
+            try:
+                self.scroll.state(["!disabled"])
+            except Exception:
+                pass
+        else:
+            self.canvas.yview_moveto(0.0)
+            try:
+                self.scroll.state(["disabled"])
+            except Exception:
+                pass
+
+    def _on_inner_configure(self, _event=None):
+        self._sync_scroll()
+
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfigure(self.workspace_window_id, width=max(1, event.width))
+        self.after_idle(self._sync_scroll)
+
+    def _is_in_workspace(self, widget):
+        cur = widget
+        while cur is not None:
+            if cur in (self.workspace_inner, self.canvas):
+                return True
+            try:
+                cur = cur.master
+            except Exception:
+                cur = None
+        return False
+
+    def _on_mousewheel(self, event):
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            widget = None
+        if not widget or not self._is_in_workspace(widget):
+            return None
+        if isinstance(widget, ttk.Combobox):
+            return None
+        if not self._overflows():
+            self.canvas.yview_moveto(0.0)
+            return "break"
+
+        delta = int(getattr(event, "delta", 0) or 0)
+        if not delta:
+            return None
+        notches = int(delta / 120) if abs(delta) >= 120 else (1 if delta > 0 else -1)
+        notches = max(-3, min(3, notches))
+        self.canvas.yview_scroll(-notches * 2, "units")
+        return "break"
+
+    def _on_linux_wheel(self, event):
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            widget = None
+        if not widget or not self._is_in_workspace(widget):
+            return None
+        if not self._overflows():
+            self.canvas.yview_moveto(0.0)
+            return "break"
+        self.canvas.yview_scroll(-2 if event.num == 4 else 2, "units")
+        return "break"
+
+    # ------------------------------------------------------------------
+    # Log pane
+    # ------------------------------------------------------------------
+    def _set_log_sash(self):
+        if not self.logs_visible:
+            return
+        try:
+            if len(self.main_pane.panes()) < 2:
+                return
+            self.update_idletasks()
+            total_h = max(1, self.main_pane.winfo_height())
+            desired = int(total_h * self._log_sash_ratio)
+            desired = max(180, min(desired, max(180, total_h - 150)))
+            self.main_pane.sashpos(0, desired)
+        except Exception:
+            pass
+
+    def toggle_logs(self):
+        if self.logs_visible:
+            try:
+                total_h = max(1, self.main_pane.winfo_height())
+                if len(self.main_pane.panes()) >= 2:
+                    self._log_sash_ratio = max(
+                        0.45, min(0.85, self.main_pane.sashpos(0) / total_h)
+                    )
+            except Exception:
+                pass
+            try:
+                self.main_pane.forget(self.log_frame)
+            except Exception as e:
+                messagebox.showerror("로그 패널 오류", str(e))
+                return
+            self.logs_visible = False
+            self.log_toggle_btn.configure(text="▼ 상세 로그 보기")
+            return
+
+        try:
+            if str(self.log_frame) not in set(self.main_pane.panes()):
+                self.main_pane.add(self.log_frame, weight=2)
+        except Exception as e:
+            messagebox.showerror("로그 패널 오류", str(e))
+            return
+        self.logs_visible = True
+        self.log_toggle_btn.configure(text="▲ 상세 로그 숨기기")
+        self.update_idletasks()
+        self._set_log_sash()
+        self.after(40, self._set_log_sash)
+        self.after(140, self._set_log_sash)
+
+    def show_logs(self):
+        if not self.logs_visible:
+            self.toggle_logs()
+        else:
+            self._set_log_sash()
+
+    def copy_logs(self):
+        text = self.out.get("1.0", "end-1c")
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.status.set("로그를 클립보드에 복사했습니다.")
+        except Exception as e:
+            messagebox.showerror("로그 복사 오류", str(e))
+
+    def write(self, msg):
+        self.out.insert("end", str(msg).rstrip() + "\n")
+        self.out.see("end")
+
+    # ------------------------------------------------------------------
+    # Busy/progress policy
+    # ------------------------------------------------------------------
+    def _set_controls_disabled(self, disabled: bool):
+        if disabled:
+            self._busy_disabled_widgets = []
+            for widget in self.winfo_children():
+                pass
+            # Traverse all descendants and disable action controls only.
+            stack = [self]
+            while stack:
+                parent = stack.pop()
+                try:
+                    children = parent.winfo_children()
+                except Exception:
+                    continue
+                stack.extend(children)
+                for w in children:
+                    if w in (getattr(self, "log_toggle_btn", None), getattr(self, "copy_log_btn", None)):
+                        continue
+                    if isinstance(w, (ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton)):
+                        try:
+                            if "disabled" not in w.state():
+                                self._busy_disabled_widgets.append(w)
+                                w.state(["disabled"])
+                        except Exception:
+                            pass
+        else:
+            for w in self._busy_disabled_widgets:
+                try:
+                    if w.winfo_exists():
+                        w.state(["!disabled"])
+                except Exception:
+                    pass
+            self._busy_disabled_widgets = []
+
+    def _tick_elapsed(self):
+        if not self._busy or self._busy_started is None:
+            return
+        sec = int(time.monotonic() - self._busy_started)
+        self.elapsed_var.set(f"경과 {sec//60:02d}:{sec%60:02d}")
+        self._busy_timer_id = self.after(500, self._tick_elapsed)
+
+    def _begin_busy(self, label):
+        if self._busy:
+            raise RuntimeError("다른 작업이 실행 중입니다.")
+        self._busy = True
+        self._busy_started = time.monotonic()
+        self.operation_var.set(f"● 실행 중: {label}")
+        self.elapsed_var.set("경과 00:00")
+        self.progress.start(12)
+        self._set_controls_disabled(True)
+        self.write(f"\n▶ 실행 시작: {label}")
+        self._tick_elapsed()
+
+    def _end_busy(self, label, success):
+        if self._busy_timer_id:
+            try:
+                self.after_cancel(self._busy_timer_id)
+            except Exception:
+                pass
+            self._busy_timer_id = None
+        self.progress.stop()
+        self._set_controls_disabled(False)
+        self._busy = False
+        self.operation_var.set(
+            f"{'✓ 완료' if success else '✕ 오류'}: {label}"
+        )
+
+    def run_bg(self, fn, operation, on_success=None):
+        try:
+            self._begin_busy(operation)
+        except Exception as e:
+            messagebox.showwarning("실행 중", str(e))
+            return
+
+        def worker():
+            try:
+                result = fn()
+            except Exception as e:
+                def fail():
+                    self._end_busy(operation, False)
+                    self.status.set("오류")
+                    self.write(f"\n✕ 오류: {operation}\n{e}")
+                    self.show_logs()
+                    messagebox.showerror("오류", str(e))
+                self.after(0, fail)
+                return
+
+            def done():
+                self._end_busy(operation, True)
+                if on_success:
+                    on_success(result)
+            self.after(0, done)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    # ------------------------------------------------------------------
+    # Existing sequence workflow
+    # ------------------------------------------------------------------
     def pick(self, key):
         path = filedialog.askdirectory()
         if path:
@@ -123,34 +519,25 @@ class SequenceApp(tk.Tk):
         if path:
             self.project_root.set(path)
 
-    def write(self, msg):
-        self.out.insert("end", msg + "\n")
-        self.out.see("end")
-
-    def bg(self, fn):
-        def worker():
-            try:
-                fn()
-            except Exception as e:
-                self.after(0, lambda: messagebox.showerror("오류", str(e)))
-                self.after(0, lambda: self.status.set("오류"))
-        threading.Thread(target=worker, daemon=True).start()
-
     def doctor(self):
-        self.status.set("Siril 확인 중...")
         def work():
-            info = get_siril_info(self.cfg)
-            self.after(0, lambda: self.write(f"Siril 연결 OK\n{info.executable}\nVersion: {info.version}\n"))
-            self.after(0, lambda: self.status.set("Siril 연결 OK"))
-        self.bg(work)
+            return get_siril_info(self.cfg)
+
+        def done(info):
+            self.write(
+                f"Siril 연결 OK\n{info.executable}\nVersion: {info.version}\n"
+            )
+            self.status.set("Siril 연결 OK")
+
+        self.run_bg(work, "Siril 연결 확인", done)
 
     def create_project(self):
         if not self.paths["lights"].get():
             messagebox.showwarning("확인", "Lights 폴더를 선택하세요.")
             return
-        self.status.set("프로젝트 생성 중...")
+
         def work():
-            pdir = create_sequence_project(
+            return create_sequence_project(
                 root=Path(self.project_root.get()),
                 target=self.target.get(),
                 capture_date=self.capture_date.get(),
@@ -164,19 +551,25 @@ class SequenceApp(tk.Tk):
                 input_status=self.input_status.get(),
                 copy_inputs=self.copy_inputs.get(),
             )
+
+        def done(pdir):
             self.project_dir = pdir
-            self.after(0, lambda: self.write(f"프로젝트 생성 완료:\n{pdir}\n"))
-            self.after(0, lambda: self.status.set("프로젝트 생성 완료"))
-        self.bg(work)
+            self.write(f"프로젝트 생성 완료:\n{pdir}\n")
+            self.status.set("프로젝트 생성 완료")
+
+        self.run_bg(work, "Sequence 프로젝트 생성", done)
 
     def show_plan(self):
         if not self.project_dir:
             messagebox.showwarning("확인", "먼저 프로젝트를 생성하세요.")
             return
-        self.status.set("계획 생성 중...")
+
         def work():
-            plan, plan_path, script_path = build_preprocess_plan(self.project_dir)
-            text = [
+            return build_preprocess_plan(self.project_dir)
+
+        def done(result):
+            plan, plan_path, script_path = result
+            lines = [
                 "=== 반자동 Siril 전처리 계획 ===",
                 f"Lights: {plan['counts']['lights']}장",
                 f"Dark: {plan['counts']['dark']}장",
@@ -187,13 +580,15 @@ class SequenceApp(tk.Tk):
                 "",
                 "작업:",
             ]
-            text += [f"- {x}" for x in plan["phases"]]
+            lines += [f"- {x}" for x in plan["phases"]]
             if plan["warnings"]:
-                text += ["", "주의:"] + [f"- {x}" for x in plan["warnings"]]
-            text += ["", f"Plan: {plan_path}", f"Script: {script_path}"]
-            self.after(0, lambda: self.write("\n".join(text) + "\n"))
-            self.after(0, lambda: self.status.set("실행 계획 준비 완료"))
-        self.bg(work)
+                lines += ["", "주의:"] + [f"- {x}" for x in plan["warnings"]]
+            lines += ["", f"Plan: {plan_path}", f"Script: {script_path}"]
+            self.write("\n".join(lines) + "\n")
+            self.status.set("실행 계획 준비 완료")
+            self.show_logs()
+
+        self.run_bg(work, "Sequence 실행 계획 생성", done)
 
     def run_real(self):
         if not self.project_dir:
@@ -206,14 +601,24 @@ class SequenceApp(tk.Tk):
         )
         if not ok:
             return
-        self.status.set("Siril 실제 처리 중...")
+
         def work():
-            project, output, plan = execute_preprocess(self.project_dir, self.cfg, confirmed=True)
-            self.after(0, lambda: self.write(
-                f"\n처리 완료!\n출력: {output}\n다음 작업: Background / Gradient Correction\n"
-            ))
-            self.after(0, lambda: self.status.set("Stack 완료"))
-        self.bg(work)
+            return execute_preprocess(self.project_dir, self.cfg, confirmed=True)
+
+        def done(result):
+            project, output, plan = result
+            self.write(
+                f"\n처리 완료!\n출력: {output}\n"
+                "다음 작업: Single Image GUI에서 Background / Gradient Correction\n"
+            )
+            self.status.set("Stack 완료")
+            messagebox.showinfo(
+                "Sequence 처리 완료",
+                f"Stack 완료:\n{output}\n\n"
+                "이 결과를 run_gui.bat의 단일 이미지 파이프라인으로 이어갈 수 있습니다."
+            )
+
+        self.run_bg(work, "Calibration / Registration / Stack", done)
 
 if __name__ == "__main__":
     SequenceApp().mainloop()

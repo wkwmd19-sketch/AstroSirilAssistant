@@ -102,7 +102,10 @@ def migrate_ready_for_ghs(project_dir: Path):
         save_project(pdir, project)
     elif p.get("current_state") in ("DENOISED", "COLOR_CALIBRATED") and task.get("task_id") == "GHS_STRETCH":
         p["next_task"] = make_ghs_task(additional=False)
-        p["next_task"]["current_status"] = f"{p.get('current_state')} / LINEAR / DEBLUR_SKIPPED"
+        if p.get("current_state") == "DENOISED" and p.get("image_state", {}).get("deblurred", False):
+            p["next_task"]["current_status"] = "DENOISED / DEBLURRED / LINEAR"
+        else:
+            p["next_task"]["current_status"] = f"{p.get('current_state')} / LINEAR / DEBLUR_SKIPPED"
         save_project(pdir, project)
     return project
 

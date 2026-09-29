@@ -54,7 +54,7 @@ def get_siril_info(config: dict) -> SirilInfo:
         raise SirilError(f"Siril 버전 확인 실패: {combined.strip()}")
     return SirilInfo(executable=exe, version=_parse_version(combined))
 
-def run_script(config: dict, commands: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeout_sec: int | None = None) -> subprocess.CompletedProcess:
     """Run commands through `siril-cli -s -`.
 
     Siril 1.4.x checks that the first script command is `requires`.
@@ -63,7 +63,7 @@ def run_script(config: dict, commands: list[str], cwd: Path | None = None) -> su
     supported version unless the caller already supplied `requires`.
     """
     info = get_siril_info(config)
-    timeout = int(config.get("siril", {}).get("command_timeout_sec", 180))
+    timeout = int(timeout_sec if timeout_sec is not None else config.get("siril", {}).get("command_timeout_sec", 180))
     minimum = str(config.get("siril", {}).get("minimum_supported", "1.4.0"))
 
     cleaned = [str(c).strip() for c in commands if str(c).strip()]

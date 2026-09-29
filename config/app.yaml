@@ -1,31 +1,27 @@
 app:
-  version: "0.13.1"
-  project_root: 'D:\AstroProjects_Auto'
+  version: 0.14.0
+  project_root: D:\AstroProjects_Auto
   copy_input_into_project: true
-
 siril:
-  minimum_supported: "1.4.0"
-  preferred_stable: "1.4.4"
+  minimum_supported: 1.4.0
+  preferred_stable: 1.4.4
   executable: null
   candidate_paths:
-    - 'C:\Program Files\SiriL\bin\siril-cli.exe'
-    - 'C:\Program Files\Siril\bin\siril-cli.exe'
-    - 'C:\Program Files\SiriL\siril-cli.exe'
+  - C:\Program Files\SiriL\bin\siril-cli.exe
+  - C:\Program Files\Siril\bin\siril-cli.exe
+  - C:\Program Files\SiriL\siril-cli.exe
   command_timeout_sec: 180
-
 analysis:
   max_samples_per_channel: 1500000
   histogram_bins: 2048
   clip_fraction: 0.0001
-
 calibration:
   enabled: true
   scan_extensions:
-    - ".fit"
-    - ".fits"
-    - ".fts"
-    - ".fits.fz"
-
+  - .fit
+  - .fits
+  - .fts
+  - .fits.fz
   compatibility:
     dark:
       exposure_relative_tolerance: 0.05
@@ -58,48 +54,45 @@ calibration:
       require_same_binning_when_known: true
       require_same_roi_when_known: true
       require_same_sensor_mode_when_known: true
-
   policy:
-    bias_darkflat_mode: "AUTO_DECIDE"
+    bias_darkflat_mode: AUTO_DECIDE
     allow_no_bias_when_darkflat_used: true
     allow_no_darkflat_when_bias_used: true
     never_apply_calibration_twice: true
     unknown_precalibrated_state_requires_user_confirmation: true
-
 sessions:
   enable_multi_session: true
   session_grouping_keys:
-    - "date"
-    - "camera"
-    - "filter"
-    - "binning"
-    - "dimensions"
-
+  - date
+  - camera
+  - filter
+  - binning
+  - dimensions
 quality:
   enable_subframe_quality: true
   metrics:
-    - "fwhm"
-    - "eccentricity"
-    - "star_count"
-    - "background_level"
-    - "median_signal"
-    - "shake_score"
-    - "cloud_score"
-    - "artifact_score"
-  candidate_reject_policy: "SUGGEST_ONLY"
-
+  - fwhm
+  - eccentricity
+  - star_count
+  - background_level
+  - median_signal
+  - shake_score
+  - cloud_score
+  - artifact_score
+  candidate_reject_policy: SUGGEST_ONLY
 tracking_events:
   recognize:
-    - "DITHER"
-    - "MERIDIAN_FLIP"
-    - "ROTATION_CHANGE"
-
+  - DITHER
+  - MERIDIAN_FLIP
+  - ROTATION_CHANGE
 library:
-  calibration_library_root: 'D:\AstroProjects_Auto\CalibrationLibrary'
+  calibration_library_root: D:\AstroProjects_Auto\CalibrationLibrary
   use_shared_master_library: true
-
 future:
   reserve_profiles:
-    - "MOSAIC"
-    - "COMET"
-    - "PLANETARY_LUNAR"
+  - MOSAIC
+  - COMET
+  - PLANETARY_LUNAR
+syqon:
+  script_roots: []
+  command_timeout_sec: 3600

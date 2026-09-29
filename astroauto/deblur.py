@@ -8,80 +8,61 @@ from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
 from .ghs import make_ghs_task
+from .syqon import (
+    require_syqon_script,
+    build_parallax_command,
+    assert_syqon_process_success,
+)
 
 def make_deblur_task() -> dict:
     return {
         "task_id": "DEBLUR",
-        "title": "Deblur / Deconvolution",
-        "summary": "별에서 PSF를 추정하고 Richardson-Lucy 방식으로 흐려진 디테일을 복원합니다.",
-        "purpose": "Denoise된 Linear 이미지에서 별과 은하 세부 구조를 보수적으로 복원합니다.",
-        "current_status": "DENOISED / LINEAR",
+        "title": "Restoration / Deblur",
+        "summary": "수동 보정 흐름을 따라 Linear 이미지에서 먼저 Parallax 복원/별 보정을 수행합니다.",
+        "purpose": "Stretch와 Denoise 전에 별 수차, 별 존재감, 미세 구조를 보수적으로 복원합니다.",
+        "current_status": "COLOR_CALIBRATED / LINEAR",
         "recommendations": {
-            "psf": "Detected Stars",
-            "iterations": 10,
-            "regularization": "NONE",
-            "alpha": 3000,
-            "multiplicative": "OFF",
+            "engine": "SyQon Parallax Nano",
+            "fallback": "Siril PSF + Richardson-Lucy",
+            "manual_inspired_order": "SPCC → Parallax → Prism → GHS",
         },
         "cautions": [
-            "반복 횟수가 높으면 링잉/과샤픈/노이즈 증폭 위험이 커집니다.",
-            "별 가장자리와 밝은 중심부를 미리보기에서 반드시 확인하세요.",
+            "Parallax는 Linear 단계에서 사용합니다.",
+            "SyQon 모델이 설치되지 않았으면 Siril Native RL로 전환할 수 있습니다.",
+            "강한 Sharpen/Star Reduction은 별 형태나 미세 구조를 과도하게 바꿀 수 있으므로 미리보기를 확인하세요.",
         ],
         "completion_criteria": [
-            "디테일 개선",
-            "링잉 억제",
+            "별/세부 구조 복원",
+            "링잉/과샤픈 없음",
             "Linear 상태 유지",
         ],
         "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
     }
 
-def _legacy_make_ghs_task(skipped: bool = False) -> dict:
-    return {
-        "task_id": "GHS_STRETCH",
-        "title": "GHS Stretch",
-        "summary": (
-            "Deblur가 완료되었습니다. 다음 단계는 Linear 이미지를 비선형으로 전환하는 GHS Stretch입니다."
-            if not skipped else
-            "Deblur를 건너뛰었습니다. 다음 단계는 Linear 이미지를 비선형으로 전환하는 GHS Stretch입니다."
-        ),
-        "purpose": "희미한 외곽 구조를 올리면서 밝은 중심부와 별 하이라이트를 보호합니다.",
-        "current_status": "DEBLURRED / LINEAR" if not skipped else "LINEAR / READY_FOR_GHS",
-        "recommendations": {
-            "status": "다음 구현 단계",
-            "analysis": "Histogram / background / high-percentile 기반 자동 추천 예정",
-        },
-        "cautions": [
-            "GHS 적용 후 이미지는 Non-linear 상태가 됩니다.",
-            "초기 Stretch를 중복 적용하지 않도록 State를 엄격히 추적합니다.",
-        ],
-        "completion_criteria": [
-            "외곽 신호 가시화",
-            "하이라이트 보존",
-            "Non-linear 전환",
-        ],
-        "actions": ["PREVIEW", "RUN", "EDIT"],
-    }
-
 def migrate_post_denoise_task(project_dir: Path):
-    """Upgrade v0.6 projects so DENOISED/POST_DENOISE_REVIEW continues to DEBLUR."""
+    """Keep v0.6-v0.13 legacy projects usable after the v0.14 order change."""
     pdir = Path(project_dir)
     project = load_project(pdir)
     p = project["project"]
     task = p.get("next_task") or {}
 
-    if p.get("current_state") == "DENOISED":
-        if task.get("task_id") in (None, "POST_DENOISE_REVIEW"):
-            p["next_task"] = make_deblur_task()
-            save_project(pdir, project)
+    # Legacy order: COLOR -> DENOISE -> DEBLUR.
+    if p.get("current_state") == "DENOISED" and task.get("task_id") in (
+        None, "POST_DENOISE_REVIEW", "DEBLUR"
+    ):
+        t = make_deblur_task()
+        t["current_status"] = "DENOISED / LINEAR / LEGACY_ORDER"
+        t["summary"] = (
+            "이 프로젝트는 이전 버전에서 Denoise가 먼저 완료되었습니다. "
+            "호환 모드로 Deblur/Parallax를 수행한 뒤 GHS로 이어갑니다."
+        )
+        p["next_task"] = t
+        save_project(pdir, project)
 
-    elif p.get("current_state") == "COLOR_CALIBRATED":
-        # Denoise may have been explicitly skipped in v0.6.
-        if task.get("task_id") == "POST_DENOISE_REVIEW":
-            next_task = make_deblur_task()
-            next_task["current_status"] = "COLOR_CALIBRATED / LINEAR / DENOISE_SKIPPED"
-            next_task["summary"] = "Denoise를 건너뛴 Linear 이미지에서 선택적으로 Deblur를 수행합니다."
-            p["next_task"] = next_task
-            save_project(pdir, project)
+    # Old project where Denoise was skipped before Deblur.
+    elif p.get("current_state") == "COLOR_CALIBRATED" and task.get("task_id") == "POST_DENOISE_REVIEW":
+        p["next_task"] = make_deblur_task()
+        save_project(pdir, project)
 
     return project
 
@@ -92,14 +73,17 @@ def _current_linear_file(project: dict) -> Path:
         raise FileNotFoundError(f"현재 FITS가 없습니다: {current}")
 
     if p.get("image_state", {}).get("linearity") != "LINEAR":
-        raise ValueError("Deblur는 Linear 이미지에서만 실행합니다.")
+        raise ValueError("Restoration / Deblur는 Linear 이미지에서만 실행합니다.")
     if p.get("image_state", {}).get("stretched") is True:
-        raise ValueError("이미 Stretch된 입력에는 이 Deblur 경로를 실행하지 않습니다.")
-    if p.get("current_state") not in ("DENOISED", "COLOR_CALIBRATED"):
-        raise ValueError("v0.7 Deblur는 Denoise 완료 또는 Denoise 건너뜀 상태에서 시작합니다.")
+        raise ValueError("이미 Stretch된 입력에는 이 Restoration 경로를 실행하지 않습니다.")
+    if p.get("current_state") not in ("COLOR_CALIBRATED", "DENOISED"):
+        raise ValueError(
+            "Restoration은 SPCC 완료(COLOR_CALIBRATED) 또는 "
+            "이전 버전 호환 DENOISED 상태에서 시작합니다."
+        )
     return current
 
-def _validate(
+def _validate_native(
     iterations: int,
     regularization: str,
     alpha: float,
@@ -124,7 +108,7 @@ def _validate(
         if kernel_size < 3 or kernel_size > 255:
             raise ValueError("PSF Kernel Size는 3~255 범위로 입력하거나 비워두세요.")
         if kernel_size % 2 == 0:
-            raise ValueError("PSF Kernel Size는 홀수를 권장하며 v0.7에서는 홀수만 허용합니다.")
+            raise ValueError("PSF Kernel Size는 홀수만 허용합니다.")
 
     return iterations, regularization, alpha, kernel_size
 
@@ -150,7 +134,7 @@ def build_rl_command(
     alpha: float = 3000,
     multiplicative: bool = False,
 ) -> str:
-    iterations, regularization, alpha, _ = _validate(
+    iterations, regularization, alpha, _ = _validate_native(
         iterations, regularization, alpha, None
     )
     args = ["rl", f"-iters={iterations}"]
@@ -170,8 +154,8 @@ def _find_saved(stem: Path):
     found = sorted(stem.parent.glob(stem.name + ".*"))
     return found[0] if found else None
 
-def _build_commands(current: Path, result_stem: Path, psf_stem: Path, params: dict):
-    iterations, regularization, alpha, kernel_size = _validate(
+def _native_commands(current: Path, result_stem: Path, psf_stem: Path, params: dict):
+    iterations, regularization, alpha, kernel_size = _validate_native(
         params.get("iterations", 10),
         params.get("regularization", "NONE"),
         params.get("alpha", 3000),
@@ -201,57 +185,102 @@ def _build_commands(current: Path, result_stem: Path, psf_stem: Path, params: di
     ]
     return commands, psf_cmd, rl_cmd
 
+def _parallax_command(config: dict, params: dict):
+    script_path = require_syqon_script("PARALLAX", config)
+    cmd = build_parallax_command(
+        script_path,
+        edition=params.get("edition", "nano"),
+        correct=bool(params.get("correct", True)),
+        star_level=float(params.get("star_level", 3.0)),
+        sharpen=float(params.get("sharpen", 1.0)),
+        tile=int(params.get("tile", 512)),
+        overlap=int(params.get("overlap", 64)),
+        pad=int(params.get("pad", 96)),
+        use_mtf=bool(params.get("use_mtf", True)),
+        mtf_target=float(params.get("mtf_target", 0.25)),
+        linked=bool(params.get("linked", False)),
+        use_gpu=bool(params.get("use_gpu", True)),
+    )
+    return script_path, cmd
+
 def preview_deblur(project_dir: Path, config: dict, **params):
     pdir = Path(project_dir)
     project = load_project(pdir)
     current = _current_linear_file(project)
     target = project["project"]["target_name"]
+    engine = str(params.get("engine", "SYQON_PARALLAX")).upper()
 
     temp_dir = pdir / "temp" / "deblur_preview"
     preview_dir = pdir / "output" / "preview"
     temp_dir.mkdir(parents=True, exist_ok=True)
     preview_dir.mkdir(parents=True, exist_ok=True)
 
-    linear_stem = temp_dir / f"{target}_deblur_preview_linear"
-    psf_stem = temp_dir / f"{target}_deblur_preview_psf"
-    jpg_stem = preview_dir / f"{target}_deblur_preview"
+    linear_stem = temp_dir / f"{target}_restore_preview_linear"
+    jpg_stem = preview_dir / f"{target}_restore_preview"
 
-    commands, psf_cmd, rl_cmd = _build_commands(
-        current, linear_stem, psf_stem, params
-    )
-    commands.extend([
-        "autostretch -linked",
-        f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
-        "close",
-    ])
+    psf_file = None
+    engine_command = None
+    script_path = None
 
-    proc = run_script(config, commands, cwd=current.parent)
-    if proc.returncode != 0:
-        raise SirilError(
-            "Deblur 미리보기 생성 실패\n"
-            "PSF를 만들 수 있을 만큼 적절한 별이 검출되지 않았거나 RL 처리 중 문제가 발생했을 수 있습니다.\n"
-            f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+    if engine == "SYQON_PARALLAX":
+        script_path, engine_command = _parallax_command(config, params)
+        commands = [
+            "set32bits",
+            "setext fits",
+            f'load "{normalize_siril_path(current)}"',
+            engine_command,
+            f'save "{normalize_siril_path(linear_stem)}"',
+            "autostretch -linked",
+            f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
+            "close",
+        ]
+        proc = run_script(
+            config, commands, cwd=current.parent,
+            timeout_sec=int(config.get("syqon", {}).get("command_timeout_sec", 3600)),
         )
+        assert_syqon_process_success(proc, "SyQon Parallax")
+    elif engine == "SIRIL_RL":
+        psf_stem = temp_dir / f"{target}_restore_preview_psf"
+        commands, psf_cmd, rl_cmd = _native_commands(
+            current, linear_stem, psf_stem, params
+        )
+        engine_command = f"{psf_cmd}  →  {rl_cmd}"
+        commands.extend([
+            "autostretch -linked",
+            f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
+            "close",
+        ])
+        proc = run_script(config, commands, cwd=current.parent)
+        if proc.returncode != 0:
+            raise SirilError(
+                "Siril RL Restoration 미리보기 생성 실패\n"
+                f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+            )
+        psf_file = _find_saved(psf_stem)
+    else:
+        raise ValueError("Restoration Engine은 SYQON_PARALLAX / SIRIL_RL 중 하나여야 합니다.")
 
     linear_preview = _find_saved(linear_stem)
     jpg = jpg_stem.with_suffix(".jpg")
-    psf_file = _find_saved(psf_stem)
-
     if not linear_preview or not jpg.exists():
         raise SirilError(
-            "Siril 실행 후 Deblur 미리보기 파일을 찾지 못했습니다.\n"
+            "Restoration 실행 후 미리보기 출력 파일을 찾지 못했습니다.\n"
+            "SyQon 모델/스크립트 또는 Siril 로그를 확인하세요.\n"
             f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
         )
 
     meta = {
         "timestamp": iso_now(),
+        "engine": engine,
         "input_file": str(current),
         "display_preview": str(jpg),
         "linear_preview": str(linear_preview),
         "psf_file": str(psf_file) if psf_file else None,
-        "makepsf_command": psf_cmd,
-        "rl_command": rl_cmd,
+        "script_path": str(script_path) if script_path else None,
+        "engine_command": engine_command,
         "parameters": params,
+        "siril_stdout": proc.stdout,
+        "siril_stderr": proc.stderr,
     }
     (pdir / "logs" / "deblur_preview.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2, default=str),
@@ -262,18 +291,27 @@ def preview_deblur(project_dir: Path, config: dict, **params):
 
 def apply_deblur(project_dir: Path, config: dict, confirmed: bool = False, **params):
     if not confirmed:
-        raise PermissionError("실제 Deblur 적용에는 사용자 승인이 필요합니다.")
+        raise PermissionError("실제 Restoration 적용에는 사용자 승인이 필요합니다.")
 
     pdir = Path(project_dir)
     project = load_project(pdir)
     current = _current_linear_file(project)
     p = project["project"]
     target = p["target_name"]
+    input_state = p.get("current_state")
+    engine = str(params.get("engine", "SYQON_PARALLAX")).upper()
 
-    out_dir = pdir / "working" / "06_deblur"
+    if input_state == "COLOR_CALIBRATED":
+        out_dir = pdir / "working" / "05_restore"
+        stage_no = "05"
+    else:
+        # Legacy v0.6-v0.13 compatibility.
+        out_dir = pdir / "working" / "06_deblur"
+        stage_no = "06"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_stem = out_dir / f"{target}_06_deblur"
-    psf_stem = out_dir / f"{target}_06_psf"
+
+    suffix = "parallax" if engine == "SYQON_PARALLAX" else "siril_deblur"
+    out_stem = out_dir / f"{target}_{stage_no}_{suffix}"
 
     before = analyze_pixels(
         current,
@@ -282,24 +320,46 @@ def apply_deblur(project_dir: Path, config: dict, confirmed: bool = False, **par
         clip_fraction=float(config.get("analysis", {}).get("clip_fraction", 0.0001)),
     )
 
-    commands, psf_cmd, rl_cmd = _build_commands(
-        current, out_stem, psf_stem, params
-    )
-    commands.append("close")
+    psf_file = None
+    script_path = None
+    engine_command = None
 
-    proc = run_script(config, commands, cwd=current.parent)
-    if proc.returncode != 0:
-        raise SirilError(
-            "Deblur 실행 실패\n"
-            "PSF 별 검출 또는 Richardson-Lucy 처리 로그를 확인하세요.\n"
-            f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+    if engine == "SYQON_PARALLAX":
+        script_path, engine_command = _parallax_command(config, params)
+        commands = [
+            "set32bits",
+            "setext fits",
+            f'load "{normalize_siril_path(current)}"',
+            engine_command,
+            f'save "{normalize_siril_path(out_stem)}"',
+            "close",
+        ]
+        proc = run_script(
+            config, commands, cwd=current.parent,
+            timeout_sec=int(config.get("syqon", {}).get("command_timeout_sec", 3600)),
         )
+        assert_syqon_process_success(proc, "SyQon Parallax")
+    elif engine == "SIRIL_RL":
+        psf_stem = out_dir / f"{target}_{stage_no}_psf"
+        commands, psf_cmd, rl_cmd = _native_commands(
+            current, out_stem, psf_stem, params
+        )
+        engine_command = f"{psf_cmd}  →  {rl_cmd}"
+        commands.append("close")
+        proc = run_script(config, commands, cwd=current.parent)
+        if proc.returncode != 0:
+            raise SirilError(
+                "Siril RL Restoration 실행 실패\n"
+                f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+            )
+        psf_file = _find_saved(psf_stem)
+    else:
+        raise ValueError("Restoration Engine은 SYQON_PARALLAX / SIRIL_RL 중 하나여야 합니다.")
 
     output = _find_saved(out_stem)
-    psf_file = _find_saved(psf_stem)
     if not output:
         raise SirilError(
-            "Siril 실행 후 Deblur 결과 FITS를 찾지 못했습니다.\n"
+            "Restoration 실행 후 결과 FITS를 찾지 못했습니다.\n"
             f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
         )
 
@@ -315,17 +375,36 @@ def apply_deblur(project_dir: Path, config: dict, confirmed: bool = False, **par
     p["image_state"]["deblurred"] = True
     p["image_state"]["linearity"] = "LINEAR"
     p["image_state"]["stretched"] = False
-    p["next_task"] = make_ghs_task(additional=False)
+    p["restoration"] = {
+        "engine": engine,
+        "input_file": str(current),
+        "output_file": str(output),
+        "parameters": params,
+        "command": engine_command,
+        "script_path": str(script_path) if script_path else None,
+        "timestamp": iso_now(),
+    }
+
+    if input_state == "COLOR_CALIBRATED":
+        # New v0.14 manual-inspired order: Parallax/restore -> Prism/denoise.
+        from .denoise import make_denoise_task
+        p["next_task"] = make_denoise_task()
+    else:
+        # Legacy order already denoised before restoration.
+        p["next_task"] = make_ghs_task(additional=False)
+
     save_project(pdir, project)
 
     payload = {
         "event": "DEBLUR_APPLY",
         "status": "SUCCESS",
+        "engine": engine,
+        "input_state": input_state,
         "input_file": str(current),
         "output_file": str(output),
         "psf_file": str(psf_file) if psf_file else None,
-        "makepsf_command": psf_cmd,
-        "rl_command": rl_cmd,
+        "script_path": str(script_path) if script_path else None,
+        "engine_command": engine_command,
         "parameters": params,
         "analysis_before": before,
         "analysis_after": after,
@@ -343,16 +422,27 @@ def skip_deblur(project_dir: Path):
     pdir = Path(project_dir)
     project = load_project(pdir)
     p = project["project"]
+    state = p.get("current_state")
 
-    if p.get("current_state") not in ("DENOISED", "COLOR_CALIBRATED"):
-        raise ValueError("Deblur 건너뛰기는 DENOISED 또는 Denoise 건너뜀 상태에서만 사용합니다.")
+    if state not in ("COLOR_CALIBRATED", "DENOISED"):
+        raise ValueError(
+            "Restoration 건너뛰기는 COLOR_CALIBRATED 또는 legacy DENOISED 상태에서만 사용합니다."
+        )
 
-    p["next_task"] = make_ghs_task(additional=False)
-    p["next_task"]["current_status"] = "LINEAR / READY_FOR_GHS / DEBLUR_SKIPPED"
+    if state == "COLOR_CALIBRATED":
+        from .denoise import make_denoise_task
+        p["next_task"] = make_denoise_task()
+        p["next_task"]["current_status"] = "COLOR_CALIBRATED / LINEAR / RESTORE_SKIPPED"
+        p["next_task"]["summary"] = "Restoration을 건너뛴 Linear 이미지에서 Prism/Siril Denoise를 수행합니다."
+    else:
+        p["next_task"] = make_ghs_task(additional=False)
+        p["next_task"]["current_status"] = "DENOISED / LINEAR / RESTORE_SKIPPED"
+
     save_project(pdir, project)
     append_jsonl(pdir, {
         "event": "DEBLUR_SKIP",
         "status": "SKIPPED",
+        "input_state": state,
         "current_file": p.get("current_file"),
     })
     return project

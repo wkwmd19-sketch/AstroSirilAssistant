@@ -1,60 +1,53 @@
-schema_version: "0.13.0"
-
+schema_version: 0.14.0
 command_mapping:
-  target_siril: "1.4.4"
-
+  target_siril: 1.4.4
   SEQUENCE_CONVERT:
-    executor: "SIRIL_NATIVE"
-    command_template: 'convert {basename} -fitseq "-out={output_dir}"'
+    executor: SIRIL_NATIVE
+    command_template: convert {basename} -fitseq "-out={output_dir}"
     notes:
-      - "FITS/RAW 등 Siril 지원 입력을 sequence로 변환"
-      - "v0.4 실행 엔진은 우선 FITS sequence 입력을 공식 지원"
-
+    - FITS/RAW 등 Siril 지원 입력을 sequence로 변환
+    - v0.4 실행 엔진은 우선 FITS sequence 입력을 공식 지원
   CALIBRATE_SEQUENCE:
-    executor: "SIRIL_NATIVE"
-    command_template: 'calibrate {sequence} {master_args} {cfa_args} -fitseq'
+    executor: SIRIL_NATIVE
+    command_template: calibrate {sequence} {master_args} {cfa_args} -fitseq
     notes:
-      - "Siril 1.4.4의 calibrate 명령 사용"
-
+    - Siril 1.4.4의 calibrate 명령 사용
   REGISTER_DEEPSKY_2PASS:
-    executor: "SIRIL_NATIVE"
+    executor: SIRIL_NATIVE
     commands:
-      - 'register {sequence} -2pass'
-      - 'seqapplyreg {sequence} -prefix=r_ -framing=min'
+    - register {sequence} -2pass
+    - seqapplyreg {sequence} -prefix=r_ -framing=min
     notes:
-      - "2pass는 변환 데이터만 계산하므로 seqapplyreg를 이어서 실행"
-
+    - 2pass는 변환 데이터만 계산하므로 seqapplyreg를 이어서 실행
   STACK_DEEPSKY:
-    executor: "SIRIL_NATIVE"
-    command_template: 'stack {sequence} rej winsorized 3 3 -norm=addscale -weight=wfwhm "-out={output_stem}" -32b'
-
+    executor: SIRIL_NATIVE
+    command_template: stack {sequence} rej winsorized 3 3 -norm=addscale -weight=wfwhm "-out={output_stem}" -32b
   STARNET:
-    executor: "SIRIL_PY_SCRIPT"
-    implementation_status: "IMPLEMENTED_V0.9.0"
-    command_template: "pyscript StarNet.py --no-linear --stride {stride} {upsample_flag} {highlight_flag} --masks subtract"
-    script_family: "StarNetAstro/StarNet.py"
-    supported_starnet2: "2.5.0+"
+    executor: SIRIL_PY_SCRIPT
+    implementation_status: IMPLEMENTED_V0.9.0
+    command_template: pyscript StarNet.py --no-linear --stride {stride} {upsample_flag} {highlight_flag} --masks subtract
+    script_family: StarNetAstro/StarNet.py
+    supported_starnet2: 2.5.0+
     qualified_user_path:
-      - "Windows StarNet2 2.6.2 supported by current official script"
+    - Windows StarNet2 2.6.2 supported by current official script
     defaults:
       stride: 256
       upsample: false
       protect_highlights: true
-      stars_layer: "subtract"
+      stars_layer: subtract
     output:
-      starless: "working/08_starnet/{TARGET}_08_starless.fits"
-      stars: "working/08_starnet/{TARGET}_08_stars.fits"
+      starless: working/08_starnet/{TARGET}_08_starless.fits
+      stars: working/08_starnet/{TARGET}_08_stars.fits
     safety:
       require_nonlinear: true
-      linear_flag: "--no-linear"
+      linear_flag: --no-linear
       require_preview_same_parameters_before_gui_apply: true
       promote_preview_without_recompute: true
-
   GRADIENT_CORRECTION:
-    executor: "SIRIL_NATIVE"
-    command_template: "subsky -rbf -samples={samples} -tolerance={tolerance} -smooth={smooth} {optional_dither}"
-    stable_supported: "1.4.4"
-    implementation_status: "IMPLEMENTED_V0.4.2"
+    executor: SIRIL_NATIVE
+    command_template: subsky -rbf -samples={samples} -tolerance={tolerance} -smooth={smooth} {optional_dither}
+    stable_supported: 1.4.4
+    implementation_status: IMPLEMENTED_V0.4.2
     defaults:
       samples: 20
       tolerance: 1.0
@@ -63,61 +56,74 @@ command_mapping:
     safety:
       require_linear: true
       require_preview_same_parameters_before_gui_apply: true
-
   SPCC:
-    executor: "SIRIL_NATIVE"
-    command_family: "spcc"
-    implementation_status: "NEXT_AFTER_PREPROCESS"
-
+    executor: SIRIL_NATIVE
+    command_family: spcc
+    implementation_status: NEXT_AFTER_PREPROCESS
   GHS:
-    executor: "SIRIL_NATIVE"
-    command_family: "ght"
-    implementation_status: "NEXT_AFTER_PREPROCESS"
-
+    executor: SIRIL_NATIVE
+    command_family: ght
+    implementation_status: NEXT_AFTER_PREPROCESS
   PIXELMATH_RECOMBINE:
-    executor: "SIRIL_NATIVE"
-    command_family: "pm"
-    implementation_status: "NEXT_AFTER_PREPROCESS"
-
-
+    executor: SIRIL_NATIVE
+    command_family: pm
+    implementation_status: NEXT_AFTER_PREPROCESS
 DENOISE:
-  executor: "SIRIL_NATIVE"
-  command_template: "denoise -mod={modulation} {optional_nocosmetic} {optional_da3d} {optional_indep}"
-  stable_supported: "1.4.4"
-  implementation_status: "IMPLEMENTED_V0.6.0"
-  defaults:
-    modulation: 1.0
-    cosmetic_correction: true
-    da3d: false
-    independent_channels: false
-  notes:
-    - "VST is intentionally omitted from the default stacked-image UI."
-    - "Preview is required before GUI apply."
-
-
-DEBLUR:
-  executor: "SIRIL_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.7.0"
-  psf:
-    command_template: 'makepsf stars {optional_sym} {optional_ks} "-savepsf={psf_path}"'
-    default_source: "STARS"
-  restore:
-    command_template: "rl -iters={iterations} {optional_regularization} {optional_alpha} {optional_mul}"
-    method: "RICHARDSON_LUCY"
-    default_iterations: 10
-    default_regularization: "NONE"
-    default_alpha: 3000
-    multiplicative: false
+  implementation_status: IMPLEMENTED_V0.14.0
+  default_engine: SYQON_PRISM
+  engines:
+    SYQON_PRISM:
+      executor: SIRIL_PY_SCRIPT
+      command_family: pyscript Prism.py
+      defaults:
+        model: mini
+        tile_size: 512
+        overlap: 96
+        pad: 96
+        modulation: 1.0
+        use_gpu: true
+        stretch_method: statistical
+        stretch_target: 0.25
+    SIRIL_NATIVE:
+      executor: SIRIL_NATIVE
+      command_template: denoise -mod={modulation} {optional_nocosmetic} {optional_da3d} {optional_indep}
   safety:
     require_linear: true
     require_preview_same_parameters_before_gui_apply: true
-
-
+    preserve_native_fallback: true
+DEBLUR:
+  stage_label: RESTORATION
+  implementation_status: IMPLEMENTED_V0.14.0
+  default_engine: SYQON_PARALLAX
+  engines:
+    SYQON_PARALLAX:
+      executor: SIRIL_PY_SCRIPT
+      command_family: pyscript Parallax.py
+      defaults:
+        edition: nano
+        correct: true
+        star_level: 3.0
+        sharpen: 1.0
+        tile: 512
+        overlap: 64
+        pad: 96
+        use_mtf: true
+        mtf_target: 0.25
+        linked: false
+        use_gpu: true
+    SIRIL_RL:
+      executor: SIRIL_NATIVE
+      psf: makepsf stars {optional_sym} {optional_ks} "-savepsf={psf_path}"
+      restore: rl -iters={iterations} {optional_regularization} {optional_alpha} {optional_mul}
+  safety:
+    require_linear: true
+    require_preview_same_parameters_before_gui_apply: true
+    preserve_native_fallback: true
 GHS_STRETCH:
-  executor: "SIRIL_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.8.0"
+  executor: SIRIL_NATIVE
+  implementation_status: IMPLEMENTED_V0.8.0
   auto:
-    command_template: "autoghs -linked {shadows_clip} {D} -b={B} -lp={LP} -hp={HP} -clipmode={clipmode}"
+    command_template: autoghs -linked {shadows_clip} {D} -b={B} -lp={LP} -hp={HP} -clipmode={clipmode}
     defaults:
       linked: true
       shadows_clip: -2.8
@@ -125,103 +131,104 @@ GHS_STRETCH:
       B: 13.0
       LP: 0.0
       HP: 0.7
-      clipmode: "rgbblend"
+      clipmode: rgbblend
     notes:
-      - "SP is computed by Siril from image median/sigma."
-      - "D=1.0 is an AstroSirilAssistant conservative starting value, not a Siril implicit default."
+    - SP is computed by Siril from image median/sigma.
+    - D=1.0 is an AstroSirilAssistant conservative starting value, not a Siril implicit default.
   manual:
-    command_template: "ght -D={D} -B={B} -LP={LP} -SP={SP} -HP={HP} -clipmode={clipmode} {luminance_mode}"
+    command_template: ght -D={D} -B={B} -LP={LP} -SP={SP} -HP={HP} -clipmode={clipmode} {luminance_mode}
   safety:
     require_preview_same_parameters_before_gui_apply: true
     first_pass_requires_linear: true
     additional_pass_requires_explicit_user_action: true
     no_extra_autostretch_in_preview: true
-
-
 STARLESS_PROCESS:
-  executor: "SIRIL_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.10.0"
+  executor: SIRIL_NATIVE
+  implementation_status: IMPLEMENTED_V0.10.0
   pipeline_order:
-    - "CLAHE"
-    - "SATURATION"
+  - CLAHE
+  - SATURATION
   clahe:
-    command_template: "clahe {cliplimit} {tileSize}"
-    requires: "NONLINEAR"
+    command_template: clahe {cliplimit} {tileSize}
+    requires: NONLINEAR
   saturation:
-    command_template: "satu {amount} {background_factor} {hue_range_index}"
+    command_template: satu {amount} {background_factor} {hue_range_index}
   recommendation:
-    engine: "TARGET_AWARE_V0.1"
+    engine: TARGET_AWARE_V0.1
     inputs:
-      - "target.category"
-      - "target.features"
-      - "current image statistics"
-    policy: "starting-point only; user approval required"
+    - target.category
+    - target.features
+    - current image statistics
+    policy: starting-point only; user approval required
   safety:
     require_starless: true
     require_nonlinear: true
     require_preview_same_parameters_before_gui_apply: true
     never_modify_stars_layer: true
-
-
 STARS_PROCESS:
-  executor: "SIRIL_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.11.0"
+  executor: SIRIL_NATIVE
+  implementation_status: IMPLEMENTED_V0.11.0
   pipeline_order:
-    - "SATURATION"
-    - "BRIGHTNESS_SCALE"
+  - SATURATION
+  - BRIGHTNESS_SCALE
   saturation:
-    command_template: "satu {amount} {background_factor} {hue_range_index}"
+    command_template: satu {amount} {background_factor} {hue_range_index}
   brightness:
-    command_template: "fmul {scalar}"
+    command_template: fmul {scalar}
   recommendation:
-    engine: "TARGET_AWARE_V0.2"
+    engine: TARGET_AWARE_V0.2
     inputs:
-      - "target.category"
-      - "target.features"
-      - "Stars layer statistics"
-    policy: "starting-point only; user approval required"
+    - target.category
+    - target.features
+    - Stars layer statistics
+    policy: starting-point only; user approval required
   safety:
     require_stars_layer: true
     require_preview_same_parameters_before_gui_apply: true
     preserve_main_layer: true
-    note: "Brightness scaling changes star prominence, not geometric star radius."
-
-
+    note: Brightness scaling changes star prominence, not geometric star radius.
 PIXEL_MATH_RECOMBINE:
-  executor: "SIRIL_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.12.0"
-  command_template: 'pm "$Main$ + $Stars$ * {star_weight}" -nosum {optional_rescale}'
+  executor: SIRIL_NATIVE
+  implementation_status: IMPLEMENTED_V0.12.0
+  command_template: pm "$Main$ + $Stars$ * {star_weight}" -nosum {optional_rescale}
   defaults:
     star_weight: 1.0
     rescale_output: false
   safety:
-    require_state: "STARS_PROCESSED"
+    require_state: STARS_PROCESSED
     require_preview_same_parameters_before_gui_apply: true
     preserve_main_and_stars_inputs: true
-    fixed_metadata_option: "-nosum"
+    fixed_metadata_option: -nosum
     preview_promoted_without_recompute: true
-
-
 FINALIZE_EXPORT:
-  executor: "SIRIL_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.13.0"
+  executor: SIRIL_NATIVE
+  implementation_status: IMPLEMENTED_V0.13.0
   fits:
-    command_template: 'save "{path}" {optional_chksum}'
-    precision_path: "set32bits"
+    command_template: save "{path}" {optional_chksum}
+    precision_path: set32bits
   tiff16:
-    command_template: 'savetif "{path}" {optional_deflate}'
+    command_template: savetif "{path}" {optional_deflate}
     bits_per_channel: 16
   png16:
-    command_template: 'savepng "{path}"'
+    command_template: savepng "{path}"
     bits_per_channel_when_source_is_16_or_32: 16
   preview:
-    command_template: 'savejpg "{path}" {quality}'
+    command_template: savejpg "{path}" {quality}
     autostretch: false
   naming:
-    final_base: "{TARGET}_final_Auto"
+    final_base: '{TARGET}_final_Auto'
   safety:
-    require_state: "RECOMBINED"
+    require_state: RECOMBINED
     require_final_preview: true
     validate_output_files: true
     preserve_source_recombined_file: true
     icc_profile_conversion: false
+PROCESSING_PRESET:
+  name: MANUAL_INSPIRED_SYQON
+  linear_order:
+  - GRADIENT
+  - SPCC
+  - DEBLUR
+  - DENOISE
+  - GHS_STRETCH
+  premise: Reuse previous manual Parallax/Prism workflow where possible

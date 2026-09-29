@@ -43,7 +43,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.11.0")
+    print("AstroSirilAssistant v0.14.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -264,7 +264,20 @@ def cmd_spcc_apply(args):
 
 
 def _denoise_cli_params(args):
+    if args.engine == "SYQON_PRISM":
+        return dict(
+            engine=args.engine,
+            model=args.prism_model,
+            tile_size=args.prism_tile,
+            overlap=args.prism_overlap,
+            pad=args.prism_pad,
+            modulation=args.modulation,
+            use_gpu=not args.no_gpu,
+            stretch_method=args.stretch_method,
+            stretch_target=args.stretch_target,
+        )
     return dict(
+        engine="SIRIL_NATIVE",
         modulation=args.modulation,
         cosmetic_correction=not args.no_cosmetic,
         da3d=args.da3d,
@@ -276,8 +289,10 @@ def cmd_denoise_preview(args):
     jpg, linear_preview, meta = preview_denoise(
         Path(args.project), cfg, **_denoise_cli_params(args)
     )
+    print(f"Engine: {meta['engine']}")
     print(f"JPEG: {jpg}")
     print(f"Linear preview: {linear_preview}")
+    print(f"Command: {meta['engine_command']}")
     return 0
 
 def cmd_denoise_apply(args):
@@ -288,19 +303,34 @@ def cmd_denoise_apply(args):
         Path(args.project), cfg, confirmed=True, **_denoise_cli_params(args)
     )
     print(f"Denoise 완료: {output}")
+    print(f"Engine: {payload['engine']}")
     return 0
 
 def cmd_denoise_skip(args):
-    project = skip_denoise(Path(args.project))
+    skip_denoise(Path(args.project))
     print("Denoise를 건너뛰었습니다.")
     return 0
 
-
 def _deblur_cli_params(args):
-    kernel = None if args.kernel_size is None else args.kernel_size
+    if args.engine == "SYQON_PARALLAX":
+        return dict(
+            engine=args.engine,
+            edition=args.edition,
+            correct=not args.no_correct,
+            star_level=args.star_level,
+            sharpen=args.sharpen,
+            tile=args.parallax_tile,
+            overlap=args.parallax_overlap,
+            pad=args.parallax_pad,
+            use_mtf=not args.no_mtf,
+            mtf_target=args.mtf_target,
+            linked=args.linked,
+            use_gpu=not args.no_gpu,
+        )
     return dict(
+        engine="SIRIL_RL",
         symmetric_psf=args.symmetric_psf,
-        kernel_size=kernel,
+        kernel_size=args.kernel_size,
         iterations=args.iterations,
         regularization=args.regularization,
         alpha=args.alpha,
@@ -312,25 +342,26 @@ def cmd_deblur_preview(args):
     jpg, linear_preview, meta = preview_deblur(
         Path(args.project), cfg, **_deblur_cli_params(args)
     )
+    print(f"Engine: {meta['engine']}")
     print(f"JPEG: {jpg}")
     print(f"Linear preview: {linear_preview}")
-    print(f"PSF: {meta.get('psf_file')}")
+    print(f"Command: {meta['engine_command']}")
     return 0
 
 def cmd_deblur_apply(args):
     if not args.yes:
-        raise PermissionError("실제 Deblur 적용에는 --yes 승인이 필요합니다.")
+        raise PermissionError("실제 Restoration 적용에는 --yes 승인이 필요합니다.")
     cfg = load_app_config()
     project, output, payload = apply_deblur(
         Path(args.project), cfg, confirmed=True, **_deblur_cli_params(args)
     )
-    print(f"Deblur 완료: {output}")
-    print(f"PSF: {payload.get('psf_file')}")
+    print(f"Restoration 완료: {output}")
+    print(f"Engine: {payload['engine']}")
     return 0
 
 def cmd_deblur_skip(args):
     skip_deblur(Path(args.project))
-    print("Deblur를 건너뛰었습니다.")
+    print("Restoration을 건너뛰었습니다.")
     return 0
 
 
@@ -354,6 +385,7 @@ def _ghs_cli_params(args):
         luminance_mode=args.luminance_mode,
         clip_mode=args.clip_mode,
     )
+
 
 def cmd_ghs_preview(args):
     cfg = load_app_config()
@@ -548,7 +580,7 @@ def cmd_final_preview(args):
     return 0
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.11.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.14.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -671,16 +703,28 @@ def build_parser():
 
     def add_denoise_args(p):
         p.add_argument("project")
+        p.add_argument("--engine", choices=["SYQON_PRISM", "SIRIL_NATIVE"], default="SYQON_PRISM")
         p.add_argument("--modulation", type=float, default=1.0)
+
+        # Prism
+        p.add_argument("--prism-model", choices=["mini", "deep"], default="mini")
+        p.add_argument("--prism-tile", type=int, default=512)
+        p.add_argument("--prism-overlap", type=int, default=96)
+        p.add_argument("--prism-pad", type=int, default=96)
+        p.add_argument("--stretch-method", choices=["statistical", "ihs"], default="statistical")
+        p.add_argument("--stretch-target", type=float, default=0.25)
+        p.add_argument("--no-gpu", action="store_true")
+
+        # Siril Native
         p.add_argument("--no-cosmetic", action="store_true")
         p.add_argument("--da3d", action="store_true")
         p.add_argument("--independent", action="store_true")
 
-    p = sub.add_parser("denoise-preview", help="Siril Denoise 미리보기")
+    p = sub.add_parser("denoise-preview", help="Prism/Siril Denoise 미리보기")
     add_denoise_args(p)
     p.set_defaults(func=cmd_denoise_preview)
 
-    p = sub.add_parser("denoise-apply", help="승인 후 Siril Denoise 실제 적용")
+    p = sub.add_parser("denoise-apply", help="승인 후 Prism/Siril Denoise 실제 적용")
     add_denoise_args(p)
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_denoise_apply)
@@ -689,9 +733,24 @@ def build_parser():
     p.add_argument("project")
     p.set_defaults(func=cmd_denoise_skip)
 
-
     def add_deblur_args(p):
         p.add_argument("project")
+        p.add_argument("--engine", choices=["SYQON_PARALLAX", "SIRIL_RL"], default="SYQON_PARALLAX")
+
+        # Parallax
+        p.add_argument("--edition", choices=["nano", "pro"], default="nano")
+        p.add_argument("--no-correct", action="store_true")
+        p.add_argument("--star-level", type=float, default=3.0)
+        p.add_argument("--sharpen", type=float, default=1.0)
+        p.add_argument("--parallax-tile", type=int, default=512)
+        p.add_argument("--parallax-overlap", type=int, default=64)
+        p.add_argument("--parallax-pad", type=int, default=96)
+        p.add_argument("--no-mtf", action="store_true")
+        p.add_argument("--mtf-target", type=float, default=0.25)
+        p.add_argument("--linked", action="store_true")
+        p.add_argument("--no-gpu", action="store_true")
+
+        # Siril RL
         p.add_argument("--symmetric-psf", action="store_true")
         p.add_argument("--kernel-size", type=int)
         p.add_argument("--iterations", type=int, default=10)
@@ -699,16 +758,16 @@ def build_parser():
         p.add_argument("--alpha", type=float, default=3000)
         p.add_argument("--multiplicative", action="store_true")
 
-    p = sub.add_parser("deblur-preview", help="PSF + Richardson-Lucy Deblur 미리보기")
+    p = sub.add_parser("deblur-preview", help="Parallax/Siril Restoration 미리보기")
     add_deblur_args(p)
     p.set_defaults(func=cmd_deblur_preview)
 
-    p = sub.add_parser("deblur-apply", help="승인 후 Richardson-Lucy Deblur 실제 적용")
+    p = sub.add_parser("deblur-apply", help="승인 후 Parallax/Siril Restoration 실제 적용")
     add_deblur_args(p)
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_deblur_apply)
 
-    p = sub.add_parser("deblur-skip", help="Deblur 단계 건너뛰기")
+    p = sub.add_parser("deblur-skip", help="Restoration 단계 건너뛰기")
     p.add_argument("project")
     p.set_defaults(func=cmd_deblur_skip)
 

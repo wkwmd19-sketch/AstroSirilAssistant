@@ -10,7 +10,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
-from .denoise import make_denoise_task
+from .deblur import make_deblur_task
 
 SPCC_LIST_TYPES = (
     "oscsensor", "monosensor", "redfilter", "greenfilter",
@@ -391,7 +391,7 @@ def apply_spcc(project_dir: Path, config: dict, confirmed: bool = False, **param
         "bgtol_upper": params.get("bgtol_upper"),
     }
 
-    p["next_task"] = make_denoise_task()
+    p["next_task"] = make_deblur_task()
     save_project(pdir, project)
 
     payload = {

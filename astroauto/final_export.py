@@ -24,7 +24,7 @@ def make_final_export_task() -> dict:
         },
         "cautions": [
             "PNG/TIFF는 현재 Non-linear 픽셀 결과를 그대로 저장합니다.",
-            "v0.13.0은 ICC/sRGB 프로파일 변환을 강제하지 않습니다.",
+            "v0.14.0은 ICC/sRGB 프로파일 변환을 강제하지 않습니다.",
             "최종 Export 전에 highlight clipping을 확인하세요.",
         ],
         "completion_criteria": [
@@ -69,7 +69,7 @@ def _current_recombined(project: dict) -> Path:
     if p.get("current_state") != "RECOMBINED":
         raise ValueError("Final / Export는 RECOMBINED 상태에서 시작합니다.")
     if p.get("image_state", {}).get("linearity") != "NONLINEAR":
-        raise ValueError("v0.13 Final / Export는 Non-linear 최종 이미지용입니다.")
+        raise ValueError("v0.14 Final / Export는 Non-linear 최종 이미지용입니다.")
 
     current = Path(p["current_file"])
     if not current.exists():
@@ -336,7 +336,7 @@ def apply_final_export(
             "fits_internal_precision": "32-bit float path via set32bits",
             "tiff": "16-bit per channel via savetif",
             "png": "16-bit per channel when source is 16/32-bit via savepng",
-            "icc_profile": "not force-set by v0.13.0",
+            "icc_profile": "not force-set by v0.14.0",
         },
     }
 

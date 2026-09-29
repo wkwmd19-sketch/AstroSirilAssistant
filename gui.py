@@ -8,6 +8,8 @@ import threading
 import time
 
 from astroauto.config import load_app_config
+from astroauto.ui_theme import apply_astro_theme, apply_screen_aware_geometry, style_text_widget, style_canvas
+from astroauto.syqon import detect_syqon
 from astroauto.project import create_project, load_project
 from astroauto.analyzer import analyze_project, confirm_linearity
 from astroauto.siril import get_siril_info
@@ -90,9 +92,10 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.13.1")
+        self.title("AstroSirilAssistant v0.14.0")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
+        self.palette = apply_astro_theme(self)
         self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
         self.help = HelpSystem(self)
         self.project_dir: Path | None = None
@@ -135,29 +138,72 @@ class App(tk.Tk):
         self.gradient_dither.trace_add("write", self._invalidate_gradient_preview)
 
         dd = self.ui_defaults.get("denoise", {})
-        self.denoise_modulation = tk.StringVar(value=str(dd.get("modulation", 1.0)))
-        self.denoise_cosmetic = tk.BooleanVar(value=bool(dd.get("cosmetic_correction", True)))
-        self.denoise_da3d = tk.BooleanVar(value=bool(dd.get("da3d", False)))
-        self.denoise_independent = tk.BooleanVar(value=bool(dd.get("independent_channels", False)))
+        dn = dd.get("native", {})
+        dp = dd.get("prism", {})
+        self.denoise_engine = tk.StringVar(value=dd.get("engine", "SYQON_PRISM"))
+
+        # SyQon Prism
+        self.prism_model = tk.StringVar(value=str(dp.get("model", "mini")))
+        self.prism_tile = tk.StringVar(value=str(dp.get("tile_size", 512)))
+        self.prism_overlap = tk.StringVar(value=str(dp.get("overlap", 96)))
+        self.prism_pad = tk.StringVar(value=str(dp.get("pad", 96)))
+        self.prism_modulation = tk.StringVar(value=str(dp.get("modulation", 1.0)))
+        self.prism_use_gpu = tk.BooleanVar(value=bool(dp.get("use_gpu", True)))
+        self.prism_stretch_method = tk.StringVar(value=str(dp.get("stretch_method", "statistical")))
+        self.prism_stretch_target = tk.StringVar(value=str(dp.get("stretch_target", 0.25)))
+
+        # Siril Native fallback
+        self.denoise_modulation = tk.StringVar(value=str(dn.get("modulation", 1.0)))
+        self.denoise_cosmetic = tk.BooleanVar(value=bool(dn.get("cosmetic_correction", True)))
+        self.denoise_da3d = tk.BooleanVar(value=bool(dn.get("da3d", False)))
+        self.denoise_independent = tk.BooleanVar(value=bool(dn.get("independent_channels", False)))
         self.denoise_preview_signature = None
+
         for var in (
+            self.denoise_engine,
+            self.prism_model, self.prism_tile, self.prism_overlap,
+            self.prism_pad, self.prism_modulation, self.prism_use_gpu,
+            self.prism_stretch_method, self.prism_stretch_target,
             self.denoise_modulation, self.denoise_cosmetic,
             self.denoise_da3d, self.denoise_independent,
         ):
             var.trace_add("write", self._invalidate_denoise_preview)
 
         bd = self.ui_defaults.get("deblur", {})
-        self.deblur_symmetric = tk.BooleanVar(value=bool(bd.get("symmetric_psf", False)))
+        bn = bd.get("native", {})
+        bp = bd.get("parallax", {})
+        self.deblur_engine = tk.StringVar(value=bd.get("engine", "SYQON_PARALLAX"))
+
+        # SyQon Parallax
+        self.parallax_edition = tk.StringVar(value=str(bp.get("edition", "nano")))
+        self.parallax_correct = tk.BooleanVar(value=bool(bp.get("correct", True)))
+        self.parallax_star_level = tk.StringVar(value=str(bp.get("star_level", 3.0)))
+        self.parallax_sharpen = tk.StringVar(value=str(bp.get("sharpen", 1.0)))
+        self.parallax_tile = tk.StringVar(value=str(bp.get("tile", 512)))
+        self.parallax_overlap = tk.StringVar(value=str(bp.get("overlap", 64)))
+        self.parallax_pad = tk.StringVar(value=str(bp.get("pad", 96)))
+        self.parallax_use_mtf = tk.BooleanVar(value=bool(bp.get("use_mtf", True)))
+        self.parallax_mtf_target = tk.StringVar(value=str(bp.get("mtf_target", 0.25)))
+        self.parallax_linked = tk.BooleanVar(value=bool(bp.get("linked", False)))
+        self.parallax_use_gpu = tk.BooleanVar(value=bool(bp.get("use_gpu", True)))
+
+        # Siril RL fallback
+        self.deblur_symmetric = tk.BooleanVar(value=bool(bn.get("symmetric_psf", False)))
         self.deblur_kernel = tk.StringVar(
-            value="" if bd.get("kernel_size") in (None, "") else str(bd.get("kernel_size"))
+            value="" if bn.get("kernel_size") in (None, "") else str(bn.get("kernel_size"))
         )
-        self.deblur_iterations = tk.StringVar(value=str(bd.get("iterations", 10)))
-        self.deblur_regularization = tk.StringVar(value=str(bd.get("regularization", "NONE")))
-        self.deblur_alpha = tk.StringVar(value=str(bd.get("alpha", 3000)))
-        self.deblur_multiplicative = tk.BooleanVar(value=bool(bd.get("multiplicative", False)))
+        self.deblur_iterations = tk.StringVar(value=str(bn.get("iterations", 10)))
+        self.deblur_regularization = tk.StringVar(value=str(bn.get("regularization", "NONE")))
+        self.deblur_alpha = tk.StringVar(value=str(bn.get("alpha", 3000)))
+        self.deblur_multiplicative = tk.BooleanVar(value=bool(bn.get("multiplicative", False)))
         self.deblur_preview_signature = None
 
         for var in (
+            self.deblur_engine,
+            self.parallax_edition, self.parallax_correct, self.parallax_star_level,
+            self.parallax_sharpen, self.parallax_tile, self.parallax_overlap,
+            self.parallax_pad, self.parallax_use_mtf, self.parallax_mtf_target,
+            self.parallax_linked, self.parallax_use_gpu,
             self.deblur_symmetric, self.deblur_kernel,
             self.deblur_iterations, self.deblur_regularization,
             self.deblur_alpha, self.deblur_multiplicative,
@@ -287,36 +333,17 @@ class App(tk.Tk):
         self._build()
 
     def _apply_screen_aware_geometry(self):
-        # Use the current monitor dimensions instead of a fixed 1050x820 window.
-        sw = max(800, int(self.winfo_screenwidth()))
-        sh = max(600, int(self.winfo_screenheight()))
-
-        width = min(1220, max(900, int(sw * 0.82)))
-        height = min(930, max(620, int(sh * 0.82)))
-
-        # Keep margins for Windows taskbar/titlebar and avoid creating a window
-        # larger than the actual screen.
-        width = min(width, max(760, sw - 70))
-        height = min(height, max(540, sh - 110))
-
-        x = max(10, (sw - width) // 2)
-        y = max(10, (sh - height) // 3)
-
-        self.geometry(f"{width}x{height}+{x}+{y}")
-        self.minsize(min(840, sw - 40), min(560, sh - 80))
+        apply_screen_aware_geometry(self)
 
     def _build(self):
         shell = ttk.Frame(self)
         shell.pack(fill="both", expand=True)
 
-        # Vertical PanedWindow:
-        # upper = scrollable workflow, lower = optional resizeable log panel.
         self.main_pane = ttk.Panedwindow(shell, orient=tk.VERTICAL)
         self.main_pane.pack(fill="both", expand=True)
 
         self.workspace_holder = ttk.Frame(self.main_pane)
         self.main_pane.add(self.workspace_holder, weight=5)
-
         self.workspace_holder.rowconfigure(0, weight=1)
         self.workspace_holder.columnconfigure(0, weight=1)
 
@@ -326,19 +353,18 @@ class App(tk.Tk):
             borderwidth=0,
             yscrollincrement=24,
         )
+        style_canvas(self.workspace_canvas, self.palette)
+
         self.workspace_scrollbar = ttk.Scrollbar(
             self.workspace_holder,
             orient="vertical",
             command=self.workspace_canvas.yview,
         )
-        self.workspace_canvas.configure(
-            yscrollcommand=self.workspace_scrollbar.set
-        )
-
+        self.workspace_canvas.configure(yscrollcommand=self.workspace_scrollbar.set)
         self.workspace_canvas.grid(row=0, column=0, sticky="nsew")
         self.workspace_scrollbar.grid(row=0, column=1, sticky="ns")
 
-        frm = ttk.Frame(self.workspace_canvas, padding=12)
+        frm = ttk.Frame(self.workspace_canvas, padding=16)
         self.workspace_inner = frm
         self.workspace_window_id = self.workspace_canvas.create_window(
             (0, 0), window=frm, anchor="nw"
@@ -347,66 +373,93 @@ class App(tk.Tk):
         frm.bind("<Configure>", self._on_workspace_inner_configure)
         self.workspace_canvas.bind("<Configure>", self._on_workspace_canvas_configure)
 
-        # Bind once, then scroll only when the pointer is actually inside the
-        # workflow area. This avoids repeated bind/unbind behavior and prevents
-        # unrelated widgets from losing their own mouse-wheel bindings.
         self.bind_all("<MouseWheel>", self._on_workspace_mousewheel, add="+")
         self.bind_all("<Button-4>", self._on_workspace_linux_wheel, add="+")
         self.bind_all("<Button-5>", self._on_workspace_linux_wheel, add="+")
 
-        ttk.Label(frm, text="원본/스택 FITS").grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Entry(frm, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew")
-        ttk.Button(frm, text="찾기", command=self.pick_input).grid(row=0, column=2, padx=5)
+        # Modern application header.
+        header = ttk.Frame(frm, style="Surface.TFrame", padding=(16, 13))
+        header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 12))
+        title_col = ttk.Frame(header, style="Surface.TFrame")
+        title_col.pack(side="left", fill="x", expand=True)
+        ttk.Label(
+            title_col, text="AstroSirilAssistant", style="Title.TLabel"
+        ).pack(anchor="w")
+        ttk.Label(
+            title_col,
+            text="Manual-inspired semi-auto processing · Siril 1.4.x · SyQon first / Native fallback",
+            style="Subtitle.TLabel",
+        ).pack(anchor="w", pady=(2,0))
+        ttk.Label(header, text="SINGLE IMAGE", style="Badge.TLabel").pack(side="right")
 
-        ttk.Label(frm, text="대상명").grid(row=1, column=0, sticky="w", pady=4)
-        ttk.Entry(frm, textvariable=self.target_var).grid(row=1, column=1, sticky="ew")
+        # Input / project card.
+        input_card = ttk.LabelFrame(frm, text="프로젝트 입력", style="Card.TLabelframe")
+        input_card.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0,10))
 
-        ttk.Label(frm, text="촬영일").grid(row=2, column=0, sticky="w", pady=4)
-        ttk.Entry(frm, textvariable=self.date_var).grid(row=2, column=1, sticky="ew")
+        ttk.Label(input_card, text="원본/스택 FITS").grid(row=0, column=0, sticky="w", pady=5)
+        ttk.Entry(input_card, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew", padx=(8,0))
+        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=0, column=2, padx=(8,0))
 
-        ttk.Label(frm, text="대상 종류").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(input_card, text="대상명").grid(row=1, column=0, sticky="w", pady=5)
+        ttk.Entry(input_card, textvariable=self.target_var).grid(row=1, column=1, sticky="ew", padx=(8,0))
+
+        ttk.Label(input_card, text="촬영일").grid(row=2, column=0, sticky="w", pady=5)
+        ttk.Entry(input_card, textvariable=self.date_var).grid(row=2, column=1, sticky="ew", padx=(8,0))
+
+        ttk.Label(input_card, text="대상 종류").grid(row=3, column=0, sticky="w", pady=5)
         combo = ttk.Combobox(
-            frm, textvariable=self.category_var, state="readonly",
+            input_card, textvariable=self.category_var, state="readonly",
             values=[x[0] for x in CATEGORIES]
         )
-        combo.grid(row=3, column=1, sticky="ew")
+        combo.grid(row=3, column=1, sticky="ew", padx=(8,0))
 
-        ttk.Label(frm, text="프로젝트 루트").grid(row=4, column=0, sticky="w", pady=4)
-        ttk.Entry(frm, textvariable=self.root_var).grid(row=4, column=1, sticky="ew")
-        ttk.Button(frm, text="폴더", command=self.pick_root).grid(row=4, column=2, padx=5)
+        ttk.Label(input_card, text="프로젝트 루트").grid(row=4, column=0, sticky="w", pady=5)
+        ttk.Entry(input_card, textvariable=self.root_var).grid(row=4, column=1, sticky="ew", padx=(8,0))
+        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=4, column=2, padx=(8,0))
+        input_card.columnconfigure(1, weight=1)
 
         btns = ttk.Frame(frm)
-        btns.grid(row=5, column=0, columnspan=3, sticky="ew", pady=10)
-        ttk.Button(btns, text="Siril 연결 확인", command=self.doctor).pack(side="left", padx=4)
-        ttk.Button(btns, text="프로젝트 생성 + 분석", command=self.create_and_analyze).pack(side="left", padx=4)
-        ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=4)
-
-        ui_help = ttk.Button(
+        btns.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        ttk.Button(btns, text="Siril 연결 확인", command=self.doctor).pack(side="left", padx=(0,6))
+        ttk.Button(
+            btns, text="프로젝트 생성 + 분석",
+            command=self.create_and_analyze, style="Accent.TButton"
+        ).pack(side="left", padx=6)
+        ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=6)
+        ttk.Button(
+            btns, text="SyQon 설치 확인", command=self.check_syqon_installation
+        ).pack(side="left", padx=6)
+        ttk.Button(
             btns,
             text="UI 도움말",
             command=lambda: self.help.show_detail("ui.dynamic"),
-        )
-        ui_help.pack(side="right", padx=4)
+        ).pack(side="right", padx=(6,0))
 
-        ttk.Label(frm, textvariable=self.status_var).grid(
-            row=6, column=0, columnspan=3, sticky="w"
-        )
+        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(12,8))
+        status_card.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        ttk.Label(
+            status_card, text="STATUS", style="Subtitle.TLabel"
+        ).pack(side="left")
+        ttk.Label(
+            status_card, textvariable=self.status_var, style="Subtitle.TLabel"
+        ).pack(side="left", padx=(10,0))
 
-        self.action_box = ttk.LabelFrame(frm, text="다음 작업")
+        self.action_box = ttk.LabelFrame(
+            frm, text="다음 작업", style="Card.TLabelframe"
+        )
         self.action_box.grid(
-            row=7, column=0, columnspan=3, sticky="ew", pady=(8, 4)
+            row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8)
         )
 
-        # Operation area remains visible in the scrollable workflow.
         op = ttk.Frame(frm)
-        op.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(5, 2))
+        op.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 4))
         ttk.Label(op, textvariable=self.operation_var).pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12, 8), fill="x", expand=True)
         ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
 
         log_toolbar = ttk.Frame(frm)
-        log_toolbar.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(3, 8))
+        log_toolbar.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 10))
         self.log_toggle_btn = ttk.Button(
             log_toolbar,
             text="▼ 상세 로그 보기",
@@ -421,16 +474,20 @@ class App(tk.Tk):
         self.copy_log_btn.pack(side="left", padx=(6,0))
         ttk.Label(
             log_toolbar,
-            text="로그를 열면 아래 Pane의 경계선을 드래그해 높이를 조절할 수 있습니다.",
+            text="로그 Pane 경계선을 드래그해 높이를 조절할 수 있습니다.",
+            style="Muted.TLabel",
         ).pack(side="left", padx=(12,0))
 
+        frm.columnconfigure(0, weight=0)
         frm.columnconfigure(1, weight=1)
+        frm.columnconfigure(2, weight=0)
         self.main_frame = frm
 
-        # Log panel exists from startup but is not inserted into PanedWindow
-        # until the user opens it.
-        self.log_frame = ttk.LabelFrame(self.main_pane, text="상세 로그")
+        self.log_frame = ttk.LabelFrame(
+            self.main_pane, text="상세 로그", style="Card.TLabelframe"
+        )
         self.output = tk.Text(self.log_frame, wrap="word", height=10)
+        style_text_widget(self.output, self.palette)
         self.output.pack(side="left", fill="both", expand=True)
         scrollbar = ttk.Scrollbar(self.log_frame, command=self.output.yview)
         scrollbar.pack(side="right", fill="y")
@@ -1322,6 +1379,34 @@ class App(tk.Tk):
 
         self.run_bg(work, operation="Plate Solve + SPCC 실제 적용", on_success=done)
 
+    def check_syqon_installation(self):
+        info = detect_syqon(self.cfg)
+        lines = [
+            "SyQon script 자동 감지 결과",
+            "",
+            f"Parallax: {info.get('parallax') or '미감지'}",
+            f"  CLI 자동호출: {'OK' if info.get('parallax_cli_ready') else '업데이트 필요/미감지'}",
+            f"Prism: {info.get('prism') or '미감지'}",
+            f"  CLI 자동호출: {'OK' if info.get('prism_cli_ready') else '업데이트 필요/미감지'}",
+        ]
+        if info.get("ready"):
+            lines += ["", "Parallax / Prism script가 모두 감지되었습니다."]
+            self.status_var.set("SyQon Parallax / Prism 감지 완료")
+            messagebox.showinfo("SyQon 설치 확인", "\n".join(lines))
+        else:
+            lines += [
+                "",
+                "미감지된 항목은 Siril의 Get Scripts에서 설치/업데이트하세요.",
+                "사용자 정의 script 위치라면 config/app.yaml의 syqon.script_roots에 경로를 추가할 수 있습니다.",
+                "SyQon을 사용하지 못하는 경우 각 단계에서 Siril Native 엔진을 선택할 수 있습니다.",
+            ]
+            self.status_var.set("SyQon 일부 미감지")
+            messagebox.showwarning("SyQon 설치 확인", "\n".join(lines))
+        self.write("\n" + "\n".join(lines) + "\n")
+
+    # ------------------------------------------------------------------
+    # Denoise / Prism
+    # ------------------------------------------------------------------
     def _build_denoise_controls(self):
         self._clear_actions()
 
@@ -1330,57 +1415,149 @@ class App(tk.Tk):
         title = ttk.Label(head, text="Noise Reduction / Denoise", font=("", 10, "bold"))
         title.pack(side="left")
         self.help.tooltip(title, "denoise.what")
-        ttk.Label(head, text="SPCC 완료 Linear 이미지의 노이즈 감소").pack(side="left", padx=(8,0))
+        ttk.Label(
+            head, text="Manual-inspired: Parallax 다음 Prism Mini"
+        ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
             head,
             "Noise Reduction / Denoise 도움말",
             [
-                "denoise.what",
-                "denoise.modulation",
-                "denoise.cosmetic",
-                "denoise.da3d",
-                "denoise.independent",
-                "denoise.preview",
-                "denoise.apply",
-                "denoise.skip",
+                "denoise.what", "denoise.engine", "denoise.prism",
+                "denoise.prism.modulation", "denoise.prism.geometry",
+                "denoise.prism.stretch", "denoise.native",
+                "denoise.preview", "denoise.apply", "denoise.skip",
             ],
         ).pack(side="right")
 
         body = ttk.Frame(self.action_box)
         body.pack(fill="x", padx=10, pady=(2,8))
 
-        def row_label(row, text, topic):
-            label = ttk.Label(body, text=text, width=20)
-            label.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
-            self.help.tooltip(label, topic)
-            return label
+        ttk.Label(body, text="Engine", width=22).grid(row=0, column=0, sticky="w", pady=4)
+        engine = ttk.Combobox(
+            body,
+            textvariable=self.denoise_engine,
+            values=["SYQON_PRISM", "SIRIL_NATIVE"],
+            state="readonly",
+            width=22,
+        )
+        engine.grid(row=0, column=1, sticky="w", pady=4)
+        engine.bind("<<ComboboxSelected>>", lambda e: self._refresh_denoise_ui())
 
-        row_label(0, "Modulation", "denoise.modulation")
-        ttk.Entry(body, textvariable=self.denoise_modulation, width=8).grid(row=0, column=1, sticky="w", pady=3)
+        self.prism_frame = ttk.LabelFrame(
+            body, text="SyQon Prism Mini", style="Card.TLabelframe"
+        )
+        self.prism_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6,5))
 
-        row_label(1, "Cosmetic Correction", "denoise.cosmetic")
-        ttk.Checkbutton(body, variable=self.denoise_cosmetic).grid(row=1, column=1, sticky="w", pady=3)
+        def p_label(row, text, topic):
+            w = ttk.Label(self.prism_frame, text=text, width=21)
+            w.grid(row=row, column=0, sticky="w", pady=3)
+            self.help.tooltip(w, topic)
 
-        row_label(2, "DA3D", "denoise.da3d")
-        ttk.Checkbutton(body, variable=self.denoise_da3d).grid(row=2, column=1, sticky="w", pady=3)
+        p_label(0, "Model", "denoise.prism")
+        ttk.Combobox(
+            self.prism_frame, textvariable=self.prism_model,
+            values=["mini", "deep"], state="readonly", width=12
+        ).grid(row=0, column=1, sticky="w", pady=3)
 
-        row_label(3, "Independent RGB", "denoise.independent")
-        ttk.Checkbutton(body, variable=self.denoise_independent).grid(row=3, column=1, sticky="w", pady=3)
+        p_label(1, "Modulation", "denoise.prism.modulation")
+        ttk.Entry(
+            self.prism_frame, textvariable=self.prism_modulation, width=10
+        ).grid(row=1, column=1, sticky="w", pady=3)
+
+        p_label(2, "Tile / Overlap / Pad", "denoise.prism.geometry")
+        geom = ttk.Frame(self.prism_frame)
+        geom.grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Entry(geom, textvariable=self.prism_tile, width=7).pack(side="left")
+        ttk.Entry(geom, textvariable=self.prism_overlap, width=7).pack(side="left", padx=5)
+        ttk.Entry(geom, textvariable=self.prism_pad, width=7).pack(side="left")
+
+        p_label(3, "Temporary Stretch", "denoise.prism.stretch")
+        stretch = ttk.Frame(self.prism_frame)
+        stretch.grid(row=3, column=1, sticky="w", pady=3)
+        ttk.Combobox(
+            stretch, textvariable=self.prism_stretch_method,
+            values=["statistical", "ihs"], state="readonly", width=12
+        ).pack(side="left")
+        ttk.Entry(stretch, textvariable=self.prism_stretch_target, width=8).pack(side="left", padx=5)
+
+        p_label(4, "GPU", "denoise.prism")
+        ttk.Checkbutton(
+            self.prism_frame, text="사용", variable=self.prism_use_gpu
+        ).grid(row=4, column=1, sticky="w", pady=3)
 
         ttk.Label(
-            body,
-            text="※ 이미 스택된 이미지이므로 VST는 기본 UI에서 제외했습니다.",
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(5,8))
+            self.prism_frame,
+            text="기본: Mini / 512 / 96 / 96 / Modulation 1.0 / Statistical 0.25",
+            style="Muted.TLabel",
+        ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(5,3))
+
+        self.native_denoise_frame = ttk.LabelFrame(
+            body, text="Siril Native Fallback", style="Card.TLabelframe"
+        )
+        self.native_denoise_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(6,5))
+
+        def n_label(row, text, topic):
+            w = ttk.Label(self.native_denoise_frame, text=text, width=21)
+            w.grid(row=row, column=0, sticky="w", pady=3)
+            self.help.tooltip(w, topic)
+
+        n_label(0, "Modulation", "denoise.native")
+        ttk.Entry(
+            self.native_denoise_frame, textvariable=self.denoise_modulation, width=8
+        ).grid(row=0, column=1, sticky="w", pady=3)
+        n_label(1, "Cosmetic Correction", "denoise.native")
+        ttk.Checkbutton(
+            self.native_denoise_frame, variable=self.denoise_cosmetic
+        ).grid(row=1, column=1, sticky="w", pady=3)
+        n_label(2, "DA3D", "denoise.native")
+        ttk.Checkbutton(
+            self.native_denoise_frame, variable=self.denoise_da3d
+        ).grid(row=2, column=1, sticky="w", pady=3)
+        n_label(3, "Independent RGB", "denoise.native")
+        ttk.Checkbutton(
+            self.native_denoise_frame, variable=self.denoise_independent
+        ).grid(row=3, column=1, sticky="w", pady=3)
 
         buttons = ttk.Frame(body)
-        buttons.grid(row=5, column=0, columnspan=2, sticky="w")
-        ttk.Button(buttons, text="Denoise 미리보기", command=self.denoise_preview).pack(side="left", padx=(0,6))
-        ttk.Button(buttons, text="승인 후 적용", command=self.denoise_apply).pack(side="left", padx=6)
-        ttk.Button(buttons, text="Denoise 건너뛰기", command=self.denoise_skip).pack(side="left", padx=6)
+        buttons.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8,0))
+        ttk.Button(
+            buttons, text="Denoise 미리보기", command=self.denoise_preview,
+            style="Accent.TButton"
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="승인 후 적용", command=self.denoise_apply,
+            style="Success.TButton"
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons, text="Denoise 건너뛰기", command=self.denoise_skip
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+        self._refresh_denoise_ui()
+
+    def _refresh_denoise_ui(self):
+        engine = self.denoise_engine.get().upper()
+        if not hasattr(self, "prism_frame"):
+            return
+        if engine == "SYQON_PRISM":
+            self.prism_frame.grid()
+            self.native_denoise_frame.grid_remove()
+        else:
+            self.native_denoise_frame.grid()
+            self.prism_frame.grid_remove()
 
     def _denoise_signature(self):
         return (
+            self.denoise_engine.get().strip().upper(),
+            self.prism_model.get().strip(),
+            self.prism_tile.get().strip(),
+            self.prism_overlap.get().strip(),
+            self.prism_pad.get().strip(),
+            self.prism_modulation.get().strip(),
+            bool(self.prism_use_gpu.get()),
+            self.prism_stretch_method.get().strip(),
+            self.prism_stretch_target.get().strip(),
             self.denoise_modulation.get().strip(),
             bool(self.denoise_cosmetic.get()),
             bool(self.denoise_da3d.get()),
@@ -1391,7 +1568,21 @@ class App(tk.Tk):
         self.denoise_preview_signature = None
 
     def _denoise_params(self):
+        engine = self.denoise_engine.get().strip().upper()
+        if engine == "SYQON_PRISM":
+            return {
+                "engine": engine,
+                "model": self.prism_model.get().strip().lower(),
+                "tile_size": int(self.prism_tile.get()),
+                "overlap": int(self.prism_overlap.get()),
+                "pad": int(self.prism_pad.get()),
+                "modulation": float(self.prism_modulation.get()),
+                "use_gpu": bool(self.prism_use_gpu.get()),
+                "stretch_method": self.prism_stretch_method.get().strip().lower(),
+                "stretch_target": float(self.prism_stretch_target.get()),
+            }
         return {
+            "engine": "SIRIL_NATIVE",
             "modulation": float(self.denoise_modulation.get()),
             "cosmetic_correction": bool(self.denoise_cosmetic.get()),
             "da3d": bool(self.denoise_da3d.get()),
@@ -1404,7 +1595,7 @@ class App(tk.Tk):
         try:
             params = self._denoise_params()
         except ValueError:
-            messagebox.showerror("오류", "Denoise Modulation 숫자 값을 확인하세요.")
+            messagebox.showerror("오류", "Denoise 숫자 값을 확인하세요.")
             return
 
         signature = self._denoise_signature()
@@ -1417,14 +1608,16 @@ class App(tk.Tk):
             self.denoise_preview_signature = signature
             self.write(
                 "\nDenoise 미리보기 완료\n"
+                f"Engine: {meta['engine']}\n"
                 f"표시용 JPEG: {jpg}\n"
-                f"Linear Denoise 미리보기 FITS: {linear_preview}\n"
-                f"명령: {meta['denoise_command']}\n"
+                f"Linear Preview FITS: {linear_preview}\n"
+                f"Script: {meta.get('script_path')}\n"
+                f"명령: {meta['engine_command']}\n"
             )
-            self.status_var.set("Denoise 미리보기 완료")
+            self.status_var.set(f"Denoise 미리보기 완료 · {meta['engine']}")
             self._open_preview(jpg)
 
-        self.run_bg(work, operation="Denoise 미리보기", on_success=done)
+        self.run_bg(work, operation="Noise Reduction 미리보기", on_success=done)
 
     def denoise_apply(self):
         if not self._require_project():
@@ -1432,7 +1625,7 @@ class App(tk.Tk):
         try:
             params = self._denoise_params()
         except ValueError:
-            messagebox.showerror("오류", "Denoise Modulation 숫자 값을 확인하세요.")
+            messagebox.showerror("오류", "Denoise 숫자 값을 확인하세요.")
             return
 
         if self.denoise_preview_signature != self._denoise_signature():
@@ -1444,11 +1637,9 @@ class App(tk.Tk):
 
         ok = messagebox.askyesno(
             "Denoise 실제 적용",
-            "미리보기와 동일한 설정으로 실제 Linear FITS에 Denoise를 적용합니다.\n\n"
-            f"Modulation: {params['modulation']}\n"
-            f"Cosmetic Correction: {params['cosmetic_correction']}\n"
-            f"DA3D: {params['da3d']}\n"
-            f"Independent RGB: {params['independent_channels']}\n\n"
+            "미리보기와 동일한 설정으로 Linear FITS에 Noise Reduction을 적용합니다.\n\n"
+            f"Engine: {params['engine']}\n"
+            f"Parameters: {params}\n\n"
             "진행할까요?"
         )
         if not ok:
@@ -1460,19 +1651,24 @@ class App(tk.Tk):
         def done(result):
             project, output, log = result
             self.denoise_preview_signature = None
-            self._show_project_task(project, f"Denoise 완료\n출력: {output}")
+            self._show_project_task(
+                project,
+                f"Denoise 완료\nEngine: {log.get('engine')}\n출력: {output}"
+            )
             self.status_var.set("Denoise 완료")
             next_task = project["project"].get("next_task", {})
-            self._show_apply_success("Denoise", output, next_task.get("title"))
+            self._show_apply_success(
+                f"Denoise · {log.get('engine')}", output, next_task.get("title")
+            )
 
-        self.run_bg(work, operation="Denoise 실제 적용", on_success=done)
+        self.run_bg(work, operation="Noise Reduction 실제 적용", on_success=done)
 
     def denoise_skip(self):
         if not self._require_project():
             return
         ok = messagebox.askyesno(
             "Denoise 건너뛰기",
-            "Siril Denoise를 적용하지 않고 다음 처리 준비로 이동할까요?"
+            "Noise Reduction을 적용하지 않고 다음 Linear 처리 단계로 이동할까요?"
         )
         if not ok:
             return
@@ -1483,64 +1679,134 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror("오류", str(e))
 
+    # ------------------------------------------------------------------
+    # Restoration / Parallax
+    # ------------------------------------------------------------------
     def _build_deblur_controls(self):
         self._clear_actions()
 
         head = ttk.Frame(self.action_box)
         head.pack(fill="x", padx=10, pady=(8,6))
-
-        title = ttk.Label(head, text="Deblur / Deconvolution", font=("", 10, "bold"))
+        title = ttk.Label(head, text="Restoration / Deblur", font=("", 10, "bold"))
         title.pack(side="left")
         self.help.tooltip(title, "deblur.what")
         ttk.Label(
-            head,
-            text="Detected Stars PSF + Richardson-Lucy",
+            head, text="Manual-inspired: SPCC 다음 SyQon Parallax Nano"
         ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
             head,
-            "Deblur / Deconvolution 도움말",
+            "Restoration / Deblur 도움말",
             [
-                "deblur.what",
-                "deblur.psf",
-                "deblur.symmetric",
-                "deblur.kernel",
-                "deblur.iterations",
-                "deblur.regularization",
-                "deblur.alpha",
-                "deblur.mul",
-                "deblur.preview",
-                "deblur.apply",
-                "deblur.skip",
+                "deblur.what", "deblur.engine", "deblur.parallax",
+                "deblur.parallax.star", "deblur.parallax.sharpen",
+                "deblur.parallax.geometry", "deblur.parallax.mtf",
+                "deblur.native", "deblur.preview", "deblur.apply", "deblur.skip",
             ],
         ).pack(side="right")
 
         body = ttk.Frame(self.action_box)
         body.pack(fill="x", padx=10, pady=(2,8))
 
-        def row_label(row, text, topic):
-            label = ttk.Label(body, text=text, width=21)
-            label.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
-            self.help.tooltip(label, topic)
-            return label
-
-        row_label(0, "PSF Source", "deblur.psf")
-        ttk.Label(body, text="Detected Stars (자동)").grid(row=0, column=1, sticky="w", pady=3)
-
-        row_label(1, "Symmetric PSF", "deblur.symmetric")
-        ttk.Checkbutton(body, variable=self.deblur_symmetric).grid(row=1, column=1, sticky="w", pady=3)
-
-        row_label(2, "PSF Kernel Size", "deblur.kernel")
-        kernel = ttk.Entry(body, textvariable=self.deblur_kernel, width=10)
-        kernel.grid(row=2, column=1, sticky="w", pady=3)
-        ttk.Label(body, text="비워두면 Siril 기본값").grid(row=2, column=2, sticky="w", padx=(8,0))
-
-        row_label(3, "RL Iterations", "deblur.iterations")
-        ttk.Entry(body, textvariable=self.deblur_iterations, width=10).grid(row=3, column=1, sticky="w", pady=3)
-
-        row_label(4, "Regularization", "deblur.regularization")
-        reg = ttk.Combobox(
+        ttk.Label(body, text="Engine", width=22).grid(row=0, column=0, sticky="w", pady=4)
+        engine = ttk.Combobox(
             body,
+            textvariable=self.deblur_engine,
+            values=["SYQON_PARALLAX", "SIRIL_RL"],
+            state="readonly",
+            width=22,
+        )
+        engine.grid(row=0, column=1, sticky="w", pady=4)
+        engine.bind("<<ComboboxSelected>>", lambda e: self._refresh_deblur_ui())
+
+        self.parallax_frame = ttk.LabelFrame(
+            body, text="SyQon Parallax Nano", style="Card.TLabelframe"
+        )
+        self.parallax_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6,5))
+
+        def p_label(row, text, topic):
+            w = ttk.Label(self.parallax_frame, text=text, width=21)
+            w.grid(row=row, column=0, sticky="w", pady=3)
+            self.help.tooltip(w, topic)
+
+        p_label(0, "Edition", "deblur.parallax")
+        ttk.Combobox(
+            self.parallax_frame, textvariable=self.parallax_edition,
+            values=["nano", "pro"], state="readonly", width=10
+        ).grid(row=0, column=1, sticky="w", pady=3)
+
+        p_label(1, "Aberration Correction", "deblur.parallax")
+        ttk.Checkbutton(
+            self.parallax_frame, variable=self.parallax_correct
+        ).grid(row=1, column=1, sticky="w", pady=3)
+
+        p_label(2, "Star Level", "deblur.parallax.star")
+        ttk.Entry(
+            self.parallax_frame, textvariable=self.parallax_star_level, width=10
+        ).grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Label(
+            self.parallax_frame, text="Nano: 0~5 / Pro: 0~7", style="Muted.TLabel"
+        ).grid(row=2, column=2, sticky="w", padx=(8,0))
+
+        p_label(3, "Sharpen", "deblur.parallax.sharpen")
+        ttk.Entry(
+            self.parallax_frame, textvariable=self.parallax_sharpen, width=10
+        ).grid(row=3, column=1, sticky="w", pady=3)
+
+        p_label(4, "Tile / Overlap / Pad", "deblur.parallax.geometry")
+        geom = ttk.Frame(self.parallax_frame)
+        geom.grid(row=4, column=1, sticky="w", pady=3)
+        ttk.Entry(geom, textvariable=self.parallax_tile, width=7).pack(side="left")
+        ttk.Entry(geom, textvariable=self.parallax_overlap, width=7).pack(side="left", padx=5)
+        ttk.Entry(geom, textvariable=self.parallax_pad, width=7).pack(side="left")
+
+        p_label(5, "Temporary MTF", "deblur.parallax.mtf")
+        mtf = ttk.Frame(self.parallax_frame)
+        mtf.grid(row=5, column=1, sticky="w", pady=3)
+        ttk.Checkbutton(mtf, text="사용", variable=self.parallax_use_mtf).pack(side="left")
+        ttk.Entry(mtf, textvariable=self.parallax_mtf_target, width=8).pack(side="left", padx=5)
+        ttk.Checkbutton(mtf, text="Linked", variable=self.parallax_linked).pack(side="left", padx=5)
+
+        p_label(6, "GPU", "deblur.parallax")
+        ttk.Checkbutton(
+            self.parallax_frame, text="사용", variable=self.parallax_use_gpu
+        ).grid(row=6, column=1, sticky="w", pady=3)
+
+        ttk.Label(
+            self.parallax_frame,
+            text="기본: Nano / Correction ON / Star 3 / Sharpen 1 / 512 / 64 / 96 / MTF 0.25",
+            style="Muted.TLabel",
+        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(5,3))
+
+        self.native_deblur_frame = ttk.LabelFrame(
+            body, text="Siril Richardson-Lucy Fallback", style="Card.TLabelframe"
+        )
+        self.native_deblur_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(6,5))
+
+        def n_label(row, text, topic):
+            w = ttk.Label(self.native_deblur_frame, text=text, width=21)
+            w.grid(row=row, column=0, sticky="w", pady=3)
+            self.help.tooltip(w, topic)
+
+        n_label(0, "PSF Source", "deblur.native")
+        ttk.Label(
+            self.native_deblur_frame, text="Detected Stars (자동)"
+        ).grid(row=0, column=1, sticky="w", pady=3)
+        n_label(1, "Symmetric PSF", "deblur.native")
+        ttk.Checkbutton(
+            self.native_deblur_frame, variable=self.deblur_symmetric
+        ).grid(row=1, column=1, sticky="w", pady=3)
+        n_label(2, "PSF Kernel Size", "deblur.native")
+        ttk.Entry(
+            self.native_deblur_frame, textvariable=self.deblur_kernel, width=10
+        ).grid(row=2, column=1, sticky="w", pady=3)
+        n_label(3, "RL Iterations", "deblur.native")
+        ttk.Entry(
+            self.native_deblur_frame, textvariable=self.deblur_iterations, width=10
+        ).grid(row=3, column=1, sticky="w", pady=3)
+        n_label(4, "Regularization", "deblur.native")
+        reg = ttk.Combobox(
+            self.native_deblur_frame,
             textvariable=self.deblur_regularization,
             values=["NONE", "TV", "FH"],
             state="readonly",
@@ -1548,47 +1814,65 @@ class App(tk.Tk):
         )
         reg.grid(row=4, column=1, sticky="w", pady=3)
         reg.bind("<<ComboboxSelected>>", lambda e: self._refresh_deblur_ui())
-
-        row_label(5, "Alpha", "deblur.alpha")
-        self.deblur_alpha_entry = ttk.Entry(body, textvariable=self.deblur_alpha, width=10)
+        n_label(5, "Alpha", "deblur.native")
+        self.deblur_alpha_entry = ttk.Entry(
+            self.native_deblur_frame, textvariable=self.deblur_alpha, width=10
+        )
         self.deblur_alpha_entry.grid(row=5, column=1, sticky="w", pady=3)
-
-        row_label(6, "Multiplicative RL", "deblur.mul")
-        ttk.Checkbutton(body, variable=self.deblur_multiplicative).grid(row=6, column=1, sticky="w", pady=3)
-
-        ttk.Label(
-            body,
-            text="※ 기본 시작값: 별 기반 PSF / 10 iterations / 정규화 없음",
-        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6,8))
+        n_label(6, "Multiplicative RL", "deblur.native")
+        ttk.Checkbutton(
+            self.native_deblur_frame, variable=self.deblur_multiplicative
+        ).grid(row=6, column=1, sticky="w", pady=3)
 
         buttons = ttk.Frame(body)
-        buttons.grid(row=8, column=0, columnspan=3, sticky="w")
+        buttons.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8,0))
         ttk.Button(
-            buttons, text="Deblur 미리보기", command=self.deblur_preview
+            buttons, text="Restoration 미리보기", command=self.deblur_preview,
+            style="Accent.TButton"
         ).pack(side="left", padx=(0,6))
         ttk.Button(
-            buttons, text="승인 후 적용", command=self.deblur_apply
+            buttons, text="승인 후 적용", command=self.deblur_apply,
+            style="Success.TButton"
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="Deblur 건너뛰기", command=self.deblur_skip
+            buttons, text="Restoration 건너뛰기", command=self.deblur_skip
         ).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
         self._refresh_deblur_ui()
 
     def _refresh_deblur_ui(self):
-        if not hasattr(self, "deblur_alpha_entry"):
+        if not hasattr(self, "parallax_frame"):
             return
-        try:
-            if self.deblur_regularization.get().upper() == "NONE":
-                self.deblur_alpha_entry.state(["disabled"])
-            else:
-                self.deblur_alpha_entry.state(["!disabled"])
-        except Exception:
-            pass
+        engine = self.deblur_engine.get().upper()
+        if engine == "SYQON_PARALLAX":
+            self.parallax_frame.grid()
+            self.native_deblur_frame.grid_remove()
+        else:
+            self.native_deblur_frame.grid()
+            self.parallax_frame.grid_remove()
+            try:
+                if self.deblur_regularization.get().upper() == "NONE":
+                    self.deblur_alpha_entry.state(["disabled"])
+                else:
+                    self.deblur_alpha_entry.state(["!disabled"])
+            except Exception:
+                pass
 
     def _deblur_signature(self):
         return (
+            self.deblur_engine.get().strip().upper(),
+            self.parallax_edition.get().strip(),
+            bool(self.parallax_correct.get()),
+            self.parallax_star_level.get().strip(),
+            self.parallax_sharpen.get().strip(),
+            self.parallax_tile.get().strip(),
+            self.parallax_overlap.get().strip(),
+            self.parallax_pad.get().strip(),
+            bool(self.parallax_use_mtf.get()),
+            self.parallax_mtf_target.get().strip(),
+            bool(self.parallax_linked.get()),
+            bool(self.parallax_use_gpu.get()),
             bool(self.deblur_symmetric.get()),
             self.deblur_kernel.get().strip(),
             self.deblur_iterations.get().strip(),
@@ -1601,9 +1885,27 @@ class App(tk.Tk):
         self.deblur_preview_signature = None
 
     def _deblur_params(self):
+        engine = self.deblur_engine.get().strip().upper()
+        if engine == "SYQON_PARALLAX":
+            return {
+                "engine": engine,
+                "edition": self.parallax_edition.get().strip().lower(),
+                "correct": bool(self.parallax_correct.get()),
+                "star_level": float(self.parallax_star_level.get()),
+                "sharpen": float(self.parallax_sharpen.get()),
+                "tile": int(self.parallax_tile.get()),
+                "overlap": int(self.parallax_overlap.get()),
+                "pad": int(self.parallax_pad.get()),
+                "use_mtf": bool(self.parallax_use_mtf.get()),
+                "mtf_target": float(self.parallax_mtf_target.get()),
+                "linked": bool(self.parallax_linked.get()),
+                "use_gpu": bool(self.parallax_use_gpu.get()),
+            }
+
         kernel_text = self.deblur_kernel.get().strip()
         kernel_size = None if not kernel_text else int(kernel_text)
         return {
+            "engine": "SIRIL_RL",
             "symmetric_psf": bool(self.deblur_symmetric.get()),
             "kernel_size": kernel_size,
             "iterations": int(self.deblur_iterations.get()),
@@ -1618,11 +1920,7 @@ class App(tk.Tk):
         try:
             params = self._deblur_params()
         except ValueError:
-            messagebox.showerror(
-                "오류",
-                "Deblur 숫자 값을 확인하세요.\n"
-                "Kernel Size는 비워두거나 홀수 정수, Iterations는 정수, Alpha는 숫자여야 합니다."
-            )
+            messagebox.showerror("오류", "Restoration 숫자 값을 확인하세요.")
             return
 
         signature = self._deblur_signature()
@@ -1634,19 +1932,20 @@ class App(tk.Tk):
             jpg, linear_preview, meta = result
             self.deblur_preview_signature = signature
             self.write(
-                "\nDeblur 미리보기 완료\n"
+                "\nRestoration 미리보기 완료\n"
+                f"Engine: {meta['engine']}\n"
                 f"표시용 JPEG: {jpg}\n"
-                f"Linear Deblur 미리보기 FITS: {linear_preview}\n"
+                f"Linear Preview FITS: {linear_preview}\n"
+                f"Script: {meta.get('script_path')}\n"
+                f"명령: {meta.get('engine_command')}\n"
                 f"PSF: {meta.get('psf_file')}\n"
-                f"PSF 명령: {meta['makepsf_command']}\n"
-                f"RL 명령: {meta['rl_command']}\n"
             )
-            self.status_var.set("Deblur 미리보기 완료")
+            self.status_var.set(f"Restoration 미리보기 완료 · {meta['engine']}")
             self._open_preview(jpg)
 
         self.run_bg(
             work,
-            operation="PSF 생성 + Richardson-Lucy 미리보기",
+            operation="Restoration / Deblur 미리보기",
             on_success=done,
         )
 
@@ -1656,27 +1955,21 @@ class App(tk.Tk):
         try:
             params = self._deblur_params()
         except ValueError:
-            messagebox.showerror("오류", "Deblur 숫자 값을 확인하세요.")
+            messagebox.showerror("오류", "Restoration 숫자 값을 확인하세요.")
             return
 
         if self.deblur_preview_signature != self._deblur_signature():
             messagebox.showwarning(
                 "미리보기 필요",
-                "현재 Deblur 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+                "현재 Restoration 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
             )
             return
 
-        kernel_label = params["kernel_size"] if params["kernel_size"] is not None else "Siril 기본값"
         ok = messagebox.askyesno(
-            "Deblur 실제 적용",
-            "미리보기와 동일한 설정으로 실제 Linear FITS에 Deblur를 적용합니다.\n\n"
-            f"PSF: Detected Stars\n"
-            f"Symmetric: {params['symmetric_psf']}\n"
-            f"Kernel: {kernel_label}\n"
-            f"Iterations: {params['iterations']}\n"
-            f"Regularization: {params['regularization']}\n"
-            f"Alpha: {params['alpha']}\n"
-            f"Multiplicative: {params['multiplicative']}\n\n"
+            "Restoration 실제 적용",
+            "미리보기와 동일한 설정으로 실제 Linear FITS에 Restoration을 적용합니다.\n\n"
+            f"Engine: {params['engine']}\n"
+            f"Parameters: {params}\n\n"
             "진행할까요?"
         )
         if not ok:
@@ -1692,19 +1985,19 @@ class App(tk.Tk):
             self.deblur_preview_signature = None
             self._show_project_task(
                 project,
-                f"Deblur 완료\n출력: {output}\nPSF: {log.get('psf_file')}"
+                f"Restoration 완료\nEngine: {log.get('engine')}\n출력: {output}"
             )
-            self.status_var.set("Deblur 완료")
+            self.status_var.set("Restoration 완료")
             next_task = project["project"].get("next_task", {})
             self._show_apply_success(
-                "Deblur / Deconvolution",
+                f"Restoration · {log.get('engine')}",
                 output,
                 next_task.get("title"),
             )
 
         self.run_bg(
             work,
-            operation="PSF 생성 + Richardson-Lucy 실제 적용",
+            operation="Restoration / Deblur 실제 적용",
             on_success=done,
         )
 
@@ -1712,15 +2005,15 @@ class App(tk.Tk):
         if not self._require_project():
             return
         ok = messagebox.askyesno(
-            "Deblur 건너뛰기",
-            "Siril Deconvolution을 적용하지 않고 GHS Stretch 준비로 이동할까요?"
+            "Restoration 건너뛰기",
+            "Parallax/Siril Restoration을 적용하지 않고 다음 Linear 처리 단계로 이동할까요?"
         )
         if not ok:
             return
         try:
             project = skip_deblur(self.project_dir)
-            self._show_project_task(project, "Deblur 건너뜀")
-            self.status_var.set("Deblur 건너뜀")
+            self._show_project_task(project, "Restoration 건너뜀")
+            self.status_var.set("Restoration 건너뜀")
         except Exception as e:
             messagebox.showerror("오류", str(e))
 
@@ -3528,7 +3821,7 @@ class App(tk.Tk):
 
         ttk.Label(
             body,
-            text="※ PNG/TIFF는 현재 픽셀 결과를 저장하며 v0.13.0은 ICC/sRGB 프로파일 변환을 강제하지 않습니다.",
+            text="※ PNG/TIFF는 현재 픽셀 결과를 저장하며 v0.14.0은 ICC/sRGB 프로파일 변환을 강제하지 않습니다.",
             wraplength=900,
         ).grid(row=9, column=0, columnspan=4, sticky="w", pady=(7,8))
 

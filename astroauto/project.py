@@ -20,8 +20,8 @@ PROJECT_DIRS = [
     "working/02_stacked",
     "working/03_gradient",
     "working/04_color",
-    "working/05_denoise",
-    "working/06_deblur",
+    "working/05_restore",
+    "working/06_denoise",
     "working/07_stretch",
     "working/08_starnet",
     "working/09_starless",
@@ -66,12 +66,14 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
         input_source_mode = "EXTERNAL_REFERENCE"
 
     project = {
-        "schema_version": "0.4.2",
+        "schema_version": "0.14.0",
         "project": {
             "id": pdir.name,
             "target_name": target_clean,
             "root_path": str(pdir),
             "processing_mode": "SEMI_AUTO",
+            "processing_preset": "MANUAL_INSPIRED_SYQON",
+            "linear_processing_order": ["GRADIENT", "SPCC", "DEBLUR", "DENOISE", "GHS"],
             "created_at": iso_now(),
 
             "target": {

@@ -52,16 +52,19 @@ class ToolTip:
         self.tip = tk.Toplevel(self.widget)
         self.tip.wm_overrideredirect(True)
         self.tip.wm_geometry(f"+{x}+{y}")
+        palette = getattr(self.widget.winfo_toplevel(), "_astro_palette", {})
         label = tk.Label(
             self.tip,
             text=self.text,
             justify="left",
             relief="solid",
             borderwidth=1,
-            padx=8,
-            pady=6,
+            padx=9,
+            pady=7,
             wraplength=430,
-            background="#ffffe8",
+            background=palette.get("card_alt", "#1E293B"),
+            foreground=palette.get("text", "#E5ECF6"),
+            highlightbackground=palette.get("border", "#2A3A52"),
         )
         label.pack()
 
@@ -106,7 +109,20 @@ class HelpSystem:
 
         text_frame = ttk.Frame(frame)
         text_frame.pack(fill="both", expand=True)
-        self._detail_text = tk.Text(text_frame, wrap="word", padx=8, pady=8)
+        palette = getattr(self.root, "_astro_palette", {})
+        self._detail_text = tk.Text(
+            text_frame,
+            wrap="word",
+            padx=10,
+            pady=10,
+            background=palette.get("input_bg", "#0F1A2B"),
+            foreground=palette.get("text", "#E5ECF6"),
+            insertbackground=palette.get("text", "#E5ECF6"),
+            selectbackground=palette.get("select_bg", "#244463"),
+            selectforeground=palette.get("text", "#E5ECF6"),
+            relief="flat",
+            borderwidth=0,
+        )
         scroll = ttk.Scrollbar(text_frame, command=self._detail_text.yview)
         self._detail_text.configure(yscrollcommand=scroll.set)
         self._detail_text.pack(side="left", fill="both", expand=True)

@@ -1,41 +1,58 @@
-schema_version: "0.5.0"
-
+schema_version: 0.14.0
 gradient:
   samples: 20
   tolerance: 1.0
   smooth: 0.5
   dither: false
-
 spcc:
-  camera_mode: "OSC"
-  sensor: "Sony IMX678"
-  osc_filter: "DWARF Mini Astro"
-  osc_lpf: ""
-  white_reference: "Average Spiral Galaxy"
-  catalog: "AUTO"
+  camera_mode: OSC
+  sensor: Sony IMX678
+  osc_filter: DWARF Mini Astro
+  osc_lpf: ''
+  white_reference: Average Spiral Galaxy
+  catalog: AUTO
   bgtol_lower: -2.8
   bgtol_upper: 2.0
-
-
 denoise:
-  modulation: 1.0
-  cosmetic_correction: true
-  da3d: false
-  independent_channels: false
-
-
+  engine: SYQON_PRISM
+  prism:
+    model: mini
+    tile_size: 512
+    overlap: 96
+    pad: 96
+    modulation: 1.0
+    use_gpu: true
+    stretch_method: statistical
+    stretch_target: 0.25
+  native:
+    modulation: 1.0
+    cosmetic_correction: true
+    da3d: false
+    independent_channels: false
 deblur:
-  psf_source: "STARS"
-  symmetric_psf: false
-  kernel_size: null
-  iterations: 10
-  regularization: "NONE"
-  alpha: 3000
-  multiplicative: false
-
-
+  engine: SYQON_PARALLAX
+  parallax:
+    edition: nano
+    correct: true
+    star_level: 3.0
+    sharpen: 1.0
+    tile: 512
+    overlap: 64
+    pad: 96
+    use_mtf: true
+    mtf_target: 0.25
+    linked: false
+    use_gpu: true
+  native:
+    psf_source: STARS
+    symmetric_psf: false
+    kernel_size: null
+    iterations: 10
+    regularization: NONE
+    alpha: 3000
+    multiplicative: false
 ghs:
-  method: "AUTO_GHS"
+  method: AUTO_GHS
   auto:
     linked: true
     shadows_clip: -2.8
@@ -43,50 +60,40 @@ ghs:
     b: 13.0
     lp: 0.0
     hp: 0.7
-    clip_mode: "rgbblend"
+    clip_mode: rgbblend
   manual:
     d: 1.0
     b: 0.0
     lp: 0.0
     sp: 0.0
     hp: 1.0
-    luminance_mode: "HUMAN"
-    clip_mode: "rgbblend"
-
-
+    luminance_mode: HUMAN
+    clip_mode: rgbblend
 starnet:
-  engine: "PY_SCRIPT"
-  stride_preset: "STANDARD"
+  engine: PY_SCRIPT
+  stride_preset: STANDARD
   stride: 256
   upsample: false
   protect_highlights: true
-  star_layer: "SUBTRACT"
+  star_layer: SUBTRACT
   save_native_starmask: false
-
-
 starless_processing:
   clahe_enabled: true
   clahe_clip_limit: 1.5
   clahe_tile_size: 12
   saturation_enabled: true
-  saturation_amount: 0.10
-  saturation_background_factor: 1.10
+  saturation_amount: 0.1
+  saturation_background_factor: 1.1
   saturation_hue_range: 6
-
-
 stars_processing:
-  brightness_scale: 0.70
+  brightness_scale: 0.7
   saturation_enabled: true
   saturation_amount: 0.08
   saturation_background_factor: 0.0
   saturation_hue_range: 6
-
-
 recombine:
   star_weight: 1.0
   rescale_output: false
-
-
 final_export:
   export_fits: true
   export_tiff16: true
@@ -94,3 +101,11 @@ final_export:
   tiff_deflate: true
   fits_checksum: true
   preview_jpeg_quality: 95
+workflow:
+  processing_preset: MANUAL_INSPIRED_SYQON
+  linear_order:
+  - GRADIENT
+  - SPCC
+  - DEBLUR
+  - DENOISE
+  - GHS
