@@ -1,42 +1,11 @@
-schema_version: '0.2'
 profile:
-  id: GALAXY
-  display_name: Galaxy
-  applies_to:
-    categories:
-    - GALAXY
+  id: "GALAXY"
+  display_name: "은하"
+  default_next_after_linear_analysis: "GRADIENT_CORRECTION"
   priorities:
-    preserve_highlights: HIGH
-    preserve_faint_structure: HIGH
-    preserve_star_color: MEDIUM
-    color_accuracy: HIGH
-  default_pipeline:
-  - GRADIENT_CORRECTION
-  - COLOR_CALIBRATION
-  - DEBLUR
-  - DENOISE
-  - GHS_STRETCH
-  - STARNET
-  - STARLESS_PROCESS
-  - STARS_PROCESS
-  - PIXELMATH_RECOMBINE
-  - FINAL_CURVES
-  stretch:
-    default_strength_class: MEDIUM
-    adaptive: true
-    require_preview: true
-  starnet:
-    default_enabled: true
-    decision: PROFILE_PLUS_IMAGE_ANALYSIS
-  special_rules:
-    bright_core:
-      highlight_protection: HIGH
-      avoid_core_clipping: true
-    low_surface_brightness:
-      faint_signal_priority: VERY_HIGH
-    recombine_star_weight:
-      default: 0.65
-      adaptive: true
-      range:
-      - 0.3
-      - 1.0
+    preserve_highlights: "HIGH"
+    preserve_faint_structure: "HIGH"
+    color_accuracy: "HIGH"
+  notes:
+    - "밝은 핵과 희미한 외곽 구조의 균형을 우선"
+    - "초기 Stretch에서 핵 clipping을 방지"

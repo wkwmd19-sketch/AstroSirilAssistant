@@ -1,34 +1,7 @@
-schema_version: '0.2'
 profile:
-  id: SUPERNOVA_REMNANT
-  display_name: Supernova Remnant
-  applies_to:
-    categories:
-    - SUPERNOVA_REMNANT
+  id: "SUPERNOVA_REMNANT"
+  display_name: "초신성잔해"
+  default_next_after_linear_analysis: "GRADIENT_CORRECTION"
   priorities:
-    preserve_highlights: MEDIUM
-    preserve_faint_structure: VERY_HIGH
-    preserve_star_color: MEDIUM
-    color_accuracy: HIGH
-  default_pipeline:
-  - GRADIENT_CORRECTION
-  - COLOR_CALIBRATION
-  - DEBLUR
-  - DENOISE
-  - GHS_STRETCH
-  - STARNET
-  - STARLESS_PROCESS
-  - STARS_PROCESS
-  - PIXELMATH_RECOMBINE
-  - FINAL_CURVES
-  stretch:
-    default_strength_class: MEDIUM
-    adaptive: true
-    require_preview: true
-  starnet:
-    default_enabled: true
-    decision: PROFILE_PLUS_IMAGE_ANALYSIS
-  special_rules:
-    filament_preservation: VERY_HIGH
-    avoid_over_smoothing: true
-    starless_detail_priority: HIGH
+    filament_preservation: "VERY_HIGH"
+    preserve_faint_structure: "VERY_HIGH"

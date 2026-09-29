@@ -1,0 +1,19 @@
+app:
+  version: "0.3.0"
+  project_root: 'D:\AstroProjects_Auto'
+  copy_input_into_project: true
+
+siril:
+  minimum_supported: "1.4.0"
+  preferred_stable: "1.4.4"
+  executable: null
+  candidate_paths:
+    - 'C:\Program Files\SiriL\bin\siril-cli.exe'
+    - 'C:\Program Files\Siril\bin\siril-cli.exe'
+    - 'C:\Program Files\SiriL\siril-cli.exe'
+  command_timeout_sec: 180
+
+analysis:
+  max_samples_per_channel: 1500000
+  histogram_bins: 2048
+  clip_fraction: 0.0001

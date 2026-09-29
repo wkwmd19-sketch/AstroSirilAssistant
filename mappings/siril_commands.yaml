@@ -1,128 +1,43 @@
-schema_version: "0.2"
+schema_version: "0.3"
 
 command_mapping:
-  target_siril: "1.5.x"
-
   ANALYZE_INPUT:
-    executor: "SIRIL_NATIVE"
-    command: 'jsonmetadata "{input_file}" -stats_from_loaded -out="{metadata_json}"'
-    verified_family: "1.5.x"
-    notes:
-      - "현재 파일의 메타데이터와 통계를 JSON으로 확보하는 기본 경로"
+    executor: "SIRIL_CLI"
+    command_family: "jsonmetadata"
+    stable_supported_from: "1.4.0"
 
   LOAD_IMAGE:
-    executor: "SIRIL_NATIVE"
-    command: 'load "{input_file}"'
+    executor: "SIRIL_CLI"
+    command_family: "load"
 
-  SAVE_FITS:
-    executor: "SIRIL_NATIVE"
-    pre_commands:
+  SAVE_FITS_FLOAT32:
+    executor: "SIRIL_CLI"
+    commands:
       - "set32bits"
-    command: 'save "{output_stem}"'
-    notes:
-      - "Siril FITS 확장자 설정에 따라 .fit/.fits가 붙을 수 있으므로 런타임에서 실제 출력 경로를 확인"
-
-  EXPORT_TIFF16:
-    executor: "SIRIL_NATIVE"
-    command: 'savetif "{output_stem}"'
-
-  EXPORT_PNG16:
-    executor: "SIRIL_NATIVE"
-    command: 'savepng "{output_stem}"'
+      - "save"
 
   GRADIENT_CORRECTION:
-    executor: "SIRIL_NATIVE"
-    command_template: 'subsky -rbf -samples={samples} -tolerance={tolerance} -smooth={smooth} -mode=subtract'
-    adaptive_parameters:
-      samples: true
-      tolerance: true
-      smooth: true
-    notes:
-      - "성운/은하 외곽이 배경 모델에 들어가지 않도록 프로파일별 보호 정책 적용"
+    executor: "SIRIL_CLI"
+    command_family: "subsky"
+    implementation_status: "PLANNED_V0.4"
 
-  GRADIENT_CORRECTION_AUTO:
-    executor: "SIRIL_NATIVE"
-    command_template: 'subsky -auto -mode=subtract'
-    enabled_if:
-      siril_min_version: "1.5.0"
-    notes:
-      - "v0.2에서는 기본값으로 강제하지 않고 RBF와 비교 가능한 선택지로 둠"
+  SPCC:
+    executor: "SIRIL_CLI"
+    command_family: "spcc"
+    implementation_status: "PLANNED_V0.4"
 
-  COLOR_CALIBRATION_SPCC:
-    executor: "SIRIL_NATIVE"
-    command_template: 'spcc {sensor_args} {filter_args} "-whiteref={white_reference}" {optional_args}'
-    default_white_reference: "Average Spiral Galaxy"
-    runtime_requirements:
-      - "plate_solved_or_solvable"
-      - "sensor_and_filter_mapping_valid"
-
-  REGISTER_DEEPSKY:
-    executor: "SIRIL_NATIVE"
-    command_template: 'register "{sequence_name}" -2pass -prefix="{prefix}"'
-    notes:
-      - "딥스카이 별 기반 정렬용"
-
-  STACK_DEEPSKY:
-    executor: "SIRIL_NATIVE"
-    command_template: 'stack "{sequence_name}" rej {rejection_type} {sigma_low} {sigma_high} -norm={normalization} -weight={weight} -out="{output_stem}" -32b'
-    adaptive_parameters:
-      rejection_type: true
-      sigma_low: true
-      sigma_high: true
-      normalization: true
-      weight: true
-
-  GHS_STRETCH:
-    executor: "SIRIL_NATIVE"
-    command_template: 'ght -D={D} -B={B} -LP={LP} -SP={SP} -HP={HP} -clipmode={clipmode} {luminance_flag}'
-    parameter_map:
-      luminance_flag:
-        human: "-human"
-        even: "-even"
-        independent: "-independent"
-        saturation: "-sat"
-    guard:
-      require_linear: true
-      require_not_stretched: true
-      require_user_preview: true
-
-  SATURATION:
-    executor: "SIRIL_NATIVE"
-    command_template: 'satu {amount} {background_factor} {hue_range_index}'
+  GHS:
+    executor: "SIRIL_CLI"
+    command_family: "ght"
+    implementation_status: "PLANNED_V0.4"
 
   STARNET:
     executor: "SIRIL_PYTHON_SCRIPT"
-    command: 'pyscript StarNet.py'
-    runtime_requirements:
-      - "StarNet.py installed in Siril scripts"
-      - "StarNet executable/model configured as required by installed script"
-    parameter_binding: "RUNTIME_SCRIPT_ADAPTER"
-    notes:
-      - "Siril 1.5 계열에서는 구형 built-in starnet 명령 대신 Python StarNet 스크립트 경로를 사용"
-      - "GUI/스크립트 버전에 따른 옵션 차이는 런타임 adapter가 흡수"
-
-  SYQON_PARALLAX:
-    executor: "SIRIL_PYTHON_SCRIPT_EXTERNAL"
-    command_template: 'pyscript "{resolved_parallax_script}"'
-    parameter_binding: "RUNTIME_SCRIPT_ADAPTER"
-    on_missing: "ASK_USER_OR_SKIP"
-
-  SYQON_PRISM:
-    executor: "SIRIL_PYTHON_SCRIPT_EXTERNAL"
-    command_template: 'pyscript "{resolved_prism_script}"'
-    parameter_binding: "RUNTIME_SCRIPT_ADAPTER"
-    on_missing: "ASK_USER_OR_SKIP"
+    command_family: "pyscript"
+    runtime_adapter_required: true
+    implementation_status: "PLANNED"
 
   PIXELMATH_RECOMBINE:
-    executor: "SIRIL_NATIVE"
-    command_template: 'pm "$${starless_stem}$$ + $${stars_stem}$$ * {star_weight}" -nosum'
-    notes:
-      - "adapter는 $${name}$$ 토큰을 Siril Pixel Math의 $filename$ 형태로 변환"
-      - "재합성 결과에 다시 별을 중복 적용하지 않도록 RECOMBINED guard 사용"
-
-  FINAL_SAVE:
-    executor: "COMPOSITE"
-    steps:
-      - "SAVE_FITS"
-      - "EXPORT_TIFF16"
-      - "EXPORT_PNG16"
+    executor: "SIRIL_CLI"
+    command_family: "pm"
+    implementation_status: "PLANNED"

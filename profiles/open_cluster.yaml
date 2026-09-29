@@ -1,29 +1,9 @@
-schema_version: '0.2'
 profile:
-  id: OPEN_CLUSTER
-  display_name: Open Cluster
-  applies_to:
-    categories:
-    - OPEN_CLUSTER
+  id: "OPEN_CLUSTER"
+  display_name: "산개성단"
+  default_next_after_linear_analysis: "GRADIENT_CORRECTION"
   priorities:
-    preserve_highlights: VERY_HIGH
-    preserve_faint_structure: LOW
-    preserve_star_color: VERY_HIGH
-    color_accuracy: VERY_HIGH
-  default_pipeline:
-  - GRADIENT_CORRECTION
-  - COLOR_CALIBRATION
-  - DENOISE
-  - GHS_STRETCH
-  - FINAL_CURVES
-  stretch:
-    default_strength_class: LOW
-    adaptive: true
-    require_preview: true
-  starnet:
-    default_enabled: false
-    decision: PROFILE_PLUS_IMAGE_ANALYSIS
-  special_rules:
-    star_shape_priority: VERY_HIGH
-    star_color_priority: VERY_HIGH
-    avoid_star_reduction_by_default: true
+    star_color: "VERY_HIGH"
+    star_shape: "VERY_HIGH"
+  notes:
+    - "StarNet을 기본 작업으로 강제하지 않음"

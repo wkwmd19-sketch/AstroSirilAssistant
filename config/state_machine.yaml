@@ -1,107 +1,32 @@
-schema_version: "0.2"
-
-state_machine:
-  initial: "PROJECT_CREATED"
-
-  states:
-    PROJECT_CREATED:
-      allowed_next: ["INPUT_IMPORTED"]
-
-    INPUT_IMPORTED:
-      allowed_next: ["INPUT_ANALYZED"]
-
-    INPUT_ANALYZED:
-      allowed_next:
-        - "CAPTURE_TYPE_DETECTED"
-        - "STACKED_LINEAR"
-        - "GRADIENT_CORRECTED"
-
-    CAPTURE_TYPE_DETECTED:
-      allowed_next:
-        - "CALIBRATED"
-        - "REGISTERED"
-        - "STACKED_LINEAR"
-
-    CALIBRATED:
-      allowed_next: ["REGISTERED"]
-
-    REGISTERED:
-      allowed_next: ["STACKED_LINEAR"]
-
-    STACKED_LINEAR:
-      allowed_next:
-        - "GRADIENT_CORRECTED"
-        - "COLOR_CALIBRATED"
-        - "DENOISED"
-        - "DEBLURRED"
-
-    GRADIENT_CORRECTED:
-      allowed_next:
-        - "COLOR_CALIBRATED"
-        - "DENOISED"
-        - "DEBLURRED"
-
-    COLOR_CALIBRATED:
-      allowed_next:
-        - "DENOISED"
-        - "DEBLURRED"
-        - "STRETCHED"
-
-    DENOISED:
-      allowed_next:
-        - "DEBLURRED"
-        - "STRETCHED"
-
-    DEBLURRED:
-      allowed_next:
-        - "DENOISED"
-        - "STRETCHED"
-
-    STRETCHED:
-      allowed_next:
-        - "STARS_SEPARATED"
-        - "FINALIZED"
-
-    STARS_SEPARATED:
-      allowed_next:
-        - "STARLESS_PROCESSED"
-        - "STARS_PROCESSED"
-
-    STARLESS_PROCESSED:
-      allowed_next:
-        - "STARS_PROCESSED"
-        - "RECOMBINED"
-
-    STARS_PROCESSED:
-      allowed_next:
-        - "STARLESS_PROCESSED"
-        - "RECOMBINED"
-
-    RECOMBINED:
-      allowed_next: ["FINALIZED"]
-
-    FINALIZED:
-      allowed_next: ["EXPORTED"]
-
-    EXPORTED:
-      allowed_next: []
-
-  guards:
-    GHS_STRETCH:
-      require:
-        image_state.linear: true
-        image_state.stretched: false
-
-    STARNET_NONLINEAR:
-      require:
-        image_state.stretched: true
-
-    PIXELMATH_RECOMBINE:
-      require_files:
-        - "starless"
-        - "stars"
-
-  rollback:
-    enabled: true
-    restore_previous_file: true
-    state_history_required: true
+schema_version: "0.3"
+states:
+  PROJECT_CREATED:
+    allowed_next: ["INPUT_IMPORTED"]
+  INPUT_IMPORTED:
+    allowed_next: ["INPUT_ANALYZED"]
+  INPUT_ANALYZED:
+    allowed_next: ["CAPTURE_TYPE_DETECTED", "GRADIENT_CORRECTED", "REVIEW_REQUIRED"]
+  REVIEW_REQUIRED:
+    allowed_next: ["INPUT_ANALYZED", "GRADIENT_CORRECTED"]
+  GRADIENT_CORRECTED:
+    allowed_next: ["COLOR_CALIBRATED"]
+  COLOR_CALIBRATED:
+    allowed_next: ["DENOISED", "DEBLURRED", "STRETCHED"]
+  DENOISED:
+    allowed_next: ["DEBLURRED", "STRETCHED"]
+  DEBLURRED:
+    allowed_next: ["DENOISED", "STRETCHED"]
+  STRETCHED:
+    allowed_next: ["STARS_SEPARATED", "FINALIZED"]
+  STARS_SEPARATED:
+    allowed_next: ["STARLESS_PROCESSED", "STARS_PROCESSED"]
+  STARLESS_PROCESSED:
+    allowed_next: ["STARS_PROCESSED", "RECOMBINED"]
+  STARS_PROCESSED:
+    allowed_next: ["STARLESS_PROCESSED", "RECOMBINED"]
+  RECOMBINED:
+    allowed_next: ["FINALIZED"]
+  FINALIZED:
+    allowed_next: ["EXPORTED"]
+  EXPORTED:
+    allowed_next: []

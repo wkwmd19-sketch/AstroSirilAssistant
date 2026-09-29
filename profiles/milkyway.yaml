@@ -1,59 +1,15 @@
-schema_version: "0.2"
-
 profile:
   id: "MILKYWAY"
-  display_name: "Milky Way"
-
+  display_name: "은하수"
   variants:
     MILKYWAY_SKY:
-      description: "지상 풍경이 없는 은하수 또는 별하늘"
-      preferred_stack_engine: "SIRIL"
-      sequator_required: false
-      pipeline:
-        - "CALIBRATION"
-        - "REGISTRATION_SKY"
-        - "STACK"
-        - "GRADIENT_CORRECTION"
-        - "COLOR_CALIBRATION"
-        - "DENOISE"
-        - "GHS_STRETCH"
-        - "OPTIONAL_STARNET"
-        - "FINALIZE"
-
+      description: "지상 없는 별하늘/은하수"
+      stack_policy: "SIRIL"
     MILKYWAY_LANDSCAPE_FIXED:
-      description: "고정 삼각대 + 지상 + 은하수"
-      detection:
-        expected_sky_motion: "HIGH"
-        expected_ground_motion: "LOW"
-      v0_2_policy:
-        stack_strategy: "EXTERNAL_OR_DUAL_PATH"
-        sequator_allowed: true
-        siril_postprocess: true
-      future_policy:
-        sky_stack: "STAR_BASED"
-        ground_stack: "GROUND_BASED"
-        composite: true
-
+      description: "고정 삼각대 + 지상"
+      detection: "GROUND_LOW_MOTION_SKY_HIGH_MOTION"
+      v0_3_status: "SPEC_ONLY"
     MILKYWAY_LANDSCAPE_TRACKED:
-      description: "적도의/별추적기 + 지상 + 은하수"
-      detection:
-        expected_sky_motion: "LOW"
-        expected_ground_motion: "HIGH"
-      v0_2_policy:
-        sky_stack: "STAR_BASED"
-        ground_stack: "SEPARATE_GROUND_OR_UNTRACKED_FRAME"
-        composite: true
-
-  motion_analysis:
-    enabled: true
-    sample_strategy: "FIRST_MIDDLE_LAST"
-    minimum_frames: 3
-    metrics:
-      - "sky_motion_px"
-      - "ground_motion_px"
-      - "sky_motion_normalized"
-      - "ground_motion_normalized"
-    ambiguous_action: "ASK_USER"
-    show_reason_summary: true
-    show_confidence: true
-    allow_user_override: true
+      description: "별추적기/적도의 + 지상"
+      detection: "SKY_LOW_MOTION_GROUND_HIGH_MOTION"
+      v0_3_status: "SPEC_ONLY"

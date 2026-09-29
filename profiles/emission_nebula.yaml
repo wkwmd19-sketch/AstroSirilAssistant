@@ -1,38 +1,9 @@
-schema_version: '0.2'
 profile:
-  id: EMISSION_NEBULA
-  display_name: Emission Nebula
-  applies_to:
-    categories:
-    - EMISSION_NEBULA
+  id: "EMISSION_NEBULA"
+  display_name: "방출성운"
+  default_next_after_linear_analysis: "GRADIENT_CORRECTION"
   priorities:
-    preserve_highlights: MEDIUM
-    preserve_faint_structure: VERY_HIGH
-    preserve_star_color: MEDIUM
-    color_accuracy: HIGH
-  default_pipeline:
-  - GRADIENT_CORRECTION
-  - COLOR_CALIBRATION
-  - DEBLUR
-  - DENOISE
-  - GHS_STRETCH
-  - STARNET
-  - STARLESS_PROCESS
-  - STARS_PROCESS
-  - PIXELMATH_RECOMBINE
-  - FINAL_CURVES
-  stretch:
-    default_strength_class: MEDIUM_HIGH
-    adaptive: true
-    require_preview: true
-  starnet:
-    default_enabled: true
-    decision: PROFILE_PLUS_IMAGE_ANALYSIS
-  special_rules:
-    dual_band:
-      allow_narrowband_color_path: true
-      spcc_mode: PROFILE_DEPENDENT
-    starless:
-      allow_extra_stretch: true
-      allow_saturation: true
-    protect_background: true
+    preserve_faint_structure: "VERY_HIGH"
+    protect_background: "HIGH"
+  notes:
+    - "성운의 약한 신호가 배경 모델에 포함되지 않도록 주의"
