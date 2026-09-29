@@ -90,7 +90,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.13.0")
+        self.title("AstroSirilAssistant v0.13.1")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
@@ -974,6 +974,9 @@ class App(tk.Tk):
 
         elif task_id == "FINALIZE_EXPORT":
             self._build_final_export_controls()
+
+        elif task_id == "PIPELINE_COMPLETE":
+            self._build_pipeline_complete_controls()
 
         else:
             ttk.Label(
@@ -3709,6 +3712,111 @@ class App(tk.Tk):
     def open_output_folder(self):
         if not self._require_project():
             return
+        path = Path(self.project_dir) / "output"
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            if os.name == "nt":
+                os.startfile(str(path))
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open", str(path)])
+        except Exception as e:
+            messagebox.showerror("폴더 열기 오류", str(e))
+
+    def _validated_final_output_files(self):
+        """Return verified exported user-facing files only when the project is truly EXPORTED."""
+        if not self.project_dir:
+            return []
+
+        try:
+            project = load_project(self.project_dir)
+            p = project["project"]
+
+            if p.get("current_state") != "EXPORTED":
+                return []
+
+            finalization = p.get("finalization") or {}
+            if not finalization.get("exported", False):
+                return []
+
+            outputs = finalization.get("outputs") or {}
+
+            # Only user-facing exports count toward button visibility.
+            # The internal working FITS alone is not enough.
+            verified = []
+            for key in ("fits", "tiff16", "png16"):
+                value = outputs.get(key)
+                if value and Path(value).is_file():
+                    verified.append(Path(value))
+
+            return verified
+        except Exception:
+            return []
+
+    def _final_result_folder_is_ready(self):
+        return len(self._validated_final_output_files()) >= 1
+
+    def _build_pipeline_complete_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        ttk.Label(
+            head,
+            text="기본 반자동 보정 파이프라인 완료",
+            font=("", 11, "bold"),
+        ).pack(side="left")
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,10))
+
+        files = self._validated_final_output_files()
+
+        if files:
+            ttk.Label(
+                body,
+                text=(
+                    "Final / Export가 정상적으로 완료되었고 "
+                    f"최종 출력 파일 {len(files)}개를 확인했습니다."
+                ),
+            ).pack(anchor="w", pady=(0,6))
+
+            for path in files:
+                ttk.Label(
+                    body,
+                    text=str(path),
+                    wraplength=900,
+                ).pack(anchor="w", pady=1)
+
+            ttk.Button(
+                body,
+                text="최종 결과 폴더 열기",
+                command=self.open_final_result_folder,
+            ).pack(anchor="w", pady=(10,0))
+        else:
+            ttk.Label(
+                body,
+                text=(
+                    "프로젝트 State는 완료 단계이지만 현재 실제 Export 파일을 확인할 수 없어 "
+                    "'최종 결과 폴더 열기' 버튼을 표시하지 않습니다."
+                ),
+                wraplength=900,
+            ).pack(anchor="w")
+
+    def open_final_result_folder(self):
+        if not self._require_project():
+            return
+
+        files = self._validated_final_output_files()
+        if not files:
+            messagebox.showwarning(
+                "최종 결과 없음",
+                "정상적으로 생성된 최종 Export 파일을 확인할 수 없습니다."
+            )
+            return
+
+        # All final exports live below the project's output folder.
         path = Path(self.project_dir) / "output"
         try:
             path.mkdir(parents=True, exist_ok=True)

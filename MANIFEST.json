@@ -1,18 +1,12 @@
 {
-  "package": "AstroSirilAssistant_v0.13.0",
-  "version": "0.13.0",
-  "features": [
-    "Final review preview with clipping analysis",
-    "Working final 32-bit FITS",
-    "Optional final 32-bit FITS export",
-    "Optional final 16-bit TIFF export",
-    "Optional final 16-bit PNG export",
-    "TIFF deflate and FITS checksum options",
-    "Final _Auto filename policy",
-    "Output file existence validation",
-    "EXPORTED state and PIPELINE_COMPLETE task",
-    "Output-folder button",
-    "v0.11.1 dynamic UI hotfix preserved"
+  "package": "AstroSirilAssistant_v0.13.1",
+  "version": "0.13.1",
+  "hotfixes": [
+    "Conditional final result folder button",
+    "Button requires EXPORTED state",
+    "Button requires finalization.exported=true",
+    "Button requires at least one actual FITS/TIFF/PNG export file",
+    "Re-validates conditions when reopening an exported project"
   ],
   "python_files": {
     "app.py": "OK",
@@ -93,10 +87,12 @@
   },
   "python_errors": [],
   "yaml_errors": [],
-  "core_runtime_checks": {
-    "final_basename": true,
-    "final_validate": true,
-    "final_help": true,
+  "core_checks": {
+    "pipeline_complete_branch": true,
+    "export_state_guard": true,
+    "exported_flag_guard": true,
+    "real_file_guard": true,
+    "button_text": true,
     "dynamic_ui_hotfix_preserved": true
   }
 }
