@@ -1,0 +1,31 @@
+schema_version: '0.2'
+profile:
+  id: REFLECTION_NEBULA
+  display_name: Reflection Nebula
+  applies_to:
+    categories:
+    - REFLECTION_NEBULA
+  priorities:
+    preserve_highlights: HIGH
+    preserve_faint_structure: HIGH
+    preserve_star_color: HIGH
+    color_accuracy: VERY_HIGH
+  default_pipeline:
+  - GRADIENT_CORRECTION
+  - COLOR_CALIBRATION
+  - DENOISE
+  - OPTIONAL_DEBLUR
+  - GHS_STRETCH
+  - OPTIONAL_STARNET
+  - FINAL_CURVES
+  stretch:
+    default_strength_class: LOW_MEDIUM
+    adaptive: true
+    require_preview: true
+  starnet:
+    default_enabled: false
+    decision: PROFILE_PLUS_IMAGE_ANALYSIS
+  special_rules:
+    avoid_over_saturation: true
+    avoid_aggressive_background_neutralization: true
+    preserve_blue_reflection_signal: true

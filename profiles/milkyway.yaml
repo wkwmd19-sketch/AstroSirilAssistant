@@ -1,42 +1,59 @@
-schema_version: "0.1"
+schema_version: "0.2"
+
 profile:
   id: "MILKYWAY"
   display_name: "Milky Way"
+
   variants:
     MILKYWAY_SKY:
-      description: "지상 풍경이 없는 은하수/별하늘"
+      description: "지상 풍경이 없는 은하수 또는 별하늘"
       preferred_stack_engine: "SIRIL"
       sequator_required: false
-      pipeline: ["CALIBRATION", "REGISTRATION_SKY", "STACK", "GRADIENT_CORRECTION", "COLOR_CALIBRATION", "DENOISE", "GHS_STRETCH", "OPTIONAL_STARNET", "FINALIZE"]
+      pipeline:
+        - "CALIBRATION"
+        - "REGISTRATION_SKY"
+        - "STACK"
+        - "GRADIENT_CORRECTION"
+        - "COLOR_CALIBRATION"
+        - "DENOISE"
+        - "GHS_STRETCH"
+        - "OPTIONAL_STARNET"
+        - "FINALIZE"
+
     MILKYWAY_LANDSCAPE_FIXED:
-      description: "고정 삼각대 + 지상 풍경 + 은하수"
-      detection: {expected_sky_motion: "HIGH", expected_ground_motion: "LOW"}
-      v0_1_stack_policy:
-        preferred_stack_engine: "SEQUATOR_OR_EXTERNAL"
+      description: "고정 삼각대 + 지상 + 은하수"
+      detection:
+        expected_sky_motion: "HIGH"
+        expected_ground_motion: "LOW"
+      v0_2_policy:
+        stack_strategy: "EXTERNAL_OR_DUAL_PATH"
         sequator_allowed: true
         siril_postprocess: true
-      future_stack_policy:
-        method: "SKY_GROUND_DUAL_STACK"
-        sky_alignment: "STAR_BASED"
-        ground_alignment: "GROUND_BASED"
-        composite_required: true
+      future_policy:
+        sky_stack: "STAR_BASED"
+        ground_stack: "GROUND_BASED"
+        composite: true
+
     MILKYWAY_LANDSCAPE_TRACKED:
-      description: "적도의/별추적기 + 지상 풍경 + 은하수"
-      detection: {expected_sky_motion: "LOW", expected_ground_motion: "HIGH"}
-      stack_policy:
-        method: "SKY_GROUND_DUAL_STACK"
-        sky_alignment: "STAR_BASED"
-        ground_alignment: "GROUND_BASED_OR_SEPARATE_UNTRACKED"
-        composite_required: true
+      description: "적도의/별추적기 + 지상 + 은하수"
+      detection:
+        expected_sky_motion: "LOW"
+        expected_ground_motion: "HIGH"
+      v0_2_policy:
+        sky_stack: "STAR_BASED"
+        ground_stack: "SEPARATE_GROUND_OR_UNTRACKED_FRAME"
+        composite: true
+
   motion_analysis:
     enabled: true
-    sample_frames: {strategy: "FIRST_MIDDLE_LAST", minimum_count: 3}
-    metrics: ["sky_motion_px", "ground_motion_px", "sky_motion_normalized", "ground_motion_normalized"]
-    decision:
-      fixed_if: "ground_motion << sky_motion"
-      tracked_if: "sky_motion << ground_motion"
-      ambiguous_action: "ASK_USER"
-    output:
-      include_reason_summary: true
-      include_confidence: true
-      allow_user_override: true
+    sample_strategy: "FIRST_MIDDLE_LAST"
+    minimum_frames: 3
+    metrics:
+      - "sky_motion_px"
+      - "ground_motion_px"
+      - "sky_motion_normalized"
+      - "ground_motion_normalized"
+    ambiguous_action: "ASK_USER"
+    show_reason_summary: true
+    show_confidence: true
+    allow_user_override: true

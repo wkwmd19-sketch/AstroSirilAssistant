@@ -1,13 +1,13 @@
 schema_version: '0.2'
 profile:
-  id: GALAXY
-  display_name: Galaxy
+  id: EMISSION_NEBULA
+  display_name: Emission Nebula
   applies_to:
     categories:
-    - GALAXY
+    - EMISSION_NEBULA
   priorities:
-    preserve_highlights: HIGH
-    preserve_faint_structure: HIGH
+    preserve_highlights: MEDIUM
+    preserve_faint_structure: VERY_HIGH
     preserve_star_color: MEDIUM
     color_accuracy: HIGH
   default_pipeline:
@@ -22,21 +22,17 @@ profile:
   - PIXELMATH_RECOMBINE
   - FINAL_CURVES
   stretch:
-    default_strength_class: MEDIUM
+    default_strength_class: MEDIUM_HIGH
     adaptive: true
     require_preview: true
   starnet:
     default_enabled: true
     decision: PROFILE_PLUS_IMAGE_ANALYSIS
   special_rules:
-    bright_core:
-      highlight_protection: HIGH
-      avoid_core_clipping: true
-    low_surface_brightness:
-      faint_signal_priority: VERY_HIGH
-    recombine_star_weight:
-      default: 0.65
-      adaptive: true
-      range:
-      - 0.3
-      - 1.0
+    dual_band:
+      allow_narrowband_color_path: true
+      spcc_mode: PROFILE_DEPENDENT
+    starless:
+      allow_extra_stretch: true
+      allow_saturation: true
+    protect_background: true

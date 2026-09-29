@@ -1,18 +1,24 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-title: "AstroSirilAssistant Profile Schema"
+title: "AstroSirilAssistant Target Profile Schema v0.2"
 type: object
 required: ["schema_version", "profile"]
+
 properties:
-  schema_version: {type: string, const: "0.1"}
+  schema_version:
+    const: "0.2"
+
   profile:
     type: object
     required: ["id", "display_name"]
     properties:
       id: {type: string}
       display_name: {type: string}
-      default_pipeline: {type: array, items: {type: string}}
-      priorities: {type: object, additionalProperties: {type: string}}
+      applies_to: {type: object}
+      priorities: {type: object}
+      default_pipeline:
+        type: array
+        items: {type: string}
+      stretch: {type: object}
       starnet: {type: object}
-      ghs: {type: object}
-      recombine: {type: object}
+      special_rules: {type: object}
       variants: {type: object}

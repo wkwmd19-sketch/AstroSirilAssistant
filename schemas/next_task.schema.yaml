@@ -1,7 +1,18 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-title: "AstroSirilAssistant Next Task UI Schema"
+title: "AstroSirilAssistant Next Task UI Schema v0.2"
 type: object
-required: ["task_id", "title", "summary", "purpose", "current_status", "recommendations", "cautions", "completion_criteria", "actions"]
+
+required:
+  - "task_id"
+  - "title"
+  - "summary"
+  - "purpose"
+  - "current_status"
+  - "recommendations"
+  - "cautions"
+  - "completion_criteria"
+  - "actions"
+
 properties:
   task_id: {type: string}
   title: {type: string}
@@ -9,8 +20,19 @@ properties:
   purpose: {type: string}
   current_status: {type: string}
   recommendations: {type: object}
-  cautions: {type: array, items: {type: string}}
-  completion_criteria: {type: array, items: {type: string}}
+  explanation:
+    type: object
+    properties:
+      why_this_step: {type: string}
+      expected_change: {type: string}
+      target_specific_reason: {type: string}
+  cautions:
+    type: array
+    items: {type: string}
+  completion_criteria:
+    type: array
+    items: {type: string}
   actions:
     type: array
-    items: {type: string, enum: ["RUN", "EDIT", "PREVIEW", "SKIP", "RECALCULATE", "CONFIRM"]}
+    items:
+      enum: ["RUN","EDIT","PREVIEW","SKIP","RECALCULATE","CONFIRM"]

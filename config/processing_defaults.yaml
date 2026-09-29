@@ -1,41 +1,94 @@
-schema_version: "0.1"
+schema_version: "0.2"
+
 processing_defaults:
   mode: "SEMI_AUTO"
+
+  compatibility:
+    siril_target_major_minor: "1.5"
+    verify_commands_at_runtime: true
+    verify_external_scripts_at_runtime: true
+    abort_on_unsupported_command: true
+
   approval:
     required_before_apply: true
     required_for_state_reentry: true
     required_for_destructive_step: true
+    require_preview_for_ghs: true
+    require_preview_for_starless_major_adjustment: true
+
   analysis:
     histogram:
-      calculate: ["min", "max", "mean", "median", "background_peak", "p01", "p10", "p50", "p90", "p99", "p999", "shadow_clip_ratio", "highlight_clip_ratio"]
       per_channel: true
+      calculate:
+        - "min"
+        - "max"
+        - "mean"
+        - "median"
+        - "background_peak"
+        - "mad"
+        - "p01"
+        - "p10"
+        - "p50"
+        - "p90"
+        - "p99"
+        - "p999"
+        - "shadow_clip_ratio"
+        - "highlight_clip_ratio"
+
   ghs:
     adaptive: true
-    require_preview: true
+    parameter_source: "IMAGE_ANALYSIS_PLUS_PROFILE"
     parameters:
-      D: {mode: "AUTO_RECOMMEND"}
-      b: {mode: "AUTO_RECOMMEND"}
-      SP: {mode: "AUTO_RECOMMEND"}
-      LP: {default: 0.0}
-      HP: {mode: "AUTO_RECOMMEND"}
+      D:
+        mode: "AUTO_RECOMMEND"
+        hard_range: [0.0, 10.0]
+      B:
+        mode: "AUTO_RECOMMEND"
+        hard_range: [-5.0, 15.0]
+      SP:
+        mode: "AUTO_RECOMMEND"
+        hard_range: [0.0, 1.0]
+      LP:
+        mode: "AUTO_RECOMMEND"
+        default: 0.0
+        hard_range: [0.0, 1.0]
+      HP:
+        mode: "AUTO_RECOMMEND"
+        hard_range: [0.0, 1.0]
+    clipmode: "rgbblend"
+    luminance_mode: "human"
+
   starnet:
     enabled_by_profile: true
-    default_stride: "STANDARD"
+    integration: "SIRIL_PYTHON_SCRIPT"
+    script_name: "StarNet.py"
     protect_highlights: true
     linear_data: "AUTO"
     output_starless: true
     output_stars: true
+
   recombine:
     engine: "PIXEL_MATH"
     adaptive_star_weight: true
     default_star_weight: 0.65
+    min_star_weight: 0.30
+    max_star_weight: 1.00
+    sum_exposure_time: false
+
   save:
+    working_fits_precision: "FLOAT32"
     intermediate_suffix_auto: false
     final_suffix_auto: true
     final_suffix: "_Auto"
-    fits_working_bit_depth: "FLOAT32"
-    final_formats: ["FITS", "TIFF", "PNG"]
-  recovery:
-    write_state_after_every_step: true
     preserve_previous_step: true
-    keep_failed_outputs: false
+    final_formats:
+      - "FITS"
+      - "TIFF16"
+      - "PNG16"
+
+  logging:
+    save_command_stdout: true
+    save_command_stderr: true
+    save_analysis_before_after: true
+    save_user_decision: true
+    save_recommendation_explanation: true

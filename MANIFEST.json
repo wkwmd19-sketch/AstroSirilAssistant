@@ -1,0 +1,28 @@
+{
+  "schema_version": "0.2",
+  "package": "AstroSirilAssistant_Schema_v0.2",
+  "yaml_validation": {
+    "config/processing_defaults.yaml": "OK",
+    "config/state_machine.yaml": "OK",
+    "logs/processing_log.example.yaml": "OK",
+    "mappings/siril_commands.yaml": "OK",
+    "mappings/state_to_command.yaml": "OK",
+    "profiles/dark_nebula.yaml": "OK",
+    "profiles/emission_nebula.yaml": "OK",
+    "profiles/galaxy.yaml": "OK",
+    "profiles/general_starfield.yaml": "OK",
+    "profiles/globular_cluster.yaml": "OK",
+    "profiles/milkyway.yaml": "OK",
+    "profiles/open_cluster.yaml": "OK",
+    "profiles/planetary_nebula.yaml": "OK",
+    "profiles/reflection_nebula.yaml": "OK",
+    "profiles/supernova_remnant.yaml": "OK",
+    "schemas/command_mapping.schema.yaml": "OK",
+    "schemas/next_task.schema.yaml": "OK",
+    "schemas/processing_log.schema.yaml": "OK",
+    "schemas/profile.schema.yaml": "OK",
+    "schemas/project.schema.yaml": "OK",
+    "templates/project.yaml": "OK"
+  },
+  "file_count": 24
+}

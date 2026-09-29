@@ -1,23 +1,46 @@
-# AstroSirilAssistant Schema v0.1
+# AstroSirilAssistant Schema v0.2
 
-반자동 Siril 천체사진 보정 시스템의 초기 스키마 규격입니다.
+Siril 중심 반자동 천체사진 스택/보정 도우미의 구현 규격 초안입니다.
 
-## 프로젝트 경로 규칙
+## 기준 환경
 
-기본 루트: `D:\\AstroProjects_Auto\\`
+- 프로젝트 기본 루트: `D:\AstroProjects_Auto`
+- 프로젝트 폴더: `{TARGET}_{YYYY-MM-DD}_Auto`
+- 중간 파일: `{TARGET}_{STEP_NO}_{STEP_NAME}.fits`
+- 최종 파일: `{TARGET}_final_Auto.{ext}`
+- 기본 처리 방식: `SEMI_AUTO`
+- 기준 Siril 명령 규격: Siril 1.5.x 계열
+- 외부/서드파티 스크립트는 런타임에서 설치 여부와 이름을 확인한 뒤 실행
 
-프로젝트 폴더: `{TARGET}_{YYYY-MM-DD}_Auto`
+## 반자동 실행 철학
 
-예: `D:\\AstroProjects_Auto\\M31_2026-09-29_Auto\\`
+1. 입력 분석
+2. 대상/촬영 방식/이미지 상태 판별
+3. 대상 프로파일 선택
+4. 다음 작업과 이유 설명
+5. 추천값 제시
+6. 사용자 승인 또는 수정
+7. Siril 실행
+8. 자동 저장
+9. 전/후 분석 및 로그 기록
+10. 다음 State로 전이
 
-## 파일명 규칙
+## 사용자 화면의 공통 출력
 
-중간 작업 파일: `{TARGET}_{STEP_NO}_{STEP_NAME}.fits`
+- 다음 작업
+- 요약 설명
+- 작업 목적
+- 현재 상태
+- 추천값
+- 주의사항
+- 완료 기준
+- 실행 / 수정 / 미리보기 / 건너뛰기
+- 완료 후 결과 요약
 
-최종 파일: `{TARGET}_final_Auto.{ext}`
+## 중요한 안전 규칙
 
-## 처리 원칙
-
-반자동 기본 모드는 분석 → 추천 → 설명 → 사용자 승인 → Siril 실행 → 자동 저장 → 로그 기록입니다.
-이미 완료된 State를 재실행하려면 명시적 사용자 승인이 필요합니다.
-Linear/Non-linear 상태를 별도 추적하며, UNKNOWN 판정은 사용자 확인으로 넘깁니다.
+- 이미 Stretch된 이미지에 초기 Stretch를 자동 재적용하지 않음
+- UNKNOWN 판정은 억지 자동분류하지 않고 사용자 확인
+- GHS는 Preview/승인을 기본 요구
+- StarNet 및 외부 AI 처리도 사용자 승인 후 실행
+- 모든 중간 단계는 이전 단계로 복귀 가능하도록 보존

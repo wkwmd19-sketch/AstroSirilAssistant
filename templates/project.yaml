@@ -1,15 +1,22 @@
-schema_version: "0.1"
+schema_version: "0.2"
+
 project:
   id: "M31_2026-09-29_Auto"
-  name: "M31"
+  target_name: "M31"
   root_path: 'D:\AstroProjects_Auto\M31_2026-09-29_Auto'
   processing_mode: "SEMI_AUTO"
+
   target:
-    name: "M31"
-    catalog: "M31"
     category: "GALAXY"
-    subtypes: ["GALAXY_LARGE", "GALAXY_BRIGHT_CORE"]
-    features: ["DUST_LANES", "FAINT_OUTER_STRUCTURE"]
+    subtypes:
+      - "GALAXY_LARGE"
+      - "GALAXY_BRIGHT_CORE"
+    features:
+      - "DUST_LANES"
+      - "FAINT_OUTER_STRUCTURE"
+    classification_confidence: 1.0
+    user_confirmed: true
+
   capture:
     date: "2026-09-29"
     camera_type: "OSC"
@@ -24,7 +31,10 @@ project:
     tracking:
       mode: "UNKNOWN"
       confidence: null
+      user_confirmed: false
+
   current_state: "INPUT_IMPORTED"
+
   image_state:
     linear: true
     stretched: false
@@ -34,7 +44,9 @@ project:
     denoised: false
     deblurred: false
     recombined: false
+
   current_file: "M31_00_input.fits"
+
   paths:
     input: "input"
     working: "working"
@@ -43,13 +55,28 @@ project:
     config: "config"
     logs: "logs"
     temp: "temp"
+
+  runtime:
+    siril_version: null
+    siril_executable: null
+    starnet_available: null
+    syqon_parallax_available: null
+    syqon_prism_available: null
+
   next_task:
     task_id: "ANALYZE_INPUT"
     title: "입력 FITS 분석"
-    summary: "FITS 헤더, 이미지 상태, 히스토그램과 기본 촬영 정보를 분석합니다."
-    purpose: "이후 보정 프로파일과 추천값을 결정하기 위한 기준 데이터를 만듭니다."
+    summary: "FITS 헤더, 통계, 히스토그램과 현재 처리 상태를 분석합니다."
+    purpose: "프로파일 선택과 이후 추천값 계산에 사용할 기준 데이터를 만듭니다."
     current_status: "INPUT_IMPORTED"
     recommendations: {}
-    cautions: ["이미 Stretch된 파일인지 반드시 확인"]
-    completion_criteria: ["FITS 헤더 읽기 완료", "히스토그램 통계 계산 완료", "Linear/Non-linear 상태 판정 완료"]
-    actions: ["RUN", "EDIT", "SKIP"]
+    cautions:
+      - "이미 Stretch된 입력인지 확인합니다."
+    completion_criteria:
+      - "메타데이터 읽기 완료"
+      - "히스토그램/클리핑 통계 계산 완료"
+      - "Linear/Non-linear 상태 판정 완료"
+    actions:
+      - "RUN"
+      - "EDIT"
+      - "SKIP"

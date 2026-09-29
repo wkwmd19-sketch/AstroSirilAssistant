@@ -1,13 +1,13 @@
 schema_version: '0.2'
 profile:
-  id: GALAXY
-  display_name: Galaxy
+  id: SUPERNOVA_REMNANT
+  display_name: Supernova Remnant
   applies_to:
     categories:
-    - GALAXY
+    - SUPERNOVA_REMNANT
   priorities:
-    preserve_highlights: HIGH
-    preserve_faint_structure: HIGH
+    preserve_highlights: MEDIUM
+    preserve_faint_structure: VERY_HIGH
     preserve_star_color: MEDIUM
     color_accuracy: HIGH
   default_pipeline:
@@ -29,14 +29,6 @@ profile:
     default_enabled: true
     decision: PROFILE_PLUS_IMAGE_ANALYSIS
   special_rules:
-    bright_core:
-      highlight_protection: HIGH
-      avoid_core_clipping: true
-    low_surface_brightness:
-      faint_signal_priority: VERY_HIGH
-    recombine_star_weight:
-      default: 0.65
-      adaptive: true
-      range:
-      - 0.3
-      - 1.0
+    filament_preservation: VERY_HIGH
+    avoid_over_smoothing: true
+    starless_detail_priority: HIGH

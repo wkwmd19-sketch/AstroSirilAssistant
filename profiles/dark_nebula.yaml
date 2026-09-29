@@ -1,0 +1,30 @@
+schema_version: '0.2'
+profile:
+  id: DARK_NEBULA
+  display_name: Dark Nebula
+  applies_to:
+    categories:
+    - DARK_NEBULA
+  priorities:
+    preserve_highlights: MEDIUM
+    preserve_faint_structure: VERY_HIGH
+    preserve_star_color: HIGH
+    color_accuracy: HIGH
+  default_pipeline:
+  - GRADIENT_CORRECTION
+  - COLOR_CALIBRATION
+  - DENOISE
+  - GHS_STRETCH
+  - OPTIONAL_STARNET
+  - FINAL_CURVES
+  stretch:
+    default_strength_class: LOW_MEDIUM
+    adaptive: true
+    require_preview: true
+  starnet:
+    default_enabled: false
+    decision: PROFILE_PLUS_IMAGE_ANALYSIS
+  special_rules:
+    avoid_black_crush: true
+    preserve_dust_gradation: true
+    background_extraction_protection: VERY_HIGH

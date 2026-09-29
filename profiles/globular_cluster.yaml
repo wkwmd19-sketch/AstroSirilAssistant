@@ -1,0 +1,30 @@
+schema_version: '0.2'
+profile:
+  id: GLOBULAR_CLUSTER
+  display_name: Globular Cluster
+  applies_to:
+    categories:
+    - GLOBULAR_CLUSTER
+  priorities:
+    preserve_highlights: VERY_HIGH
+    preserve_faint_structure: LOW
+    preserve_star_color: HIGH
+    color_accuracy: HIGH
+  default_pipeline:
+  - GRADIENT_CORRECTION
+  - COLOR_CALIBRATION
+  - DENOISE
+  - OPTIONAL_DEBLUR
+  - GHS_STRETCH
+  - FINAL_CURVES
+  stretch:
+    default_strength_class: LOW
+    adaptive: true
+    require_preview: true
+  starnet:
+    default_enabled: false
+    decision: PROFILE_PLUS_IMAGE_ANALYSIS
+  special_rules:
+    core_density_guard: VERY_HIGH
+    avoid_core_clipping: true
+    star_shape_priority: VERY_HIGH

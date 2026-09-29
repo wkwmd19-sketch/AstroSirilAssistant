@@ -1,45 +1,90 @@
 $schema: "https://json-schema.org/draft/2020-12/schema"
-title: "AstroSirilAssistant Project Schema"
+title: "AstroSirilAssistant Project Schema v0.2"
 type: object
 required: ["schema_version", "project"]
+
 properties:
-  schema_version: {type: string, const: "0.1"}
+  schema_version:
+    const: "0.2"
+
   project:
     type: object
-    required: ["id", "root_path", "processing_mode", "target", "capture", "current_state", "image_state", "current_file"]
+    required:
+      - "id"
+      - "target_name"
+      - "root_path"
+      - "processing_mode"
+      - "target"
+      - "capture"
+      - "current_state"
+      - "image_state"
+      - "current_file"
+
     properties:
-      id: {type: string, pattern: "^[A-Za-z0-9_+.-]+_Auto$"}
-      root_path: {type: string}
-      processing_mode: {type: string, enum: ["SEMI_AUTO", "AUTO", "MANUAL"]}
+      id:
+        type: string
+        pattern: "^[A-Za-z0-9_+.-]+_Auto$"
+
+      target_name:
+        type: string
+
+      root_path:
+        type: string
+
+      processing_mode:
+        enum: ["SEMI_AUTO", "AUTO", "MANUAL"]
+
       target:
         type: object
-        required: ["name", "category"]
+        required: ["category"]
         properties:
-          name: {type: string}
-          catalog: {type: ["string", "null"]}
           category:
-            type: string
-            enum: ["GALAXY", "EMISSION_NEBULA", "REFLECTION_NEBULA", "DARK_NEBULA", "PLANETARY_NEBULA", "SUPERNOVA_REMNANT", "OPEN_CLUSTER", "GLOBULAR_CLUSTER", "MILKYWAY", "GENERAL_STARFIELD", "UNKNOWN"]
-          subtypes: {type: array, items: {type: string}}
-          features: {type: array, items: {type: string}}
-      capture:
-        type: object
-        properties:
-          date: {type: ["string", "null"]}
-          camera_type: {type: string, enum: ["OSC", "MONO", "DSLR", "MIRRORLESS", "UNKNOWN"]}
-          filter:
-            type: object
-            properties:
-              type: {type: string, enum: ["NONE", "BROADBAND", "UV_IR_CUT", "DUAL_BAND", "HA", "OIII", "SII", "RGB", "LUMINANCE", "UNKNOWN"]}
-              name: {type: string}
-          tracking:
-            type: object
-            properties:
-              mode: {type: string, enum: ["FIXED", "TRACKED", "UNKNOWN"]}
-              confidence: {type: ["number", "null"], minimum: 0, maximum: 1}
+            enum:
+              - "GALAXY"
+              - "EMISSION_NEBULA"
+              - "REFLECTION_NEBULA"
+              - "DARK_NEBULA"
+              - "PLANETARY_NEBULA"
+              - "SUPERNOVA_REMNANT"
+              - "OPEN_CLUSTER"
+              - "GLOBULAR_CLUSTER"
+              - "MILKYWAY"
+              - "GENERAL_STARFIELD"
+              - "UNKNOWN"
+          subtypes:
+            type: array
+            items: {type: string}
+          features:
+            type: array
+            items: {type: string}
+          classification_confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          user_confirmed:
+            type: boolean
+
       current_state:
-        type: string
-        enum: ["PROJECT_CREATED", "INPUT_IMPORTED", "INPUT_ANALYZED", "CAPTURE_TYPE_DETECTED", "CALIBRATED", "REGISTERED", "STACKED_LINEAR", "GRADIENT_CORRECTED", "COLOR_CALIBRATED", "DENOISED", "DEBLURRED", "STRETCHED", "STARS_SEPARATED", "STARLESS_PROCESSED", "STARS_PROCESSED", "RECOMBINED", "FINALIZED", "EXPORTED"]
+        enum:
+          - "PROJECT_CREATED"
+          - "INPUT_IMPORTED"
+          - "INPUT_ANALYZED"
+          - "CAPTURE_TYPE_DETECTED"
+          - "CALIBRATED"
+          - "REGISTERED"
+          - "STACKED_LINEAR"
+          - "GRADIENT_CORRECTED"
+          - "COLOR_CALIBRATED"
+          - "DENOISED"
+          - "DEBLURRED"
+          - "STRETCHED"
+          - "STARS_SEPARATED"
+          - "STARLESS_PROCESSED"
+          - "STARS_PROCESSED"
+          - "RECOMBINED"
+          - "FINALIZED"
+          - "EXPORTED"
+
       image_state:
         type: object
         required: ["linear", "stretched", "stars_removed"]
@@ -52,4 +97,6 @@ properties:
           denoised: {type: boolean}
           deblurred: {type: boolean}
           recombined: {type: boolean}
-      current_file: {type: string}
+
+      current_file:
+        type: string

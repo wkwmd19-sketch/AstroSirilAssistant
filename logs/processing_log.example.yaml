@@ -1,13 +1,39 @@
-schema_version: "0.1"
+schema_version: "0.2"
 project_id: "M31_2026-09-29_Auto"
+
 entries:
   - timestamp: "2026-09-29T21:30:00+09:00"
     step_id: "GHS_STRETCH"
+    executor: "SIRIL_NATIVE"
+    command: "ght -D=1.3 -B=6.0 -LP=0.0 -SP=0.08 -HP=0.90 -clipmode=rgbblend -human"
     input_file: "M31_04_prism.fits"
     output_file: "M31_05_ghs1.fits"
     status: "SUCCESS"
-    parameters: {D: 1.30, b: 6.0, SP: 0.08, LP: 0.0, HP: 0.90}
-    analysis_before: {linear: true, highlight_clip_ratio: 0.0001}
-    analysis_after: {linear: false, highlight_clip_ratio: 0.0003}
-    user_override: false
-    notes: "외곽 원반 상승, 중심핵 보호"
+
+    parameters:
+      D: 1.3
+      B: 6.0
+      LP: 0.0
+      SP: 0.08
+      HP: 0.90
+
+    analysis_before:
+      linear: true
+      highlight_clip_ratio: 0.0001
+
+    analysis_after:
+      linear: false
+      highlight_clip_ratio: 0.0003
+
+    recommendation:
+      summary: "외곽 원반을 올리면서 밝은 핵을 보호하는 1차 Stretch"
+      reason: "밝은 중심핵과 희미한 외곽 구조가 동시에 존재하는 은하 프로파일"
+      confidence: 0.86
+
+    user_decision:
+      action: "RUN"
+      override: false
+
+    stdout: null
+    stderr: null
+    notes: "Preview 확인 후 적용"
