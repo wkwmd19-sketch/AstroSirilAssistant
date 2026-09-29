@@ -72,3 +72,11 @@ starless_processing:
   saturation_amount: 0.10
   saturation_background_factor: 1.10
   saturation_hue_range: 6
+
+
+stars_processing:
+  brightness_scale: 0.70
+  saturation_enabled: true
+  saturation_amount: 0.08
+  saturation_background_factor: 0.0
+  saturation_hue_range: 6

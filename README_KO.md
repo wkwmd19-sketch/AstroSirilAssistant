@@ -1,4 +1,32 @@
-# AstroSirilAssistant v0.10.0 — Starless Processing + Target-aware Recommendations
+# AstroSirilAssistant v0.11.0 — Stars Processing + Dynamic UI
+
+현재 실제 처리 흐름:
+
+`Gradient → SPCC → Denoise → Deblur → GHS → StarNet → Starless → Stars Processing → Pixel Math Recombine(다음 구현)`
+
+## Stars Processing
+- Target-aware Recommendation Engine v0.2
+- Stars Brightness Scale (`fmul`)
+- Stars Saturation (`satu`)
+- 추천 다시 계산 / 추천값 적용 / 천체 특징 수정
+- 미리보기 / 승인 후 적용 / 건너뛰기
+- Main/Starless 레이어는 보존
+
+## Dynamic UI
+- 고정 1050x820 창 제거
+- 화면 해상도에 맞춘 초기 창 크기
+- 전체 작업영역 세로 스크롤
+- 창 폭에 맞춰 내부 UI 자동 확장
+- 로그는 별도 Resizable Pane
+- 로그/작업영역 사이 경계선을 드래그해 높이 조절
+- 낮은 해상도에서도 아래 버튼과 로그에 접근 가능
+
+기존 v0.10에서 Starless Processing까지 완료한 프로젝트는
+`기존 프로젝트 열기`로 Stars Processing 실제 UI에 진입합니다.
+
+---
+
+# AstroSirilAssistant v0.11.0 — Starless Processing + Target-aware Recommendations
 
 현재 실제 흐름:
 
@@ -22,7 +50,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.10.0 — StarNet / 별 분리
+# AstroSirilAssistant v0.11.0 — StarNet / 별 분리
 
 현재 실제 처리 흐름:
 
@@ -47,7 +75,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.10.0 — GHS Stretch
+# AstroSirilAssistant v0.11.0 — GHS Stretch
 
 처리 흐름:
 
@@ -68,7 +96,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.10.0 — Deblur / Deconvolution
+# AstroSirilAssistant v0.11.0 — Deblur / Deconvolution
 
 이번 버전은 v0.6.0의 Denoise 다음 단계를 실제 구현합니다.
 
@@ -87,7 +115,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.10.0 — 작업 상태 UX + Denoise
+# AstroSirilAssistant v0.11.0 — 작업 상태 UX + Denoise
 
 ## 새 UI
 - 승인 후 적용 성공 팝업
@@ -106,7 +134,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.10.0 — Help UI 정리 + SPCC Hotfix
+# AstroSirilAssistant v0.11.0 — Help UI 정리 + SPCC Hotfix
 
 - 파라미터별 `?` 버튼 → 섹션당 `도움말 ?` 1개로 정리
 - Tooltip은 항목명 Label에만 표시
@@ -115,7 +143,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.10.0 — SPCC + Common Help System
+# AstroSirilAssistant v0.11.0 — SPCC + Common Help System
 
 이번 버전의 오늘 테스트 범위:
 
@@ -138,7 +166,7 @@ GUI의 R/G/B 필터 입력은 다음 확장에 추가합니다.
 
 ---
 
-# AstroSirilAssistant v0.10.0 — Interactive single-FITS + Gradient
+# AstroSirilAssistant v0.11.0 — Interactive single-FITS + Gradient
 
 v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
 
@@ -150,7 +178,7 @@ v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리�
 
 ---
 
-# AstroSirilAssistant v0.10.0 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.11.0 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 

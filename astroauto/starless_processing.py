@@ -7,6 +7,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .stars_processing import make_stars_process_task
 
 def make_starless_process_task() -> dict:
     return {
@@ -33,7 +34,7 @@ def make_starless_process_task() -> dict:
         "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
     }
 
-def make_stars_process_task(skipped: bool = False) -> dict:
+def _legacy_make_stars_process_task(skipped: bool = False) -> dict:
     return {
         "task_id": "STARS_PROCESS",
         "title": "Stars Processing",
@@ -280,7 +281,7 @@ def apply_starless_processing(project_dir: Path, config: dict, confirmed: bool =
     p["image_state"]["stars_removed"] = True
     p["image_state"]["linearity"] = "NONLINEAR"
     p["image_state"]["stretched"] = True
-    p["next_task"] = make_stars_process_task(skipped=False)
+    p["next_task"] = make_stars_process_task(skipped_starless=False)
     save_project(pdir, project)
 
     payload = {
@@ -314,7 +315,7 @@ def skip_starless_processing(project_dir: Path):
         "skipped": True,
         "timestamp": iso_now(),
     }
-    p["next_task"] = make_stars_process_task(skipped=True)
+    p["next_task"] = make_stars_process_task(skipped_starless=True)
     save_project(pdir, project)
 
     append_jsonl(pdir, {

@@ -1,15 +1,18 @@
 {
-  "package": "AstroSirilAssistant_v0.10.0",
-  "version": "0.10.0",
+  "package": "AstroSirilAssistant_v0.11.0",
+  "version": "0.11.0",
   "features": [
-    "Starless CLAHE and Saturation preview/apply/skip",
-    "Target-aware Recommendation Engine v0.1",
-    "Category + target features + image-statistics recommendation inputs",
-    "Known target registry for common user targets",
-    "Editable target feature dialog",
-    "Recommendation values never auto-applied",
-    "STARLESS_PROCESSED state and STARS_PROCESS next task",
-    "Existing progress/log/help/success-popup UX"
+    "Stars Processing actual preview/apply/skip",
+    "Stars brightness scale via Siril fmul",
+    "Stars saturation via Siril satu",
+    "Target-aware Stars recommendations v0.2",
+    "M31 feature profile produces a 0.60 pre-statistics brightness starting point",
+    "Screen-aware startup geometry",
+    "Scrollable workflow area",
+    "Resizable vertical log pane",
+    "Responsive workflow width",
+    "Automatic task scroll-into-view",
+    "PIXEL_MATH_RECOMBINE becomes next task"
   ],
   "python_files": {
     "app.py": "OK",
@@ -32,6 +35,7 @@
     "astroauto/spcc.py": "OK",
     "astroauto/star_separation.py": "OK",
     "astroauto/starless_processing.py": "OK",
+    "astroauto/stars_processing.py": "OK",
     "astroauto/state_actions.py": "OK",
     "astroauto/utils.py": "OK",
     "astroauto/workflow.py": "OK",
@@ -52,6 +56,8 @@
     "tests/test_star_separation_command.py": "OK",
     "tests/test_star_trail_workflow.py": "OK",
     "tests/test_starless_processing.py": "OK",
+    "tests/test_stars_processing.py": "OK",
+    "tests/test_stars_recommendation_profile.py": "OK",
     "tests/test_utils.py": "OK"
   },
   "yaml_files": {
@@ -84,9 +90,9 @@
   "python_errors": [],
   "yaml_errors": [],
   "core_runtime_checks": {
-    "starless_commands": true,
-    "m31_alias": true,
-    "feature_label": true,
-    "starless_help": true
+    "stars_commands": true,
+    "m31_features": true,
+    "stars_help": true,
+    "dynamic_ui_code": true
   }
 }

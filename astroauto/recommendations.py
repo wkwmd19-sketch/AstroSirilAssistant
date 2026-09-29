@@ -257,3 +257,96 @@ def recommend_starless(project_dir: Path, config: dict):
         **result,
     })
     return result
+
+
+def recommend_stars(project_dir: Path, config: dict):
+    pdir = Path(project_dir)
+    project = enrich_target_characteristics(pdir, only_if_empty=True)
+    p = project["project"]
+    target = p.get("target", {})
+    category = target.get("category", "UNKNOWN")
+    features = list(target.get("features") or [])
+
+    profiles = _load_profiles()
+    section = profiles["stars_processing"]
+    rec = copy.deepcopy(section.get("default", {}))
+    rec.update(copy.deepcopy(section.get("by_category", {}).get(category, {})))
+
+    reasons = [
+        f"천체 분류 {profiles.get('category_labels', {}).get(category, category)} 기본 별 프로필"
+    ]
+
+    modifiers = section.get("feature_modifiers", {})
+    for feature in features:
+        mod = modifiers.get(feature)
+        if not mod:
+            continue
+        rec["brightness_scale"] = (
+            float(rec["brightness_scale"]) + float(mod.get("brightness_delta", 0))
+        )
+        rec["saturation_amount"] = (
+            float(rec["saturation_amount"]) + float(mod.get("saturation_delta", 0))
+        )
+        if mod.get("reason"):
+            label = profiles.get("feature_labels", {}).get(feature, feature)
+            reasons.append(f"{label}: {mod['reason']}")
+
+    sep = p.get("separation") or {}
+    stars_path = (
+        sep.get("stars_processed_file")
+        if p.get("current_state") == "STARS_PROCESSED"
+        else sep.get("stars_file")
+    )
+    if not stars_path:
+        raise FileNotFoundError("추천 계산에 사용할 Stars 레이어를 찾을 수 없습니다.")
+
+    stats = analyze_pixels(
+        Path(stars_path),
+        max_samples=int(config.get("analysis", {}).get("max_samples_per_channel", 1500000)),
+        bins=int(config.get("analysis", {}).get("histogram_bins", 2048)),
+        clip_fraction=float(config.get("analysis", {}).get("clip_fraction", 0.0001)),
+    )
+    metrics = _aggregate_stats(stats)
+
+    highlight = metrics.get("highlight_clip_ratio")
+    p999 = metrics.get("p999")
+
+    if highlight is not None and highlight > 0.001:
+        rec["brightness_scale"] = float(rec["brightness_scale"]) - 0.05
+        reasons.append("Stars 레이어에서 하이라이트 clipping 비율이 보여 별 밝기를 소폭 낮춤")
+    elif p999 is not None and p999 < 0.15:
+        rec["brightness_scale"] = float(rec["brightness_scale"]) + 0.05
+        reasons.append("Stars 레이어의 상위 신호가 비교적 약해 별 밝기 감소 폭을 소폭 완화")
+
+    limits = profiles.get("limits", {})
+    b_lo, b_hi = limits.get("star_brightness_scale", [0.0, 1.5])
+    s_lo, s_hi = limits.get("star_saturation_amount", [-0.5, 0.5])
+
+    rec["brightness_scale"] = round(
+        _clamp(float(rec["brightness_scale"]), b_lo, b_hi), 2
+    )
+    rec["saturation_amount"] = round(
+        _clamp(float(rec["saturation_amount"]), s_lo, s_hi), 2
+    )
+
+    context = describe_target(project)
+    result = {
+        "schema_version": "0.2",
+        "timestamp": iso_now(),
+        "stage": "STARS_PROCESS",
+        "target_context": context,
+        "recommended_values": rec,
+        "image_metrics": metrics,
+        "reasons": reasons,
+        "confidence": "STARTING_POINT",
+        "notice": "별 추천값은 대상의 시각적 우선순위와 현재 Stars 레이어 통계를 반영한 시작점이며 정답값이 아닙니다.",
+    }
+
+    p.setdefault("recommendations", {})["stars_processing"] = result
+    save_project(pdir, project)
+    append_jsonl(pdir, {
+        "event": "RECOMMEND_STARS",
+        "status": "SUCCESS",
+        **result,
+    })
+    return result

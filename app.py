@@ -19,7 +19,8 @@ from astroauto.deblur import preview_deblur, apply_deblur, skip_deblur
 from astroauto.ghs import preview_ghs, apply_ghs, begin_additional_ghs, finish_ghs
 from astroauto.star_separation import preview_star_separation, apply_star_separation, skip_star_separation
 from astroauto.starless_processing import preview_starless_processing, apply_starless_processing, skip_starless_processing
-from astroauto.recommendations import recommend_starless
+from astroauto.recommendations import recommend_starless, recommend_stars
+from astroauto.stars_processing import preview_stars_processing, apply_stars_processing, skip_stars_processing
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -40,7 +41,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.10.0")
+    print("AstroSirilAssistant v0.11.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -470,8 +471,48 @@ def cmd_starless_skip(args):
     print("Starless Processing을 건너뛰었습니다.")
     return 0
 
+
+def _stars_cli_params(args):
+    return dict(
+        brightness_scale=args.brightness,
+        saturation_enabled=not args.no_saturation,
+        saturation_amount=args.saturation,
+        saturation_background_factor=args.background_factor,
+        saturation_hue_range=args.hue_range,
+    )
+
+def cmd_stars_recommend(args):
+    cfg = load_app_config()
+    rec = recommend_stars(Path(args.project), cfg)
+    print(json.dumps(rec, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+def cmd_stars_preview(args):
+    cfg = load_app_config()
+    jpg, preview_fits, meta = preview_stars_processing(
+        Path(args.project), cfg, **_stars_cli_params(args)
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Preview FITS: {preview_fits}")
+    return 0
+
+def cmd_stars_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 Stars Processing 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, payload = apply_stars_processing(
+        Path(args.project), cfg, confirmed=True, **_stars_cli_params(args)
+    )
+    print(f"Stars Processing 완료: {output}")
+    return 0
+
+def cmd_stars_skip(args):
+    skip_stars_processing(Path(args.project))
+    print("Stars Processing을 건너뛰었습니다.")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.10.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.11.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -719,6 +760,32 @@ def build_parser():
     p = sub.add_parser("starless-skip", help="Starless Processing 건너뛰기")
     p.add_argument("project")
     p.set_defaults(func=cmd_starless_skip)
+
+
+    def add_stars_args(p):
+        p.add_argument("project")
+        p.add_argument("--brightness", type=float, default=0.70)
+        p.add_argument("--no-saturation", action="store_true")
+        p.add_argument("--saturation", type=float, default=0.08)
+        p.add_argument("--background-factor", type=float, default=0.0)
+        p.add_argument("--hue-range", type=int, default=6)
+
+    p = sub.add_parser("stars-recommend", help="천체 특징 + Stars 통계 기반 추천값")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_stars_recommend)
+
+    p = sub.add_parser("stars-preview", help="Stars Brightness/Saturation 미리보기")
+    add_stars_args(p)
+    p.set_defaults(func=cmd_stars_preview)
+
+    p = sub.add_parser("stars-apply", help="승인 후 Stars Processing 실제 적용")
+    add_stars_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_stars_apply)
+
+    p = sub.add_parser("stars-skip", help="Stars Processing 건너뛰기")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_stars_skip)
 
     return parser
 

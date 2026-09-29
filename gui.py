@@ -48,8 +48,13 @@ from astroauto.starless_processing import (
     skip_starless_processing,
 )
 from astroauto.recommendations import (
-    enrich_target_characteristics, recommend_starless,
+    enrich_target_characteristics, recommend_starless, recommend_stars,
     update_target_characteristics, feature_labels,
+)
+from astroauto.stars_processing import (
+    migrate_ready_for_stars,
+    preview_stars_processing, apply_stars_processing,
+    skip_stars_processing,
 )
 
 CATEGORIES = [
@@ -75,9 +80,8 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.10.0")
-        self.geometry("1050x820")
-        self.minsize(880, 650)
+        self.title("AstroSirilAssistant v0.11.0")
+        self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
         self.help = HelpSystem(self)
@@ -221,6 +225,22 @@ class App(tk.Tk):
         ):
             var.trace_add("write", self._invalidate_starless_preview)
 
+        st = self.ui_defaults.get("stars_processing", {})
+        self.stars_brightness = tk.StringVar(value=str(st.get("brightness_scale", 0.70)))
+        self.stars_sat_enabled = tk.BooleanVar(value=bool(st.get("saturation_enabled", True)))
+        self.stars_sat_amount = tk.StringVar(value=str(st.get("saturation_amount", 0.08)))
+        self.stars_sat_bg = tk.StringVar(value=str(st.get("saturation_background_factor", 0.0)))
+        self.stars_sat_hue = tk.StringVar(value=str(st.get("saturation_hue_range", 6)))
+        self.stars_preview_signature = None
+        self.stars_recommendation = None
+        self.stars_recommendation_var = tk.StringVar(value="추천값을 계산하지 않았습니다.")
+
+        for var in (
+            self.stars_brightness, self.stars_sat_enabled,
+            self.stars_sat_amount, self.stars_sat_bg, self.stars_sat_hue,
+        ):
+            var.trace_add("write", self._invalidate_stars_preview)
+
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
         self.logs_visible = False
@@ -231,9 +251,67 @@ class App(tk.Tk):
 
         self._build()
 
+    def _apply_screen_aware_geometry(self):
+        # Use the current monitor dimensions instead of a fixed 1050x820 window.
+        sw = max(800, int(self.winfo_screenwidth()))
+        sh = max(600, int(self.winfo_screenheight()))
+
+        width = min(1220, max(900, int(sw * 0.82)))
+        height = min(930, max(620, int(sh * 0.82)))
+
+        # Keep margins for Windows taskbar/titlebar and avoid creating a window
+        # larger than the actual screen.
+        width = min(width, max(760, sw - 70))
+        height = min(height, max(540, sh - 110))
+
+        x = max(10, (sw - width) // 2)
+        y = max(10, (sh - height) // 3)
+
+        self.geometry(f"{width}x{height}+{x}+{y}")
+        self.minsize(min(840, sw - 40), min(560, sh - 80))
+
     def _build(self):
-        frm = ttk.Frame(self, padding=12)
-        frm.pack(fill="both", expand=True)
+        shell = ttk.Frame(self)
+        shell.pack(fill="both", expand=True)
+
+        # Vertical PanedWindow:
+        # upper = scrollable workflow, lower = optional resizeable log panel.
+        self.main_pane = ttk.Panedwindow(shell, orient=tk.VERTICAL)
+        self.main_pane.pack(fill="both", expand=True)
+
+        self.workspace_holder = ttk.Frame(self.main_pane)
+        self.main_pane.add(self.workspace_holder, weight=5)
+
+        self.workspace_holder.rowconfigure(0, weight=1)
+        self.workspace_holder.columnconfigure(0, weight=1)
+
+        self.workspace_canvas = tk.Canvas(
+            self.workspace_holder,
+            highlightthickness=0,
+            borderwidth=0,
+        )
+        self.workspace_scrollbar = ttk.Scrollbar(
+            self.workspace_holder,
+            orient="vertical",
+            command=self.workspace_canvas.yview,
+        )
+        self.workspace_canvas.configure(
+            yscrollcommand=self.workspace_scrollbar.set
+        )
+
+        self.workspace_canvas.grid(row=0, column=0, sticky="nsew")
+        self.workspace_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        frm = ttk.Frame(self.workspace_canvas, padding=12)
+        self.workspace_inner = frm
+        self.workspace_window_id = self.workspace_canvas.create_window(
+            (0, 0), window=frm, anchor="nw"
+        )
+
+        frm.bind("<Configure>", self._on_workspace_inner_configure)
+        self.workspace_canvas.bind("<Configure>", self._on_workspace_canvas_configure)
+        self.workspace_canvas.bind("<Enter>", self._bind_workspace_wheel)
+        self.workspace_canvas.bind("<Leave>", self._unbind_workspace_wheel)
 
         ttk.Label(frm, text="원본/스택 FITS").grid(row=0, column=0, sticky="w", pady=4)
         ttk.Entry(frm, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew")
@@ -262,12 +340,23 @@ class App(tk.Tk):
         ttk.Button(btns, text="프로젝트 생성 + 분석", command=self.create_and_analyze).pack(side="left", padx=4)
         ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=4)
 
-        ttk.Label(frm, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w")
+        ui_help = ttk.Button(
+            btns,
+            text="UI 도움말",
+            command=lambda: self.help.show_detail("ui.dynamic"),
+        )
+        ui_help.pack(side="right", padx=4)
+
+        ttk.Label(frm, textvariable=self.status_var).grid(
+            row=6, column=0, columnspan=3, sticky="w"
+        )
 
         self.action_box = ttk.LabelFrame(frm, text="다음 작업")
-        self.action_box.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(8, 4))
+        self.action_box.grid(
+            row=7, column=0, columnspan=3, sticky="ew", pady=(8, 4)
+        )
 
-        # Operation / progress area: visible even when detailed logs are collapsed.
+        # Operation area remains visible in the scrollable workflow.
         op = ttk.Frame(frm)
         op.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(5, 2))
         ttk.Label(op, textvariable=self.operation_var).pack(side="left")
@@ -276,24 +365,89 @@ class App(tk.Tk):
         ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
 
         log_toolbar = ttk.Frame(frm)
-        log_toolbar.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(3, 2))
-        self.log_toggle_btn = ttk.Button(log_toolbar, text="▼ 상세 로그 보기", command=self.toggle_logs)
+        log_toolbar.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(3, 8))
+        self.log_toggle_btn = ttk.Button(
+            log_toolbar,
+            text="▼ 상세 로그 보기",
+            command=self.toggle_logs,
+        )
         self.log_toggle_btn.pack(side="left")
-        self.copy_log_btn = ttk.Button(log_toolbar, text="로그 복사", command=self.copy_logs)
+        self.copy_log_btn = ttk.Button(
+            log_toolbar,
+            text="로그 복사",
+            command=self.copy_logs,
+        )
         self.copy_log_btn.pack(side="left", padx=(6,0))
+        ttk.Label(
+            log_toolbar,
+            text="로그를 열면 아래 Pane의 경계선을 드래그해 높이를 조절할 수 있습니다.",
+        ).pack(side="left", padx=(12,0))
 
-        self.log_frame = ttk.Frame(frm)
-        self.log_frame.grid(row=10, column=0, columnspan=4, sticky="nsew", pady=(2,0))
-        self.output = tk.Text(self.log_frame, wrap="word", height=20)
+        frm.columnconfigure(1, weight=1)
+        self.main_frame = frm
+
+        # Log panel exists from startup but is not inserted into PanedWindow
+        # until the user opens it.
+        self.log_frame = ttk.LabelFrame(self.main_pane, text="상세 로그")
+        self.output = tk.Text(self.log_frame, wrap="word", height=10)
         self.output.pack(side="left", fill="both", expand=True)
         scrollbar = ttk.Scrollbar(self.log_frame, command=self.output.yview)
         scrollbar.pack(side="right", fill="y")
         self.output.configure(yscrollcommand=scrollbar.set)
-        self.log_frame.grid_remove()
 
-        frm.columnconfigure(1, weight=1)
-        frm.rowconfigure(10, weight=1)
-        self.main_frame = frm
+    def _on_workspace_inner_configure(self, _event=None):
+        self.workspace_canvas.configure(
+            scrollregion=self.workspace_canvas.bbox("all")
+        )
+
+    def _on_workspace_canvas_configure(self, event):
+        # Make controls follow the available width rather than retaining a
+        # fixed content width.
+        try:
+            self.workspace_canvas.itemconfigure(
+                self.workspace_window_id,
+                width=max(1, event.width),
+            )
+        except Exception:
+            pass
+
+    def _bind_workspace_wheel(self, _event=None):
+        self.bind_all("<MouseWheel>", self._on_workspace_mousewheel)
+        self.bind_all("<Button-4>", self._on_workspace_linux_wheel)
+        self.bind_all("<Button-5>", self._on_workspace_linux_wheel)
+
+    def _unbind_workspace_wheel(self, _event=None):
+        try:
+            self.unbind_all("<MouseWheel>")
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+        except Exception:
+            pass
+
+    def _on_workspace_mousewheel(self, event):
+        if not event.delta:
+            return
+        step = -1 if event.delta > 0 else 1
+        self.workspace_canvas.yview_scroll(step * 3, "units")
+
+    def _on_workspace_linux_wheel(self, event):
+        step = -3 if event.num == 4 else 3
+        self.workspace_canvas.yview_scroll(step, "units")
+
+    def _ensure_action_visible(self):
+        try:
+            self.update_idletasks()
+            content_h = max(1, self.workspace_inner.winfo_height())
+            action_y = self.action_box.winfo_y()
+            action_h = self.action_box.winfo_height()
+            view_top = self.workspace_canvas.canvasy(0)
+            view_bottom = view_top + self.workspace_canvas.winfo_height()
+
+            if action_y < view_top or action_y + action_h > view_bottom:
+                fraction = max(0.0, min(1.0, (action_y - 12) / content_h))
+                self.workspace_canvas.yview_moveto(fraction)
+        except Exception:
+            pass
 
     def pick_input(self):
         path = filedialog.askopenfilename(
@@ -316,13 +470,29 @@ class App(tk.Tk):
 
     def toggle_logs(self):
         if self.logs_visible:
-            self.log_frame.grid_remove()
+            try:
+                self.main_pane.forget(self.log_frame)
+            except Exception:
+                pass
             self.log_toggle_btn.configure(text="▼ 상세 로그 보기")
             self.logs_visible = False
         else:
-            self.log_frame.grid()
+            try:
+                self.main_pane.add(self.log_frame, weight=2)
+            except Exception:
+                pass
             self.log_toggle_btn.configure(text="▲ 상세 로그 숨기기")
             self.logs_visible = True
+
+            # Give the workflow most of the space initially. The user can drag
+            # the sash to resize either pane.
+            def place_sash():
+                try:
+                    h = max(300, self.main_pane.winfo_height())
+                    self.main_pane.sashpos(0, int(h * 0.68))
+                except Exception:
+                    pass
+            self.after_idle(place_sash)
 
     def show_logs(self):
         if not self.logs_visible:
@@ -502,6 +672,7 @@ class App(tk.Tk):
         project = migrate_ready_for_starnet(pdir)
         project = enrich_target_characteristics(pdir, only_if_empty=True)
         project = migrate_ready_for_starless(pdir)
+        project = migrate_ready_for_stars(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -622,11 +793,16 @@ class App(tk.Tk):
         elif task_id == "STARLESS_PROCESS":
             self._build_starless_controls()
 
+        elif task_id == "STARS_PROCESS":
+            self._build_stars_controls()
+
         else:
             ttk.Label(
                 controls,
                 text="이 단계의 실제 실행 UI는 이후 구현 단계에서 연결됩니다."
             ).pack(side="left", padx=3)
+
+        self.after_idle(self._ensure_action_visible)
 
     def _build_gradient_controls(self, parent):
         # v0.5.1 Help UX:
@@ -2437,6 +2613,320 @@ class App(tk.Tk):
             project = skip_starless_processing(self.project_dir)
             self._show_project_task(project, "Starless Processing 건너뜀")
             self.status_var.set("Starless Processing 건너뜀")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def _build_stars_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="Stars Processing", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "stars.what")
+        ttk.Label(
+            head,
+            text="Target-aware Recommendation + Brightness + Saturation",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "Stars Processing 도움말",
+            [
+                "stars.what", "stars.recommendation",
+                "stars.brightness", "stars.saturation",
+                "stars.preview", "stars.apply",
+            ],
+        ).pack(side="right")
+
+        rec_frame = ttk.LabelFrame(self.action_box, text="천체 특징 기반 별 추천")
+        rec_frame.pack(fill="x", padx=10, pady=(0,8))
+
+        ttk.Label(
+            rec_frame,
+            textvariable=self.stars_recommendation_var,
+            justify="left",
+            wraplength=900,
+        ).pack(anchor="w", padx=10, pady=(7,5))
+
+        rec_buttons = ttk.Frame(rec_frame)
+        rec_buttons.pack(anchor="w", padx=8, pady=(0,7))
+        ttk.Button(
+            rec_buttons,
+            text="추천 다시 계산",
+            command=self.stars_calculate_recommendation,
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            rec_buttons,
+            text="추천값 적용",
+            command=self.stars_apply_recommendation,
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            rec_buttons,
+            text="천체 특징 수정",
+            command=self.edit_target_characteristics,
+        ).pack(side="left", padx=6)
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        def row_label(row, text, topic):
+            w = ttk.Label(body, text=text, width=24)
+            w.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
+            self.help.tooltip(w, topic)
+            return w
+
+        row_label(0, "Brightness Scale", "stars.brightness")
+        ttk.Entry(
+            body, textvariable=self.stars_brightness, width=10
+        ).grid(row=0, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body,
+            text="1.0=원본 / 0.6=별 신호 60%",
+        ).grid(row=0, column=2, sticky="w", padx=(8,0))
+
+        ttk.Separator(body, orient="horizontal").grid(
+            row=1, column=0, columnspan=3, sticky="ew", pady=(6,6)
+        )
+
+        row_label(2, "Saturation", "stars.saturation")
+        ttk.Checkbutton(
+            body, variable=self.stars_sat_enabled
+        ).grid(row=2, column=1, sticky="w", pady=3)
+
+        row_label(3, "Saturation Amount", "stars.saturation")
+        ttk.Entry(
+            body, textvariable=self.stars_sat_amount, width=10
+        ).grid(row=3, column=1, sticky="w", pady=3)
+
+        row_label(4, "Background Factor", "stars.saturation")
+        ttk.Entry(
+            body, textvariable=self.stars_sat_bg, width=10
+        ).grid(row=4, column=1, sticky="w", pady=3)
+        ttk.Label(
+            body,
+            text="Stars-only layer 기본 시작값 0",
+        ).grid(row=4, column=2, sticky="w", padx=(8,0))
+
+        row_label(5, "Hue Range", "stars.saturation")
+        ttk.Combobox(
+            body,
+            textvariable=self.stars_sat_hue,
+            values=["6", "0", "1", "2", "3", "4", "5"],
+            state="readonly",
+            width=10,
+        ).grid(row=5, column=1, sticky="w", pady=3)
+        ttk.Label(body, text="6 = All").grid(
+            row=5, column=2, sticky="w", padx=(8,0)
+        )
+
+        ttk.Label(
+            body,
+            text="※ v0.11의 Brightness Scale은 별의 존재감을 조절하며 실제 별 반경을 줄이는 Morphological Star Reduction은 아닙니다.",
+            wraplength=900,
+        ).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=7, column=0, columnspan=3, sticky="w")
+
+        ttk.Button(
+            buttons,
+            text="Stars 미리보기",
+            command=self.stars_preview,
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons,
+            text="승인 후 적용",
+            command=self.stars_apply,
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons,
+            text="Stars 보정 건너뛰기",
+            command=self.stars_skip,
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+
+        try:
+            self._calculate_stars_recommendation(show_status=False)
+        except Exception as e:
+            self.stars_recommendation_var.set(
+                f"추천 계산을 완료하지 못했습니다: {e}\n현재 입력값으로 수동 진행할 수 있습니다."
+            )
+
+    def _stars_signature(self):
+        return (
+            self.stars_brightness.get().strip(),
+            bool(self.stars_sat_enabled.get()),
+            self.stars_sat_amount.get().strip(),
+            self.stars_sat_bg.get().strip(),
+            self.stars_sat_hue.get().strip(),
+        )
+
+    def _invalidate_stars_preview(self, *args):
+        self.stars_preview_signature = None
+
+    def _stars_params(self):
+        return {
+            "brightness_scale": float(self.stars_brightness.get()),
+            "saturation_enabled": bool(self.stars_sat_enabled.get()),
+            "saturation_amount": float(self.stars_sat_amount.get()),
+            "saturation_background_factor": float(self.stars_sat_bg.get()),
+            "saturation_hue_range": int(self.stars_sat_hue.get()),
+        }
+
+    def _format_stars_recommendation(self, rec):
+        ctx = rec["target_context"]
+        vals = rec["recommended_values"]
+        features = ", ".join(ctx.get("feature_labels") or []) or "추가 특징 없음"
+        reasons = "\n".join(f"  • {x}" for x in rec.get("reasons", [])[:6])
+        return (
+            f"추천 기준: {ctx.get('target_name')} / {ctx.get('category_label')} "
+            f"(source: {ctx.get('source')})\n"
+            f"특징: {features}\n"
+            f"추천 시작값: Brightness={vals['brightness_scale']} / "
+            f"Saturation={'ON' if vals['saturation_enabled'] else 'OFF'} "
+            f"Amount={vals['saturation_amount']} BG={vals['saturation_background_factor']}\n"
+            f"{rec.get('notice')}\n"
+            f"추천 근거:\n{reasons}"
+        )
+
+    def _calculate_stars_recommendation(self, show_status=True):
+        if not self._require_project():
+            return None
+        rec = recommend_stars(self.project_dir, self.cfg)
+        self.stars_recommendation = rec
+        self.stars_recommendation_var.set(
+            self._format_stars_recommendation(rec)
+        )
+        if show_status:
+            self.status_var.set("천체 특징 기반 Stars 추천 계산 완료")
+        return rec
+
+    def stars_calculate_recommendation(self):
+        try:
+            self._calculate_stars_recommendation(show_status=True)
+        except Exception as e:
+            messagebox.showerror("추천 계산 오류", str(e))
+
+    def stars_apply_recommendation(self):
+        try:
+            rec = self.stars_recommendation or self._calculate_stars_recommendation(False)
+            vals = rec["recommended_values"]
+
+            self.stars_brightness.set(str(vals["brightness_scale"]))
+            self.stars_sat_enabled.set(bool(vals["saturation_enabled"]))
+            self.stars_sat_amount.set(str(vals["saturation_amount"]))
+            self.stars_sat_bg.set(str(vals["saturation_background_factor"]))
+            self.stars_sat_hue.set(str(vals.get("saturation_hue_range", 6)))
+
+            self.status_var.set("Stars 추천 시작값을 입력란에 적용했습니다. 미리보기로 확인하세요.")
+        except Exception as e:
+            messagebox.showerror("추천값 적용 오류", str(e))
+
+    def stars_preview(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._stars_params()
+        except ValueError:
+            messagebox.showerror("오류", "Stars Processing 숫자 값을 확인하세요.")
+            return
+
+        signature = self._stars_signature()
+
+        def work():
+            return preview_stars_processing(
+                self.project_dir, self.cfg, **params
+            )
+
+        def done(result):
+            jpg, preview_fits, meta = result
+            self.stars_preview_signature = signature
+            self.write(
+                "\nStars Processing 미리보기 완료\n"
+                f"Preview FITS: {preview_fits}\n"
+                f"JPEG: {jpg}\n"
+                f"Commands: {meta['commands']}\n"
+                "※ Stars 레이어는 Non-linear이므로 AutoStretch를 추가하지 않았습니다.\n"
+            )
+            self.status_var.set("Stars Processing 미리보기 완료")
+            self._open_preview(jpg)
+
+        self.run_bg(
+            work,
+            operation="Stars Processing 미리보기",
+            on_success=done,
+        )
+
+    def stars_apply(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._stars_params()
+        except ValueError:
+            messagebox.showerror("오류", "Stars Processing 숫자 값을 확인하세요.")
+            return
+
+        if self.stars_preview_signature != self._stars_signature():
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 Stars 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        ok = messagebox.askyesno(
+            "Stars Processing 실제 적용",
+            "미리보기와 동일한 설정을 실제 Stars 레이어에 적용합니다.\n\n"
+            f"Brightness Scale: {params['brightness_scale']}\n"
+            f"Saturation: {params['saturation_enabled']}\n"
+            f"Amount: {params['saturation_amount']}\n"
+            f"Background Factor: {params['saturation_background_factor']}\n\n"
+            "Main/Starless 레이어는 변경하지 않습니다.\n진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_stars_processing(
+                self.project_dir, self.cfg, confirmed=True, **params
+            )
+
+        def done(result):
+            project, output, payload = result
+            self.stars_preview_signature = None
+            self._show_project_task(
+                project,
+                f"Stars Processing 완료\nStars 출력: {output}"
+            )
+            self.status_var.set("Stars Processing 완료")
+            next_task = project["project"].get("next_task", {})
+            self._show_apply_success(
+                "Stars Processing",
+                output,
+                next_task.get("title"),
+            )
+
+        self.run_bg(
+            work,
+            operation="Stars Processing 실제 적용",
+            on_success=done,
+        )
+
+    def stars_skip(self):
+        if not self._require_project():
+            return
+        ok = messagebox.askyesno(
+            "Stars 보정 건너뛰기",
+            "Stars 밝기/채도 보정을 하지 않고 Pixel Math 재합성 단계로 이동할까요?"
+        )
+        if not ok:
+            return
+        try:
+            project = skip_stars_processing(self.project_dir)
+            self._show_project_task(project, "Stars Processing 건너뜀")
+            self.status_var.set("Stars Processing 건너뜀")
         except Exception as e:
             messagebox.showerror("오류", str(e))
 

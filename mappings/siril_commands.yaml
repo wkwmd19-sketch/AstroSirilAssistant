@@ -1,4 +1,4 @@
-schema_version: "0.10.0"
+schema_version: "0.11.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -161,3 +161,27 @@ STARLESS_PROCESS:
     require_nonlinear: true
     require_preview_same_parameters_before_gui_apply: true
     never_modify_stars_layer: true
+
+
+STARS_PROCESS:
+  executor: "SIRIL_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.11.0"
+  pipeline_order:
+    - "SATURATION"
+    - "BRIGHTNESS_SCALE"
+  saturation:
+    command_template: "satu {amount} {background_factor} {hue_range_index}"
+  brightness:
+    command_template: "fmul {scalar}"
+  recommendation:
+    engine: "TARGET_AWARE_V0.2"
+    inputs:
+      - "target.category"
+      - "target.features"
+      - "Stars layer statistics"
+    policy: "starting-point only; user approval required"
+  safety:
+    require_stars_layer: true
+    require_preview_same_parameters_before_gui_apply: true
+    preserve_main_layer: true
+    note: "Brightness scaling changes star prominence, not geometric star radius."

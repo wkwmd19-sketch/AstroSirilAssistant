@@ -1,171 +1,270 @@
-schema_version: "0.1"
-
+schema_version: '0.1'
 feature_labels:
-  BRIGHT_CORE: "밝은 중심핵"
-  FAINT_OUTER_STRUCTURE: "희미한 외곽 구조"
-  DUST_LANES: "먼지띠"
-  LOW_SURFACE_BRIGHTNESS: "낮은 표면밝기"
-  FINE_FILAMENTS: "미세 필라멘트"
-  STRONG_EMISSION: "강한 방출선 구조"
-  REFLECTION_BLUE: "푸른 반사성운 구조"
-  COMPACT_HIGH_SURFACE_BRIGHTNESS: "작고 밝은 구조"
-  HIGH_DYNAMIC_RANGE: "높은 다이내믹레인지"
-  WIDE_DIFFUSE: "넓고 확산된 구조"
-  SPIRAL_ARMS: "나선팔 구조"
-  HIGH_STAR_DENSITY: "높은 별 밀도"
-
+  BRIGHT_CORE: 밝은 중심핵
+  FAINT_OUTER_STRUCTURE: 희미한 외곽 구조
+  DUST_LANES: 먼지띠
+  LOW_SURFACE_BRIGHTNESS: 낮은 표면밝기
+  FINE_FILAMENTS: 미세 필라멘트
+  STRONG_EMISSION: 강한 방출선 구조
+  REFLECTION_BLUE: 푸른 반사성운 구조
+  COMPACT_HIGH_SURFACE_BRIGHTNESS: 작고 밝은 구조
+  HIGH_DYNAMIC_RANGE: 높은 다이내믹레인지
+  WIDE_DIFFUSE: 넓고 확산된 구조
+  SPIRAL_ARMS: 나선팔 구조
+  HIGH_STAR_DENSITY: 높은 별 밀도
 category_labels:
-  GALAXY: "은하"
-  EMISSION_NEBULA: "방출성운"
-  REFLECTION_NEBULA: "반사성운"
-  DARK_NEBULA: "암흑성운"
-  PLANETARY_NEBULA: "행성상성운"
-  SUPERNOVA_REMNANT: "초신성잔해"
-  OPEN_CLUSTER: "산개성단"
-  GLOBULAR_CLUSTER: "구상성단"
-  MILKYWAY: "은하수"
-  GENERAL_STARFIELD: "일반 별필드"
-  UNKNOWN: "미분류"
-
+  GALAXY: 은하
+  EMISSION_NEBULA: 방출성운
+  REFLECTION_NEBULA: 반사성운
+  DARK_NEBULA: 암흑성운
+  PLANETARY_NEBULA: 행성상성운
+  SUPERNOVA_REMNANT: 초신성잔해
+  OPEN_CLUSTER: 산개성단
+  GLOBULAR_CLUSTER: 구상성단
+  MILKYWAY: 은하수
+  GENERAL_STARFIELD: 일반 별필드
+  UNKNOWN: 미분류
 starless_processing:
   default:
     clahe_enabled: true
     clahe_clip_limit: 1.4
     clahe_tile_size: 12
     saturation_enabled: true
-    saturation_amount: 0.10
-    saturation_background_factor: 1.10
+    saturation_amount: 0.1
+    saturation_background_factor: 1.1
     saturation_hue_range: 6
-
   by_category:
     GALAXY:
       clahe_enabled: true
-      clahe_clip_limit: 1.50
+      clahe_clip_limit: 1.5
       clahe_tile_size: 12
       saturation_enabled: true
       saturation_amount: 0.12
-      saturation_background_factor: 1.10
+      saturation_background_factor: 1.1
       saturation_hue_range: 6
     EMISSION_NEBULA:
       clahe_enabled: true
-      clahe_clip_limit: 1.80
+      clahe_clip_limit: 1.8
       clahe_tile_size: 12
       saturation_enabled: true
-      saturation_amount: 0.20
-      saturation_background_factor: 1.00
+      saturation_amount: 0.2
+      saturation_background_factor: 1.0
       saturation_hue_range: 6
     REFLECTION_NEBULA:
       clahe_enabled: true
-      clahe_clip_limit: 1.40
+      clahe_clip_limit: 1.4
       clahe_tile_size: 12
       saturation_enabled: true
-      saturation_amount: 0.10
-      saturation_background_factor: 1.10
+      saturation_amount: 0.1
+      saturation_background_factor: 1.1
       saturation_hue_range: 6
     DARK_NEBULA:
       clahe_enabled: true
-      clahe_clip_limit: 1.30
+      clahe_clip_limit: 1.3
       clahe_tile_size: 16
       saturation_enabled: true
       saturation_amount: 0.05
-      saturation_background_factor: 1.20
+      saturation_background_factor: 1.2
       saturation_hue_range: 6
     PLANETARY_NEBULA:
       clahe_enabled: true
-      clahe_clip_limit: 1.60
+      clahe_clip_limit: 1.6
       clahe_tile_size: 8
       saturation_enabled: true
       saturation_amount: 0.18
-      saturation_background_factor: 1.00
+      saturation_background_factor: 1.0
       saturation_hue_range: 6
     SUPERNOVA_REMNANT:
       clahe_enabled: true
-      clahe_clip_limit: 1.80
+      clahe_clip_limit: 1.8
       clahe_tile_size: 16
       saturation_enabled: true
       saturation_amount: 0.16
-      saturation_background_factor: 1.00
+      saturation_background_factor: 1.0
       saturation_hue_range: 6
     OPEN_CLUSTER:
       clahe_enabled: false
-      clahe_clip_limit: 1.20
+      clahe_clip_limit: 1.2
       clahe_tile_size: 8
       saturation_enabled: true
       saturation_amount: 0.05
-      saturation_background_factor: 1.20
+      saturation_background_factor: 1.2
       saturation_hue_range: 6
     GLOBULAR_CLUSTER:
       clahe_enabled: false
-      clahe_clip_limit: 1.20
+      clahe_clip_limit: 1.2
       clahe_tile_size: 8
       saturation_enabled: true
       saturation_amount: 0.04
-      saturation_background_factor: 1.20
+      saturation_background_factor: 1.2
       saturation_hue_range: 6
     MILKYWAY:
       clahe_enabled: true
-      clahe_clip_limit: 1.40
+      clahe_clip_limit: 1.4
       clahe_tile_size: 12
       saturation_enabled: true
-      saturation_amount: 0.10
-      saturation_background_factor: 1.10
+      saturation_amount: 0.1
+      saturation_background_factor: 1.1
       saturation_hue_range: 6
     GENERAL_STARFIELD:
       clahe_enabled: false
-      clahe_clip_limit: 1.20
+      clahe_clip_limit: 1.2
       clahe_tile_size: 8
       saturation_enabled: true
       saturation_amount: 0.05
-      saturation_background_factor: 1.20
+      saturation_background_factor: 1.2
       saturation_hue_range: 6
-
   feature_modifiers:
     BRIGHT_CORE:
       clahe_clip_delta: -0.15
       saturation_delta: -0.02
-      reason: "밝은 중심핵 보호를 위해 국부 대비와 채도 강도를 조금 낮춤"
+      reason: 밝은 중심핵 보호를 위해 국부 대비와 채도 강도를 조금 낮춤
     FAINT_OUTER_STRUCTURE:
       clahe_clip_delta: 0.15
-      reason: "희미한 외곽 구조를 보이기 위해 국부 대비를 소폭 강화"
+      reason: 희미한 외곽 구조를 보이기 위해 국부 대비를 소폭 강화
     DUST_LANES:
       clahe_clip_delta: 0.15
       tile_min: 12
-      reason: "먼지띠의 국부 대비를 조금 더 살리는 방향"
+      reason: 먼지띠의 국부 대비를 조금 더 살리는 방향
     LOW_SURFACE_BRIGHTNESS:
-      clahe_clip_delta: 0.10
+      clahe_clip_delta: 0.1
       saturation_delta: -0.02
-      background_factor_delta: 0.10
-      reason: "저표면밝기 신호는 색 노이즈 과증폭을 피하면서 구조 대비를 소폭 강화"
+      background_factor_delta: 0.1
+      reason: 저표면밝기 신호는 색 노이즈 과증폭을 피하면서 구조 대비를 소폭 강화
     FINE_FILAMENTS:
-      clahe_clip_delta: 0.20
+      clahe_clip_delta: 0.2
       tile_min: 16
-      reason: "미세 필라멘트의 국부 구조를 강조하는 방향"
+      reason: 미세 필라멘트의 국부 구조를 강조하는 방향
     STRONG_EMISSION:
       saturation_delta: 0.05
-      reason: "강한 방출선 색 구조를 조금 더 살리는 방향"
+      reason: 강한 방출선 색 구조를 조금 더 살리는 방향
     REFLECTION_BLUE:
       saturation_delta: 0.02
-      reason: "반사성운의 색 차이를 소폭 강화"
+      reason: 반사성운의 색 차이를 소폭 강화
     COMPACT_HIGH_SURFACE_BRIGHTNESS:
       clahe_clip_delta: -0.15
       tile_max: 8
-      reason: "작고 밝은 구조의 과도한 국부 대비를 억제"
+      reason: 작고 밝은 구조의 과도한 국부 대비를 억제
     HIGH_DYNAMIC_RANGE:
-      clahe_clip_delta: -0.10
+      clahe_clip_delta: -0.1
       saturation_delta: -0.01
-      reason: "밝은 영역과 희미한 영역의 동시 보존을 위해 보수적으로 조정"
+      reason: 밝은 영역과 희미한 영역의 동시 보존을 위해 보수적으로 조정
     WIDE_DIFFUSE:
       tile_max: 8
-      reason: "넓은 확산 구조를 너무 잘게 분할하지 않도록 타일 수를 낮춤"
+      reason: 넓은 확산 구조를 너무 잘게 분할하지 않도록 타일 수를 낮춤
     SPIRAL_ARMS:
-      clahe_clip_delta: 0.10
-      reason: "나선팔/먼지 구조의 국부 대비를 소폭 강화"
+      clahe_clip_delta: 0.1
+      reason: 나선팔/먼지 구조의 국부 대비를 소폭 강화
     HIGH_STAR_DENSITY:
       saturation_delta: -0.02
-      reason: "별 잔여/색 노이즈가 과장되지 않도록 채도를 조금 낮춤"
-
+      reason: 별 잔여/색 노이즈가 과장되지 않도록 채도를 조금 낮춤
 limits:
-  saturation_amount: [-0.50, 0.60]
-  saturation_background_factor: [0.0, 3.0]
-  clahe_clip_limit: [0.5, 4.0]
-  clahe_tile_size: [4, 32]
+  saturation_amount:
+  - -0.5
+  - 0.6
+  saturation_background_factor:
+  - 0.0
+  - 3.0
+  clahe_clip_limit:
+  - 0.5
+  - 4.0
+  clahe_tile_size:
+  - 4
+  - 32
+  star_brightness_scale:
+  - 0.0
+  - 1.5
+  star_saturation_amount:
+  - -0.5
+  - 0.5
+stars_processing:
+  default:
+    brightness_scale: 0.75
+    saturation_enabled: true
+    saturation_amount: 0.06
+    saturation_background_factor: 0.0
+    saturation_hue_range: 6
+  by_category:
+    GALAXY:
+      brightness_scale: 0.7
+      saturation_enabled: true
+      saturation_amount: 0.08
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    EMISSION_NEBULA:
+      brightness_scale: 0.6
+      saturation_enabled: true
+      saturation_amount: 0.06
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    REFLECTION_NEBULA:
+      brightness_scale: 0.65
+      saturation_enabled: true
+      saturation_amount: 0.08
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    DARK_NEBULA:
+      brightness_scale: 0.6
+      saturation_enabled: true
+      saturation_amount: 0.05
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    PLANETARY_NEBULA:
+      brightness_scale: 0.65
+      saturation_enabled: true
+      saturation_amount: 0.08
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    SUPERNOVA_REMNANT:
+      brightness_scale: 0.55
+      saturation_enabled: true
+      saturation_amount: 0.05
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    OPEN_CLUSTER:
+      brightness_scale: 0.95
+      saturation_enabled: true
+      saturation_amount: 0.08
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    GLOBULAR_CLUSTER:
+      brightness_scale: 0.9
+      saturation_enabled: true
+      saturation_amount: 0.05
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    MILKYWAY:
+      brightness_scale: 0.75
+      saturation_enabled: true
+      saturation_amount: 0.05
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+    GENERAL_STARFIELD:
+      brightness_scale: 1.0
+      saturation_enabled: true
+      saturation_amount: 0.05
+      saturation_background_factor: 0.0
+      saturation_hue_range: 6
+  feature_modifiers:
+    FAINT_OUTER_STRUCTURE:
+      brightness_delta: -0.05
+      reason: 희미한 천체 외곽 구조를 가리지 않도록 별 밝기를 소폭 낮춤
+    LOW_SURFACE_BRIGHTNESS:
+      brightness_delta: -0.1
+      reason: 저표면밝기 천체 신호보다 별이 과도하게 지배하지 않도록 별 밝기를 낮춤
+    STRONG_EMISSION:
+      brightness_delta: -0.05
+      reason: 방출성운 구조가 별에 묻히지 않도록 별 밝기를 소폭 낮춤
+    FINE_FILAMENTS:
+      brightness_delta: -0.05
+      reason: 미세 필라멘트 구조와 별의 시각적 경쟁을 줄이는 방향
+    WIDE_DIFFUSE:
+      brightness_delta: -0.05
+      reason: 넓고 확산된 구조를 강조하기 위해 별 존재감을 조금 낮춤
+    HIGH_DYNAMIC_RANGE:
+      brightness_delta: -0.05
+      reason: 밝은 별/핵과 희미한 구조의 균형을 위해 별 밝기를 보수적으로 낮춤
+    HIGH_STAR_DENSITY:
+      brightness_delta: -0.1
+      saturation_delta: -0.02
+      reason: 별 밀도가 높은 장면에서 별이 과도하게 지배하지 않도록 밝기/채도를 낮춤
