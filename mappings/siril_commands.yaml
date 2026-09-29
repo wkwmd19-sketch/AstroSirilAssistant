@@ -1,4 +1,4 @@
-schema_version: "0.5.0"
+schema_version: "0.5.1"
 
 command_mapping:
   target_siril: "1.4.4"

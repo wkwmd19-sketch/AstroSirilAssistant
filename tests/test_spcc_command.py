@@ -15,7 +15,19 @@ class SpccCommandTests(unittest.TestCase):
         self.assertIn('"-oscsensor=Sony IMX678"', cmd)
         self.assertIn('"-oscfilter=DWARF Mini Astro"', cmd)
         self.assertIn('"-whiteref=Average Spiral Galaxy"', cmd)
-        self.assertIn("-bgtol=-2.8,2", cmd)
+        self.assertNotIn("-bgtol=", cmd)
+
+    def test_custom_bgtol_is_quoted(self):
+        cmd = build_spcc_command(
+            mode="OSC",
+            sensor="Sony IMX678",
+            osc_filter="DWARF Mini Astro",
+            white_reference="Average Spiral Galaxy",
+            catalog="AUTO",
+            bgtol_lower=-3.0,
+            bgtol_upper=2.5,
+        )
+        self.assertIn('"-bgtol=-3,2.5"', cmd)
 
     def test_list_parser(self):
         sample = """log: Welcome to siril 1.4.4

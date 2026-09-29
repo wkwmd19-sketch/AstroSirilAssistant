@@ -18,7 +18,8 @@ from astroauto.state_actions import (
 )
 from astroauto.gradient import preview_gradient, apply_gradient
 from astroauto.spcc import (
-    fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc
+    fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc,
+    bgtol_uses_siril_default,
 )
 from astroauto.help_system import HelpSystem
 from astroauto.config import load_yaml, PACKAGE_ROOT
@@ -46,7 +47,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.5.0")
+        self.title("AstroSirilAssistant v0.5.1")
         self.geometry("1050x820")
         self.minsize(880, 650)
         self.cfg = load_app_config()
@@ -340,142 +341,151 @@ class App(tk.Tk):
             ).pack(side="left", padx=3)
 
     def _build_gradient_controls(self, parent):
+        # v0.5.1 Help UX:
+        # - short tooltip appears only when hovering the exact parameter label
+        # - one section-level detailed help button avoids visual clutter
         lbl = ttk.Label(parent, text="Samples")
         lbl.pack(side="left", padx=(0,2))
         self.help.tooltip(lbl, "gradient.samples")
-        ent = ttk.Entry(parent, textvariable=self.gradient_samples, width=5)
-        ent.pack(side="left")
-        self.help.tooltip(ent, "gradient.samples")
-        self.help.help_button(parent, "gradient.samples").pack(side="left", padx=(1,6))
+        ttk.Entry(parent, textvariable=self.gradient_samples, width=5).pack(side="left", padx=(0,8))
 
         lbl = ttk.Label(parent, text="Tolerance")
         lbl.pack(side="left", padx=(0,2))
         self.help.tooltip(lbl, "gradient.tolerance")
-        ent = ttk.Entry(parent, textvariable=self.gradient_tolerance, width=6)
-        ent.pack(side="left")
-        self.help.tooltip(ent, "gradient.tolerance")
-        self.help.help_button(parent, "gradient.tolerance").pack(side="left", padx=(1,6))
+        ttk.Entry(parent, textvariable=self.gradient_tolerance, width=6).pack(side="left", padx=(0,8))
 
         lbl = ttk.Label(parent, text="Smooth")
         lbl.pack(side="left", padx=(0,2))
         self.help.tooltip(lbl, "gradient.smooth")
-        ent = ttk.Entry(parent, textvariable=self.gradient_smooth, width=6)
-        ent.pack(side="left")
-        self.help.tooltip(ent, "gradient.smooth")
-        self.help.help_button(parent, "gradient.smooth").pack(side="left", padx=(1,6))
+        ttk.Entry(parent, textvariable=self.gradient_smooth, width=6).pack(side="left", padx=(0,8))
 
-        chk = ttk.Checkbutton(parent, text="Dither", variable=self.gradient_dither)
-        chk.pack(side="left")
-        self.help.tooltip(chk, "gradient.dither")
-        self.help.help_button(parent, "gradient.dither").pack(side="left", padx=(1,6))
+        lbl = ttk.Label(parent, text="Dither")
+        lbl.pack(side="left", padx=(0,2))
+        self.help.tooltip(lbl, "gradient.dither")
+        ttk.Checkbutton(parent, variable=self.gradient_dither).pack(side="left", padx=(0,10))
 
-        btn = ttk.Button(parent, text="미리보기", command=self.gradient_preview)
-        btn.pack(side="left", padx=3)
-        self.help.tooltip(btn, "gradient.preview")
-        self.help.help_button(parent, "gradient.preview").pack(side="left", padx=(0,5))
+        ttk.Button(parent, text="미리보기", command=self.gradient_preview).pack(side="left", padx=3)
+        ttk.Button(parent, text="승인 후 적용", command=self.gradient_apply).pack(side="left", padx=3)
 
-        btn = ttk.Button(parent, text="승인 후 적용", command=self.gradient_apply)
-        btn.pack(side="left", padx=3)
-        self.help.tooltip(btn, "gradient.apply")
-        self.help.help_button(parent, "gradient.apply").pack(side="left", padx=(0,3))
-
+        self.help.section_help_button(
+            parent,
+            "Background / Gradient Correction 도움말",
+            [
+                "gradient.samples",
+                "gradient.tolerance",
+                "gradient.smooth",
+                "gradient.dither",
+                "gradient.preview",
+                "gradient.apply",
+            ],
+        ).pack(side="right", padx=(12,3))
 
     def _build_spcc_controls(self):
-        # SPCC needs more room than a single horizontal row, so rebuild the action area.
         self._clear_actions()
-        task = load_project(self.project_dir)["project"].get("next_task") if self.project_dir else None
 
+        # Header: one detailed help entry for the whole section.
         head = ttk.Frame(self.action_box)
-        head.pack(fill="x", padx=8, pady=(6,4))
-        lbl = ttk.Label(
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(
             head,
-            text="SPCC Color Calibration — Gaia DR3 + Sensor/Filter 기반 색보정",
+            text="SPCC Color Calibration",
+            font=("", 10, "bold"),
         )
-        lbl.pack(side="left")
-        self.help.tooltip(lbl, "spcc.what")
-        self.help.help_button(head, "spcc.what").pack(side="left", padx=5)
+        title.pack(side="left")
+        self.help.tooltip(title, "spcc.what")
+
+        ttk.Label(
+            head,
+            text="Gaia DR3 + Sensor / Filter 기반 색보정",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "SPCC Color Calibration 도움말",
+            [
+                "spcc.what",
+                "spcc.platesolve",
+                "spcc.camera_mode",
+                "spcc.sensor",
+                "spcc.osc_filter",
+                "spcc.osc_lpf",
+                "spcc.white_reference",
+                "spcc.catalog",
+                "spcc.bgtol",
+                "spcc.list_refresh",
+                "spcc.preview",
+                "spcc.apply",
+            ],
+        ).pack(side="right")
 
         body = ttk.Frame(self.action_box)
-        body.pack(fill="x", padx=8, pady=(2,6))
+        body.pack(fill="x", padx=10, pady=(2,8))
 
+        # Only the exact labels get short hover tooltips.
         def row_label(row, text, topic):
-            label = ttk.Label(body, text=text, width=18)
-            label.grid(row=row, column=0, sticky="w", pady=2)
+            label = ttk.Label(body, text=text, width=19)
+            label.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
             self.help.tooltip(label, topic)
-            hb = self.help.help_button(body, topic)
-            hb.grid(row=row, column=3, sticky="w", padx=(4,8))
             return label
 
         row_label(0, "Camera Mode", "spcc.camera_mode")
-        mode = ttk.Combobox(body, textvariable=self.spcc_mode, values=["OSC", "MONO"], state="readonly", width=24)
-        mode.grid(row=0, column=1, sticky="w")
-        self.help.tooltip(mode, "spcc.camera_mode")
+        mode = ttk.Combobox(
+            body, textvariable=self.spcc_mode,
+            values=["OSC", "MONO"], state="readonly", width=22
+        )
+        mode.grid(row=0, column=1, sticky="w", pady=3)
         mode.bind("<<ComboboxSelected>>", lambda e: self._refresh_spcc_mode_ui())
 
         row_label(1, "Sensor", "spcc.sensor")
-        sensor = ttk.Combobox(body, textvariable=self.spcc_sensor, width=42)
-        sensor.grid(row=1, column=1, sticky="ew")
-        self.help.tooltip(sensor, "spcc.sensor")
+        sensor = ttk.Combobox(body, textvariable=self.spcc_sensor, width=56)
+        sensor.grid(row=1, column=1, sticky="ew", pady=3)
         self.spcc_widgets["sensor"] = sensor
 
         row_label(2, "OSC Filter", "spcc.osc_filter")
-        filt = ttk.Combobox(body, textvariable=self.spcc_osc_filter, width=42)
-        filt.grid(row=2, column=1, sticky="ew")
-        self.help.tooltip(filt, "spcc.osc_filter")
+        filt = ttk.Combobox(body, textvariable=self.spcc_osc_filter, width=56)
+        filt.grid(row=2, column=1, sticky="ew", pady=3)
         self.spcc_widgets["oscfilter"] = filt
 
         row_label(3, "OSC LPF", "spcc.osc_lpf")
-        lpf = ttk.Combobox(body, textvariable=self.spcc_osc_lpf, width=42)
-        lpf.grid(row=3, column=1, sticky="ew")
-        self.help.tooltip(lpf, "spcc.osc_lpf")
+        lpf = ttk.Combobox(body, textvariable=self.spcc_osc_lpf, width=56)
+        lpf.grid(row=3, column=1, sticky="ew", pady=3)
         self.spcc_widgets["osclpf"] = lpf
 
         row_label(4, "White Reference", "spcc.white_reference")
-        wr = ttk.Combobox(body, textvariable=self.spcc_white_ref, width=42)
-        wr.grid(row=4, column=1, sticky="ew")
-        self.help.tooltip(wr, "spcc.white_reference")
+        wr = ttk.Combobox(body, textvariable=self.spcc_white_ref, width=56)
+        wr.grid(row=4, column=1, sticky="ew", pady=3)
         self.spcc_widgets["whiteref"] = wr
 
         row_label(5, "Gaia Catalog", "spcc.catalog")
-        cat = ttk.Combobox(
+        ttk.Combobox(
             body, textvariable=self.spcc_catalog,
             values=["AUTO", "GAIA_ONLINE", "LOCAL_GAIA"],
-            state="readonly", width=24
-        )
-        cat.grid(row=5, column=1, sticky="w")
-        self.help.tooltip(cat, "spcc.catalog")
+            state="readonly", width=22
+        ).grid(row=5, column=1, sticky="w", pady=3)
 
         row_label(6, "Background Tol.", "spcc.bgtol")
         tol_frame = ttk.Frame(body)
-        tol_frame.grid(row=6, column=1, sticky="w")
+        tol_frame.grid(row=6, column=1, sticky="w", pady=3)
         ttk.Label(tol_frame, text="Lower").pack(side="left")
-        ttk.Entry(tol_frame, textvariable=self.spcc_bgtol_lower, width=7).pack(side="left", padx=(3,10))
+        ttk.Entry(tol_frame, textvariable=self.spcc_bgtol_lower, width=7).pack(side="left", padx=(4,12))
         ttk.Label(tol_frame, text="Upper").pack(side="left")
-        ttk.Entry(tol_frame, textvariable=self.spcc_bgtol_upper, width=7).pack(side="left", padx=3)
-        self.help.tooltip(tol_frame, "spcc.bgtol")
+        ttk.Entry(tol_frame, textvariable=self.spcc_bgtol_upper, width=7).pack(side="left", padx=(4,0))
+        ttk.Label(
+            tol_frame,
+            text="  (기본값이면 Siril 기본 -2.8 / +2.0 사용)",
+        ).pack(side="left", padx=(8,0))
+
+        ttk.Separator(body, orient="horizontal").grid(
+            row=7, column=0, columnspan=2, sticky="ew", pady=(8,8)
+        )
 
         buttons = ttk.Frame(body)
-        buttons.grid(row=7, column=0, columnspan=4, sticky="w", pady=(8,2))
-
-        btn = ttk.Button(buttons, text="SPCC 목록 불러오기", command=self.load_spcc_lists)
-        btn.pack(side="left", padx=3)
-        self.help.tooltip(btn, "spcc.list_refresh")
-        self.help.help_button(buttons, "spcc.list_refresh").pack(side="left", padx=(0,8))
-
-        btn = ttk.Button(buttons, text="Plate Solve 상태", command=self.show_wcs_status)
-        btn.pack(side="left", padx=3)
-        self.help.tooltip(btn, "spcc.platesolve")
-        self.help.help_button(buttons, "spcc.platesolve").pack(side="left", padx=(0,8))
-
-        btn = ttk.Button(buttons, text="SPCC 미리보기", command=self.spcc_preview)
-        btn.pack(side="left", padx=3)
-        self.help.tooltip(btn, "spcc.preview")
-        self.help.help_button(buttons, "spcc.preview").pack(side="left", padx=(0,8))
-
-        btn = ttk.Button(buttons, text="승인 후 적용", command=self.spcc_apply)
-        btn.pack(side="left", padx=3)
-        self.help.tooltip(btn, "spcc.apply")
-        self.help.help_button(buttons, "spcc.apply").pack(side="left", padx=(0,3))
+        buttons.grid(row=8, column=0, columnspan=2, sticky="w", pady=(0,2))
+        ttk.Button(buttons, text="SPCC 목록 불러오기", command=self.load_spcc_lists).pack(side="left", padx=(0,6))
+        ttk.Button(buttons, text="Plate Solve 상태", command=self.show_wcs_status).pack(side="left", padx=6)
+        ttk.Button(buttons, text="SPCC 미리보기", command=self.spcc_preview).pack(side="left", padx=6)
+        ttk.Button(buttons, text="승인 후 적용", command=self.spcc_apply).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
         self._refresh_spcc_mode_ui()
@@ -600,6 +610,8 @@ class App(tk.Tk):
             return
 
         signature = self._spcc_signature()
+        if bgtol_uses_siril_default(params["bgtol_lower"], params["bgtol_upper"]):
+            self.write("\nSPCC Background Tol.: Siril 기본값(-2.8 / +2.0)을 사용합니다.\n")
         self.status_var.set("Plate Solve + SPCC 미리보기 실행 중...")
 
         def work():

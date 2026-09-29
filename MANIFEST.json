@@ -1,14 +1,13 @@
 {
-  "package": "AstroSirilAssistant_v0.5.0",
-  "version": "0.5.0",
-  "features": [
-    "Common Help System: tooltip + detailed ? dialog",
-    "Help topics for Gradient and SPCC",
-    "SPCC database list retrieval with spcc_list",
-    "Plate solve preflight/automatic platesolve call",
-    "OSC SPCC preview and actual apply",
-    "Gaia DR3 catalog mode",
-    "SPCC output/state/log handling"
+  "package": "AstroSirilAssistant_v0.5.1",
+  "version": "0.5.1",
+  "fixes": [
+    "One section-level help button instead of per-field ? buttons",
+    "Short tooltips only on exact parameter labels",
+    "Single reusable detailed help popup",
+    "SPCC default bgtol omitted to use Siril 1.4.4 built-in defaults",
+    "Custom bgtol kept as quoted documented syntax",
+    "SPCC list parser strips Siril timestamp/tick prefixes"
   ],
   "python_files": {
     "app.py": "OK",
@@ -33,6 +32,7 @@
     "tests/test_calibration_logic.py": "OK",
     "tests/test_gradient_command.py": "OK",
     "tests/test_help_catalog.py": "OK",
+    "tests/test_help_single_window_policy.py": "OK",
     "tests/test_preprocess_plan.py": "OK",
     "tests/test_reserved_profiles.py": "OK",
     "tests/test_siril_requires.py": "OK",

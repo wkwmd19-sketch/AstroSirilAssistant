@@ -38,12 +38,17 @@ def _strip_log_prefix(line: str) -> str:
     line = line.replace("\x00", "").strip()
     if not line:
         return ""
-    # Siril log output can include prefixes/timestamps separated by colons.
+
     if line.lower().startswith("log:"):
-        parts = line.split(":", 3)
-        if len(parts) == 4:
-            return parts[3].strip()
-        return line.split(":", 1)[1].strip()
+        line = line.split(":", 1)[1].strip()
+
+        # Some Siril builds/log formats prepend timestamps or numeric ticks.
+        # Examples:
+        #   2026:01:01: Sony IMX678
+        #   1790699243: running command ...
+        line = re.sub(r"^\d{4}:\d{2}:\d{2}:\s*", "", line)
+        line = re.sub(r"^\d{8,}:\s*", "", line)
+
     return line
 
 def _parse_spcc_list_stdout(stdout: str) -> list[str]:
@@ -151,6 +156,9 @@ def _catalog_arg(catalog: str) -> str | None:
         return "-catalog=localgaia"
     raise ValueError(f"지원하지 않는 SPCC catalog: {catalog}")
 
+def bgtol_uses_siril_default(lower: float, upper: float) -> bool:
+    return abs(float(lower) - (-2.8)) < 1e-12 and abs(float(upper) - 2.0) < 1e-12
+
 def build_spcc_command(
     *,
     mode: str,
@@ -199,7 +207,18 @@ def build_spcc_command(
     hi = float(bgtol_upper)
     if lo >= hi:
         raise ValueError("Background Tolerance lower는 upper보다 작아야 합니다.")
-    args.append(f"-bgtol={lo:g},{hi:g}")
+
+    # Siril 1.4.4 documents the defaults as -2.8 / +2.0.
+    # On the tested Windows 1.4.4 CLI, explicitly passing
+    #   -bgtol=-2.8,2
+    # is rejected even though the documented syntax is valid.
+    # For the default pair we therefore omit the option entirely and let
+    # Siril use its own defaults. This is equivalent and avoids the parser issue.
+    #
+    # For custom values keep the documented syntax, but quote the whole argument
+    # so it is passed as one token.
+    if not (abs(lo - (-2.8)) < 1e-12 and abs(hi - 2.0) < 1e-12):
+        args.append(f'"-bgtol={lo:g},{hi:g}"')
 
     return "spcc " + " ".join(args)
 
