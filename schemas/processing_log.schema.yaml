@@ -1,0 +1,23 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "AstroSirilAssistant Processing Log Schema"
+type: object
+required: ["schema_version", "project_id", "entries"]
+properties:
+  schema_version: {type: string, const: "0.1"}
+  project_id: {type: string}
+  entries:
+    type: array
+    items:
+      type: object
+      required: ["timestamp", "step_id", "input_file", "status"]
+      properties:
+        timestamp: {type: string}
+        step_id: {type: string}
+        input_file: {type: string}
+        output_file: {type: ["string", "null"]}
+        status: {type: string, enum: ["SUCCESS", "FAILED", "SKIPPED", "CANCELLED"]}
+        parameters: {type: object}
+        analysis_before: {type: object}
+        analysis_after: {type: object}
+        user_override: {type: boolean}
+        notes: {type: ["string", "null"]}

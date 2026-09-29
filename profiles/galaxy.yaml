@@ -1,0 +1,35 @@
+schema_version: "0.1"
+profile:
+  id: "GALAXY"
+  display_name: "Galaxy"
+  applies_to:
+    categories: ["GALAXY"]
+  priorities:
+    preserve_highlights: "HIGH"
+    preserve_faint_structure: "HIGH"
+    preserve_star_color: "MEDIUM"
+    star_reduction: "MEDIUM"
+  subtype_rules:
+    GALAXY_LARGE:
+      stretch: {outer_structure_priority: "HIGH"}
+    GALAXY_SMALL:
+      deblur: {priority: "HIGH"}
+    GALAXY_BRIGHT_CORE:
+      stretch: {highlight_protection: "HIGH", core_clipping_guard: true}
+    GALAXY_LOW_SURFACE_BRIGHTNESS:
+      stretch: {faint_signal_priority: "VERY_HIGH"}
+  default_pipeline: ["GRADIENT_CORRECTION", "COLOR_CALIBRATION", "DEBLUR", "DENOISE", "GHS_STRETCH", "STARNET", "STARLESS_PROCESS", "STARS_PROCESS", "PIXELMATH_RECOMBINE", "FINAL_CURVES"]
+  starnet:
+    default_enabled: true
+    protect_highlights: true
+    linear_data: false
+  recombine:
+    method: "PIXEL_MATH"
+    default_formula: "Main + Stars * {star_weight}"
+    star_weight: {default: 0.65, min: 0.30, max: 1.00, adaptive: true}
+  ghs:
+    adaptive: true
+    analysis_inputs: ["background_peak", "median", "p90", "p99", "highlight_clip_ratio", "target_subtypes"]
+    safeguards:
+      max_highlight_clip_ratio: 0.001
+      require_preview_before_apply: true

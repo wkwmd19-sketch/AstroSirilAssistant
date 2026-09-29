@@ -1,0 +1,41 @@
+schema_version: "0.1"
+processing_defaults:
+  mode: "SEMI_AUTO"
+  approval:
+    required_before_apply: true
+    required_for_state_reentry: true
+    required_for_destructive_step: true
+  analysis:
+    histogram:
+      calculate: ["min", "max", "mean", "median", "background_peak", "p01", "p10", "p50", "p90", "p99", "p999", "shadow_clip_ratio", "highlight_clip_ratio"]
+      per_channel: true
+  ghs:
+    adaptive: true
+    require_preview: true
+    parameters:
+      D: {mode: "AUTO_RECOMMEND"}
+      b: {mode: "AUTO_RECOMMEND"}
+      SP: {mode: "AUTO_RECOMMEND"}
+      LP: {default: 0.0}
+      HP: {mode: "AUTO_RECOMMEND"}
+  starnet:
+    enabled_by_profile: true
+    default_stride: "STANDARD"
+    protect_highlights: true
+    linear_data: "AUTO"
+    output_starless: true
+    output_stars: true
+  recombine:
+    engine: "PIXEL_MATH"
+    adaptive_star_weight: true
+    default_star_weight: 0.65
+  save:
+    intermediate_suffix_auto: false
+    final_suffix_auto: true
+    final_suffix: "_Auto"
+    fits_working_bit_depth: "FLOAT32"
+    final_formats: ["FITS", "TIFF", "PNG"]
+  recovery:
+    write_state_after_every_step: true
+    preserve_previous_step: true
+    keep_failed_outputs: false

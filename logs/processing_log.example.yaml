@@ -1,0 +1,13 @@
+schema_version: "0.1"
+project_id: "M31_2026-09-29_Auto"
+entries:
+  - timestamp: "2026-09-29T21:30:00+09:00"
+    step_id: "GHS_STRETCH"
+    input_file: "M31_04_prism.fits"
+    output_file: "M31_05_ghs1.fits"
+    status: "SUCCESS"
+    parameters: {D: 1.30, b: 6.0, SP: 0.08, LP: 0.0, HP: 0.90}
+    analysis_before: {linear: true, highlight_clip_ratio: 0.0001}
+    analysis_after: {linear: false, highlight_clip_ratio: 0.0003}
+    user_override: false
+    notes: "외곽 원반 상승, 중심핵 보호"

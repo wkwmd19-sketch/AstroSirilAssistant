@@ -1,0 +1,18 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: "AstroSirilAssistant Profile Schema"
+type: object
+required: ["schema_version", "profile"]
+properties:
+  schema_version: {type: string, const: "0.1"}
+  profile:
+    type: object
+    required: ["id", "display_name"]
+    properties:
+      id: {type: string}
+      display_name: {type: string}
+      default_pipeline: {type: array, items: {type: string}}
+      priorities: {type: object, additionalProperties: {type: string}}
+      starnet: {type: object}
+      ghs: {type: object}
+      recombine: {type: object}
+      variants: {type: object}
