@@ -27,7 +27,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.4 - Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.4.1 - Deep Sky Sequence")
         self.geometry("980x790")
         self.cfg = load_app_config()
         self.project_dir = None

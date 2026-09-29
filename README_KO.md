@@ -1,4 +1,9 @@
-# AstroSirilAssistant v0.4.0 — 첫 실제 Siril 전처리/스택 실행 버전
+# AstroSirilAssistant v0.4.1 — Siril 1.4.4 script hotfix
+
+> v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
+
+## 기존 v0.4 기능
+
 
 이제 규격만 있는 단계에서 벗어나,
 **FITS Light sequence에 대해 Siril CLI를 실제 실행하여 Calibration → Registration → Stack**까지 수행할 수 있습니다.

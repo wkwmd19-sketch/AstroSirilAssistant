@@ -33,7 +33,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.3.3")
+        self.title("AstroSirilAssistant v0.4.1")
         self.geometry("900x700")
         self.cfg = load_app_config()
 

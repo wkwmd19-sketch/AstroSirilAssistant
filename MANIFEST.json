@@ -1,8 +1,12 @@
 {
-  "package": "AstroSirilAssistant_v0.4.0",
-  "version": "0.4.0",
-  "actual_siril_preprocess_engine": true,
-  "supported_actual_path": "FITS deep-sky sequence -> calibration -> registration -> stack",
+  "package": "AstroSirilAssistant_v0.4.1",
+  "version": "0.4.1",
+  "fixes": [
+    "Inject Siril `requires` as first stdin script command",
+    "Fix run_gui version title"
+  ],
+  "python_errors": [],
+  "yaml_errors": [],
   "python_files": {
     "app.py": "OK",
     "astroauto/__init__.py": "OK",
@@ -22,6 +26,7 @@
     "tests/test_calibration_logic.py": "OK",
     "tests/test_preprocess_plan.py": "OK",
     "tests/test_reserved_profiles.py": "OK",
+    "tests/test_siril_requires.py": "OK",
     "tests/test_star_trail_workflow.py": "OK",
     "tests/test_utils.py": "OK"
   },
@@ -47,7 +52,5 @@
     "profiles/reflection_nebula.yaml": "OK",
     "profiles/star_trail.yaml": "OK",
     "profiles/supernova_remnant.yaml": "OK"
-  },
-  "python_errors": [],
-  "yaml_errors": []
+  }
 }

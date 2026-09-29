@@ -55,9 +55,23 @@ def get_siril_info(config: dict) -> SirilInfo:
     return SirilInfo(executable=exe, version=_parse_version(combined))
 
 def run_script(config: dict, commands: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """Run commands through `siril-cli -s -`.
+
+    Siril 1.4.x checks that the first script command is `requires`.
+    Without it, Siril may report a successful script exit while skipping
+    the actual commands. We therefore inject the configured minimum
+    supported version unless the caller already supplied `requires`.
+    """
     info = get_siril_info(config)
     timeout = int(config.get("siril", {}).get("command_timeout_sec", 180))
-    script = "\n".join(commands).rstrip() + "\n"
+    minimum = str(config.get("siril", {}).get("minimum_supported", "1.4.0"))
+
+    cleaned = [str(c).strip() for c in commands if str(c).strip()]
+    first = cleaned[0].lower() if cleaned else ""
+    if not first.startswith("requires "):
+        cleaned.insert(0, f"requires {minimum}")
+
+    script = "\n".join(cleaned).rstrip() + "\n"
     proc = subprocess.run(
         [str(info.executable), "-s", "-"],
         input=script,

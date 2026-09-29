@@ -30,7 +30,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.4.0")
+    print("AstroSirilAssistant v0.4.1")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -214,7 +214,7 @@ def cmd_preprocess_run(args):
     return 0
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.4.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.4.1")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
