@@ -32,3 +32,23 @@ deblur:
   regularization: "NONE"
   alpha: 3000
   multiplicative: false
+
+
+ghs:
+  method: "AUTO_GHS"
+  auto:
+    linked: true
+    shadows_clip: -2.8
+    stretch_amount: 1.0
+    b: 13.0
+    lp: 0.0
+    hp: 0.7
+    clip_mode: "rgbblend"
+  manual:
+    d: 1.0
+    b: 0.0
+    lp: 0.0
+    sp: 0.0
+    hp: 1.0
+    luminance_mode: "HUMAN"
+    clip_mode: "rgbblend"

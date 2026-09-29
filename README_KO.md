@@ -1,4 +1,25 @@
-# AstroSirilAssistant v0.7.0 — Deblur / Deconvolution
+# AstroSirilAssistant v0.8.0 — GHS Stretch
+
+처리 흐름:
+
+`Gradient → SPCC → Denoise → Deblur → GHS → StarNet(다음 구현)`
+
+## v0.8 핵심
+- Siril `autoghs` 실제 실행
+- Siril `ght` Manual 고급 모드
+- GHS 미리보기 / 승인 후 적용
+- 첫 Pass에서 Linear → Non-linear State 자동 전환
+- 여러 GHS Pass를 명시적으로 반복 가능
+- 각 Pass를 개별 FITS와 로그로 저장
+- GHS 미리보기에는 추가 AutoStretch를 적용하지 않음
+- Stretch 완료 후 StarNet 단계로 이동
+
+기존 v0.7에서 Deblur까지 완료한 프로젝트는
+`기존 프로젝트 열기`로 바로 GHS 단계에 진입합니다.
+
+---
+
+# AstroSirilAssistant v0.8.0 — Deblur / Deconvolution
 
 이번 버전은 v0.6.0의 Denoise 다음 단계를 실제 구현합니다.
 
@@ -17,7 +38,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.7.0 — 작업 상태 UX + Denoise
+# AstroSirilAssistant v0.8.0 — 작업 상태 UX + Denoise
 
 ## 새 UI
 - 승인 후 적용 성공 팝업
@@ -36,7 +57,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.7.0 — Help UI 정리 + SPCC Hotfix
+# AstroSirilAssistant v0.8.0 — Help UI 정리 + SPCC Hotfix
 
 - 파라미터별 `?` 버튼 → 섹션당 `도움말 ?` 1개로 정리
 - Tooltip은 항목명 Label에만 표시
@@ -45,7 +66,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.7.0 — SPCC + Common Help System
+# AstroSirilAssistant v0.8.0 — SPCC + Common Help System
 
 이번 버전의 오늘 테스트 범위:
 
@@ -68,7 +89,7 @@ GUI의 R/G/B 필터 입력은 다음 확장에 추가합니다.
 
 ---
 
-# AstroSirilAssistant v0.7.0 — Interactive single-FITS + Gradient
+# AstroSirilAssistant v0.8.0 — Interactive single-FITS + Gradient
 
 v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
 
@@ -80,7 +101,7 @@ v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리�
 
 ---
 
-# AstroSirilAssistant v0.7.0 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.8.0 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 

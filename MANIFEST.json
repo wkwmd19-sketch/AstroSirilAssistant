@@ -1,15 +1,16 @@
 {
-  "package": "AstroSirilAssistant_v0.7.0",
-  "version": "0.7.0",
+  "package": "AstroSirilAssistant_v0.8.0",
+  "version": "0.8.0",
   "features": [
-    "Siril makepsf stars PSF generation",
-    "Richardson-Lucy deconvolution preview/apply/skip",
-    "RL iteration / TV-FH regularization / alpha / multiplicative controls",
-    "Saved PSF artifact",
-    "Automatic v0.6 DENOISED project migration to DEBLUR",
-    "Next task becomes GHS_STRETCH",
-    "Common Help System entries for all Deblur terms",
-    "Existing progress/log/success-popup UX reused"
+    "Siril 1.4.4 autoghs preview/apply",
+    "Manual ght advanced mode",
+    "First-pass Linear -> Non-linear state transition",
+    "Explicit iterative GHS pass workflow",
+    "Per-pass FITS/log history",
+    "No extra AutoStretch in GHS preview",
+    "Stretch completion -> StarNet placeholder",
+    "Common Help System entries for GHS terms",
+    "Automatic v0.7 DEBLURRED project migration to real GHS task"
   ],
   "python_files": {
     "app.py": "OK",
@@ -20,6 +21,7 @@
     "astroauto/deblur.py": "OK",
     "astroauto/denoise.py": "OK",
     "astroauto/fits_analysis.py": "OK",
+    "astroauto/ghs.py": "OK",
     "astroauto/gradient.py": "OK",
     "astroauto/help_system.py": "OK",
     "astroauto/logging_utils.py": "OK",
@@ -36,6 +38,7 @@
     "tests/test_calibration_logic.py": "OK",
     "tests/test_deblur_command.py": "OK",
     "tests/test_denoise_command.py": "OK",
+    "tests/test_ghs_command.py": "OK",
     "tests/test_gradient_command.py": "OK",
     "tests/test_help_catalog.py": "OK",
     "tests/test_help_single_window_policy.py": "OK",
@@ -74,9 +77,8 @@
   "python_errors": [],
   "yaml_errors": [],
   "core_runtime_checks": {
-    "makepsf_default": true,
-    "rl_default": true,
-    "rl_tv": true,
-    "deblur_help": true
+    "autoghs_command": true,
+    "manual_ght_command": true,
+    "ghs_help": true
   }
 }

@@ -32,6 +32,11 @@ from astroauto.deblur import (
     make_deblur_task, migrate_post_denoise_task,
     preview_deblur, apply_deblur, skip_deblur,
 )
+from astroauto.ghs import (
+    migrate_ready_for_ghs,
+    preview_ghs, apply_ghs,
+    begin_additional_ghs, finish_ghs,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -56,7 +61,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.7.0")
+        self.title("AstroSirilAssistant v0.8.0")
         self.geometry("1050x820")
         self.minsize(880, 650)
         self.cfg = load_app_config()
@@ -130,6 +135,38 @@ class App(tk.Tk):
             self.deblur_alpha, self.deblur_multiplicative,
         ):
             var.trace_add("write", self._invalidate_deblur_preview)
+
+        gs = self.ui_defaults.get("ghs", {})
+        ga = gs.get("auto", {})
+        gm = gs.get("manual", {})
+        self.ghs_method = tk.StringVar(value=gs.get("method", "AUTO_GHS"))
+
+        self.ghs_auto_linked = tk.BooleanVar(value=bool(ga.get("linked", True)))
+        self.ghs_auto_shadows = tk.StringVar(value=str(ga.get("shadows_clip", -2.8)))
+        self.ghs_auto_d = tk.StringVar(value=str(ga.get("stretch_amount", 1.0)))
+        self.ghs_auto_b = tk.StringVar(value=str(ga.get("b", 13.0)))
+        self.ghs_auto_lp = tk.StringVar(value=str(ga.get("lp", 0.0)))
+        self.ghs_auto_hp = tk.StringVar(value=str(ga.get("hp", 0.7)))
+        self.ghs_auto_clip = tk.StringVar(value=str(ga.get("clip_mode", "rgbblend")))
+
+        self.ghs_manual_d = tk.StringVar(value=str(gm.get("d", 1.0)))
+        self.ghs_manual_b = tk.StringVar(value=str(gm.get("b", 0.0)))
+        self.ghs_manual_lp = tk.StringVar(value=str(gm.get("lp", 0.0)))
+        self.ghs_manual_sp = tk.StringVar(value=str(gm.get("sp", 0.0)))
+        self.ghs_manual_hp = tk.StringVar(value=str(gm.get("hp", 1.0)))
+        self.ghs_manual_lum = tk.StringVar(value=str(gm.get("luminance_mode", "HUMAN")))
+        self.ghs_manual_clip = tk.StringVar(value=str(gm.get("clip_mode", "rgbblend")))
+
+        self.ghs_preview_signature = None
+        for var in (
+            self.ghs_method,
+            self.ghs_auto_linked, self.ghs_auto_shadows, self.ghs_auto_d,
+            self.ghs_auto_b, self.ghs_auto_lp, self.ghs_auto_hp, self.ghs_auto_clip,
+            self.ghs_manual_d, self.ghs_manual_b, self.ghs_manual_lp,
+            self.ghs_manual_sp, self.ghs_manual_hp, self.ghs_manual_lum,
+            self.ghs_manual_clip,
+        ):
+            var.trace_add("write", self._invalidate_ghs_preview)
 
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
@@ -408,6 +445,7 @@ class App(tk.Tk):
         self.project_dir = pdir
         project = migrate_post_spcc_task(pdir)
         project = migrate_post_denoise_task(pdir)
+        project = migrate_ready_for_ghs(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -515,6 +553,12 @@ class App(tk.Tk):
 
         elif task_id == "DEBLUR":
             self._build_deblur_controls()
+
+        elif task_id == "GHS_STRETCH":
+            self._build_ghs_controls()
+
+        elif task_id == "GHS_REVIEW":
+            self._build_ghs_review_controls()
 
         else:
             ttk.Label(
@@ -1257,6 +1301,364 @@ class App(tk.Tk):
             project = skip_deblur(self.project_dir)
             self._show_project_task(project, "Deblur 건너뜀")
             self.status_var.set("Deblur 건너뜀")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def _build_ghs_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="GHS Stretch", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "ghs.what")
+        ttk.Label(
+            head,
+            text="실제 Stretch — 적용 후 Non-linear",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "GHS Stretch 도움말",
+            [
+                "ghs.what", "ghs.method", "ghs.linked", "ghs.shadows_clip",
+                "ghs.d", "ghs.b", "ghs.lp", "ghs.sp", "ghs.hp",
+                "ghs.luminance", "ghs.clipmode", "ghs.preview", "ghs.apply",
+            ],
+        ).pack(side="right")
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        lbl = ttk.Label(body, text="Method", width=20)
+        lbl.grid(row=0, column=0, sticky="w", pady=3, padx=(0,8))
+        self.help.tooltip(lbl, "ghs.method")
+        method = ttk.Combobox(
+            body,
+            textvariable=self.ghs_method,
+            values=["AUTO_GHS", "MANUAL_GHT"],
+            state="readonly",
+            width=20,
+        )
+        method.grid(row=0, column=1, sticky="w", pady=3)
+        method.bind("<<ComboboxSelected>>", lambda e: self._refresh_ghs_ui())
+
+        self.ghs_auto_frame = ttk.LabelFrame(body, text="AutoGHS — 권장 시작")
+        self.ghs_auto_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(6,5))
+        af = self.ghs_auto_frame
+
+        def alabel(row, text, topic):
+            w = ttk.Label(af, text=text, width=18)
+            w.grid(row=row, column=0, sticky="w", padx=(8,6), pady=3)
+            self.help.tooltip(w, topic)
+
+        alabel(0, "Linked RGB", "ghs.linked")
+        ttk.Checkbutton(af, variable=self.ghs_auto_linked).grid(row=0, column=1, sticky="w")
+
+        alabel(1, "Shadows Clip", "ghs.shadows_clip")
+        ttk.Entry(af, textvariable=self.ghs_auto_shadows, width=10).grid(row=1, column=1, sticky="w")
+
+        alabel(2, "Stretch Amount D", "ghs.d")
+        ttk.Entry(af, textvariable=self.ghs_auto_d, width=10).grid(row=2, column=1, sticky="w")
+        ttk.Label(af, text="앱의 보수적 시작값 1.0").grid(row=2, column=2, sticky="w", padx=(8,0))
+
+        alabel(3, "B", "ghs.b")
+        ttk.Entry(af, textvariable=self.ghs_auto_b, width=10).grid(row=3, column=1, sticky="w")
+
+        alabel(4, "LP", "ghs.lp")
+        ttk.Entry(af, textvariable=self.ghs_auto_lp, width=10).grid(row=4, column=1, sticky="w")
+
+        alabel(5, "HP", "ghs.hp")
+        ttk.Entry(af, textvariable=self.ghs_auto_hp, width=10).grid(row=5, column=1, sticky="w")
+
+        alabel(6, "Clip Mode", "ghs.clipmode")
+        ttk.Combobox(
+            af, textvariable=self.ghs_auto_clip,
+            values=["rgbblend", "clip", "rescale", "globalrescale"],
+            state="readonly", width=18,
+        ).grid(row=6, column=1, sticky="w")
+        af.columnconfigure(2, weight=1)
+
+        self.ghs_manual_frame = ttk.LabelFrame(body, text="Manual GHT — 고급")
+        self.ghs_manual_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(5,5))
+        mf = self.ghs_manual_frame
+
+        def mlabel(row, text, topic):
+            w = ttk.Label(mf, text=text, width=18)
+            w.grid(row=row, column=0, sticky="w", padx=(8,6), pady=3)
+            self.help.tooltip(w, topic)
+
+        mlabel(0, "D", "ghs.d")
+        ttk.Entry(mf, textvariable=self.ghs_manual_d, width=10).grid(row=0, column=1, sticky="w")
+        mlabel(1, "B", "ghs.b")
+        ttk.Entry(mf, textvariable=self.ghs_manual_b, width=10).grid(row=1, column=1, sticky="w")
+        mlabel(2, "LP", "ghs.lp")
+        ttk.Entry(mf, textvariable=self.ghs_manual_lp, width=10).grid(row=2, column=1, sticky="w")
+        mlabel(3, "SP", "ghs.sp")
+        ttk.Entry(mf, textvariable=self.ghs_manual_sp, width=10).grid(row=3, column=1, sticky="w")
+        mlabel(4, "HP", "ghs.hp")
+        ttk.Entry(mf, textvariable=self.ghs_manual_hp, width=10).grid(row=4, column=1, sticky="w")
+        mlabel(5, "Luminance", "ghs.luminance")
+        ttk.Combobox(
+            mf, textvariable=self.ghs_manual_lum,
+            values=["HUMAN", "EVEN", "INDEPENDENT"],
+            state="readonly", width=18,
+        ).grid(row=5, column=1, sticky="w")
+        mlabel(6, "Clip Mode", "ghs.clipmode")
+        ttk.Combobox(
+            mf, textvariable=self.ghs_manual_clip,
+            values=["rgbblend", "clip", "rescale", "globalrescale"],
+            state="readonly", width=18,
+        ).grid(row=6, column=1, sticky="w")
+        mf.columnconfigure(2, weight=1)
+
+        ttk.Label(
+            body,
+            text="※ GHS 미리보기에는 별도의 AutoStretch를 추가하지 않습니다.",
+        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(6,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=4, column=0, columnspan=3, sticky="w")
+        ttk.Button(
+            buttons, text="GHS 미리보기", command=self.ghs_preview
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="승인 후 적용", command=self.ghs_apply
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+        self._refresh_ghs_ui()
+
+    def _refresh_ghs_ui(self):
+        method = self.ghs_method.get().upper()
+        if not hasattr(self, "ghs_auto_frame"):
+            return
+
+        def set_children_state(frame, enabled):
+            for child in frame.winfo_children():
+                try:
+                    if isinstance(child, (ttk.Entry, ttk.Combobox, ttk.Checkbutton)):
+                        child.state(["!disabled"] if enabled else ["disabled"])
+                except Exception:
+                    pass
+
+        set_children_state(self.ghs_auto_frame, method == "AUTO_GHS")
+        set_children_state(self.ghs_manual_frame, method == "MANUAL_GHT")
+
+    def _ghs_signature(self):
+        if self.ghs_method.get().upper() == "AUTO_GHS":
+            return (
+                "AUTO_GHS",
+                bool(self.ghs_auto_linked.get()),
+                self.ghs_auto_shadows.get().strip(),
+                self.ghs_auto_d.get().strip(),
+                self.ghs_auto_b.get().strip(),
+                self.ghs_auto_lp.get().strip(),
+                self.ghs_auto_hp.get().strip(),
+                self.ghs_auto_clip.get().strip(),
+            )
+        return (
+            "MANUAL_GHT",
+            self.ghs_manual_d.get().strip(),
+            self.ghs_manual_b.get().strip(),
+            self.ghs_manual_lp.get().strip(),
+            self.ghs_manual_sp.get().strip(),
+            self.ghs_manual_hp.get().strip(),
+            self.ghs_manual_lum.get().strip(),
+            self.ghs_manual_clip.get().strip(),
+        )
+
+    def _invalidate_ghs_preview(self, *args):
+        self.ghs_preview_signature = None
+
+    def _ghs_params(self):
+        method = self.ghs_method.get().upper()
+        if method == "AUTO_GHS":
+            return method, {
+                "linked": bool(self.ghs_auto_linked.get()),
+                "shadows_clip": float(self.ghs_auto_shadows.get()),
+                "stretch_amount": float(self.ghs_auto_d.get()),
+                "b": float(self.ghs_auto_b.get()),
+                "lp": float(self.ghs_auto_lp.get()),
+                "hp": float(self.ghs_auto_hp.get()),
+                "clip_mode": self.ghs_auto_clip.get().strip(),
+            }
+
+        return method, {
+            "d": float(self.ghs_manual_d.get()),
+            "b": float(self.ghs_manual_b.get()),
+            "lp": float(self.ghs_manual_lp.get()),
+            "sp": float(self.ghs_manual_sp.get()),
+            "hp": float(self.ghs_manual_hp.get()),
+            "luminance_mode": self.ghs_manual_lum.get().strip().upper(),
+            "clip_mode": self.ghs_manual_clip.get().strip(),
+        }
+
+    def ghs_preview(self):
+        if not self._require_project():
+            return
+        try:
+            method, params = self._ghs_params()
+        except ValueError:
+            messagebox.showerror("오류", "GHS 숫자 값을 확인하세요.")
+            return
+
+        signature = self._ghs_signature()
+
+        def work():
+            return preview_ghs(
+                self.project_dir, self.cfg,
+                method=method, **params
+            )
+
+        def done(result):
+            jpg, preview_fits, meta = result
+            self.ghs_preview_signature = signature
+            self.write(
+                "\nGHS 미리보기 완료\n"
+                f"Pass: {meta['pass_number']}\n"
+                f"표시용 JPEG: {jpg}\n"
+                f"GHS preview FITS: {preview_fits}\n"
+                f"명령: {meta['ghs_command']}\n"
+                "※ GHS 자체가 실제 Stretch이므로 JPEG에 추가 AutoStretch를 하지 않았습니다.\n"
+            )
+            self.status_var.set("GHS 미리보기 완료")
+            self._open_preview(jpg)
+
+        self.run_bg(
+            work,
+            operation="GHS Stretch 미리보기",
+            on_success=done,
+        )
+
+    def ghs_apply(self):
+        if not self._require_project():
+            return
+        try:
+            method, params = self._ghs_params()
+        except ValueError:
+            messagebox.showerror("오류", "GHS 숫자 값을 확인하세요.")
+            return
+
+        if self.ghs_preview_signature != self._ghs_signature():
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 GHS 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        ok = messagebox.askyesno(
+            "GHS 실제 적용",
+            "미리보기와 동일한 설정으로 실제 작업 FITS에 GHS를 적용합니다.\n\n"
+            f"Method: {method}\n"
+            f"설정: {params}\n\n"
+            "첫 Pass인 경우 이미지가 Linear → Non-linear 상태로 전환됩니다.\n"
+            "진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_ghs(
+                self.project_dir, self.cfg,
+                method=method, confirmed=True, **params
+            )
+
+        def done(result):
+            project, output, log = result
+            self.ghs_preview_signature = None
+            self._show_project_task(
+                project,
+                f"GHS Pass {log['pass_number']} 완료\n출력: {output}"
+            )
+            self.status_var.set(f"GHS Pass {log['pass_number']} 완료")
+            next_task = project["project"].get("next_task", {})
+            self._show_apply_success(
+                f"GHS Pass {log['pass_number']}",
+                output,
+                next_task.get("title"),
+            )
+
+        self.run_bg(
+            work,
+            operation="GHS Stretch 실제 적용",
+            on_success=done,
+        )
+
+    def _build_ghs_review_controls(self):
+        self._clear_actions()
+
+        project = load_project(self.project_dir) if self.project_dir else None
+        passes = []
+        if project:
+            passes = project["project"].get("stretch", {}).get("passes", [])
+        pass_count = len(passes)
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+        ttk.Label(
+            head,
+            text=f"GHS Stretch 결과 — 현재 {pass_count} Pass",
+            font=("", 10, "bold"),
+        ).pack(side="left")
+
+        self.help.section_help_button(
+            head,
+            "GHS 반복 Stretch 도움말",
+            ["ghs.additional", "ghs.finish"],
+        ).pack(side="right")
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        ttk.Label(
+            body,
+            text="현재 결과가 충분하면 Stretch를 완료하고 StarNet으로 이동하세요. "
+                 "조금 더 조정하려면 추가 GHS Pass를 선택할 수 있습니다.",
+            wraplength=900,
+        ).pack(anchor="w", pady=(0,8))
+
+        btns = ttk.Frame(body)
+        btns.pack(anchor="w")
+        ttk.Button(
+            btns,
+            text="추가 GHS Pass",
+            command=self.ghs_additional,
+        ).pack(side="left", padx=(0,8))
+        ttk.Button(
+            btns,
+            text="Stretch 완료 → StarNet",
+            command=self.ghs_finish,
+        ).pack(side="left", padx=8)
+
+    def ghs_additional(self):
+        if not self._require_project():
+            return
+        try:
+            project = begin_additional_ghs(self.project_dir)
+            self._show_project_task(project, "추가 GHS Pass 준비")
+            self.status_var.set("추가 GHS Pass 준비")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def ghs_finish(self):
+        if not self._require_project():
+            return
+        ok = messagebox.askyesno(
+            "Stretch 완료",
+            "현재 GHS 결과를 확정하고 다음 StarNet / 별 분리 단계로 이동할까요?"
+        )
+        if not ok:
+            return
+        try:
+            project = finish_ghs(self.project_dir)
+            self._show_project_task(project, "GHS Stretch 완료")
+            self.status_var.set("GHS Stretch 완료")
+            messagebox.showinfo(
+                "Stretch 완료",
+                "GHS Stretch를 완료했습니다.\n\n다음 단계: StarNet / 별 분리"
+            )
         except Exception as e:
             messagebox.showerror("오류", str(e))
 

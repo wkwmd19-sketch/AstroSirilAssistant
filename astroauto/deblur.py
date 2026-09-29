@@ -7,6 +7,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .ghs import make_ghs_task
 
 def make_deblur_task() -> dict:
     return {
@@ -34,7 +35,7 @@ def make_deblur_task() -> dict:
         "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
     }
 
-def make_ghs_task(skipped: bool = False) -> dict:
+def _legacy_make_ghs_task(skipped: bool = False) -> dict:
     return {
         "task_id": "GHS_STRETCH",
         "title": "GHS Stretch",
@@ -314,7 +315,7 @@ def apply_deblur(project_dir: Path, config: dict, confirmed: bool = False, **par
     p["image_state"]["deblurred"] = True
     p["image_state"]["linearity"] = "LINEAR"
     p["image_state"]["stretched"] = False
-    p["next_task"] = make_ghs_task(skipped=False)
+    p["next_task"] = make_ghs_task(additional=False)
     save_project(pdir, project)
 
     payload = {
@@ -346,7 +347,8 @@ def skip_deblur(project_dir: Path):
     if p.get("current_state") not in ("DENOISED", "COLOR_CALIBRATED"):
         raise ValueError("Deblur 건너뛰기는 DENOISED 또는 Denoise 건너뜀 상태에서만 사용합니다.")
 
-    p["next_task"] = make_ghs_task(skipped=True)
+    p["next_task"] = make_ghs_task(additional=False)
+    p["next_task"]["current_status"] = "LINEAR / READY_FOR_GHS / DEBLUR_SKIPPED"
     save_project(pdir, project)
     append_jsonl(pdir, {
         "event": "DEBLUR_SKIP",

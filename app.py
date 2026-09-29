@@ -16,6 +16,7 @@ from astroauto.gradient import preview_gradient, apply_gradient
 from astroauto.spcc import fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc
 from astroauto.denoise import preview_denoise, apply_denoise, skip_denoise
 from astroauto.deblur import preview_deblur, apply_deblur, skip_deblur
+from astroauto.ghs import preview_ghs, apply_ghs, begin_additional_ghs, finish_ghs
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -36,7 +37,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.7.0")
+    print("AstroSirilAssistant v0.8.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -326,8 +327,65 @@ def cmd_deblur_skip(args):
     print("Deblur를 건너뛰었습니다.")
     return 0
 
+
+def _ghs_cli_params(args):
+    if args.method == "AUTO_GHS":
+        return dict(
+            linked=args.linked,
+            shadows_clip=args.shadows_clip,
+            stretch_amount=args.d,
+            b=args.b,
+            lp=args.lp,
+            hp=args.hp,
+            clip_mode=args.clip_mode,
+        )
+    return dict(
+        d=args.d,
+        b=args.b,
+        lp=args.lp,
+        sp=args.sp,
+        hp=args.hp,
+        luminance_mode=args.luminance_mode,
+        clip_mode=args.clip_mode,
+    )
+
+def cmd_ghs_preview(args):
+    cfg = load_app_config()
+    jpg, preview_fits, meta = preview_ghs(
+        Path(args.project), cfg,
+        method=args.method,
+        **_ghs_cli_params(args),
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Preview FITS: {preview_fits}")
+    print(f"Command: {meta['ghs_command']}")
+    return 0
+
+def cmd_ghs_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 GHS 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, payload = apply_ghs(
+        Path(args.project), cfg,
+        method=args.method,
+        confirmed=True,
+        **_ghs_cli_params(args),
+    )
+    print(f"GHS Pass {payload['pass_number']} 완료: {output}")
+    return 0
+
+def cmd_ghs_additional(args):
+    project = begin_additional_ghs(Path(args.project))
+    print("추가 GHS Pass 모드로 전환했습니다.")
+    return 0
+
+def cmd_ghs_finish(args):
+    project = finish_ghs(Path(args.project))
+    print("GHS Stretch를 완료하고 StarNet 단계로 이동했습니다.")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.7.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.8.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -490,6 +548,37 @@ def build_parser():
     p = sub.add_parser("deblur-skip", help="Deblur 단계 건너뛰기")
     p.add_argument("project")
     p.set_defaults(func=cmd_deblur_skip)
+
+
+    def add_ghs_args(p):
+        p.add_argument("project")
+        p.add_argument("--method", choices=["AUTO_GHS", "MANUAL_GHT"], default="AUTO_GHS")
+        p.add_argument("--linked", action="store_true", default=True)
+        p.add_argument("--shadows-clip", type=float, default=-2.8)
+        p.add_argument("--d", type=float, default=1.0)
+        p.add_argument("--b", type=float, default=13.0)
+        p.add_argument("--lp", type=float, default=0.0)
+        p.add_argument("--sp", type=float, default=0.0)
+        p.add_argument("--hp", type=float, default=0.7)
+        p.add_argument("--luminance-mode", choices=["HUMAN", "EVEN", "INDEPENDENT"], default="HUMAN")
+        p.add_argument("--clip-mode", choices=["rgbblend", "clip", "rescale", "globalrescale"], default="rgbblend")
+
+    p = sub.add_parser("ghs-preview", help="GHS / AutoGHS 미리보기")
+    add_ghs_args(p)
+    p.set_defaults(func=cmd_ghs_preview)
+
+    p = sub.add_parser("ghs-apply", help="승인 후 GHS 실제 적용")
+    add_ghs_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_ghs_apply)
+
+    p = sub.add_parser("ghs-additional", help="추가 GHS Pass 모드로 전환")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_ghs_additional)
+
+    p = sub.add_parser("ghs-finish", help="GHS Stretch 완료 후 StarNet 단계로 이동")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_ghs_finish)
 
     return parser
 

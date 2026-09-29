@@ -1,4 +1,4 @@
-schema_version: "0.7.0"
+schema_version: "0.8.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -97,3 +97,28 @@ DEBLUR:
   safety:
     require_linear: true
     require_preview_same_parameters_before_gui_apply: true
+
+
+GHS_STRETCH:
+  executor: "SIRIL_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.8.0"
+  auto:
+    command_template: "autoghs -linked {shadows_clip} {D} -b={B} -lp={LP} -hp={HP} -clipmode={clipmode}"
+    defaults:
+      linked: true
+      shadows_clip: -2.8
+      D: 1.0
+      B: 13.0
+      LP: 0.0
+      HP: 0.7
+      clipmode: "rgbblend"
+    notes:
+      - "SP is computed by Siril from image median/sigma."
+      - "D=1.0 is an AstroSirilAssistant conservative starting value, not a Siril implicit default."
+  manual:
+    command_template: "ght -D={D} -B={B} -LP={LP} -SP={SP} -HP={HP} -clipmode={clipmode} {luminance_mode}"
+  safety:
+    require_preview_same_parameters_before_gui_apply: true
+    first_pass_requires_linear: true
+    additional_pass_requires_explicit_user_action: true
+    no_extra_autostretch_in_preview: true
