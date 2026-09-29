@@ -1,4 +1,4 @@
-schema_version: "0.4.0"
+schema_version: "0.4.2"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -38,8 +38,17 @@ command_mapping:
 
   GRADIENT_CORRECTION:
     executor: "SIRIL_NATIVE"
-    command_family: "subsky"
-    implementation_status: "NEXT_AFTER_PREPROCESS"
+    command_template: "subsky -rbf -samples={samples} -tolerance={tolerance} -smooth={smooth} {optional_dither}"
+    stable_supported: "1.4.4"
+    implementation_status: "IMPLEMENTED_V0.4.2"
+    defaults:
+      samples: 20
+      tolerance: 1.0
+      smooth: 0.5
+      dither: false
+    safety:
+      require_linear: true
+      require_preview_same_parameters_before_gui_apply: true
 
   SPCC:
     executor: "SIRIL_NATIVE"

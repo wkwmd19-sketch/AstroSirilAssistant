@@ -247,13 +247,18 @@ def _gradient_task(label: str):
         "purpose": f"{label} 신호를 보존하면서 이후 색보정과 Stretch가 안정적으로 동작하도록 배경을 정리합니다.",
         "current_status": f"STACKED_LINEAR / {label}",
         "recommendations": {
-            "engine": "Siril subsky",
-            "mode": "RBF 우선 검토",
-            "parameters": "향후 이미지 분석 기반 자동 추천"
+            "engine": "Siril 1.4.4 subsky -rbf",
+            "samples": 20,
+            "tolerance": 1.0,
+            "smooth": 0.5,
+            "basis": "Siril 기본 시작값. 미리보기 후 조정"
         },
-        "cautions": ["희미한 천체 구조가 배경으로 제거되지 않도록 보호합니다."],
-        "completion_criteria": ["배경 균일화", "희미한 구조 유지"],
-        "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
+        "cautions": [
+            "M31처럼 화면을 크게 차지하는 은하나 넓은 성운은 배경 샘플에 천체가 포함될 수 있어 미리보기 확인이 중요합니다.",
+            "미리보기 JPEG의 AutoStretch는 표시용이며 실제 Gradient FITS는 Linear 상태를 유지합니다."
+        ],
+        "completion_criteria": ["배경 균일화", "희미한 구조 유지", "과도한 천체 신호 제거 없음"],
+        "actions": ["PREVIEW", "RUN", "EDIT"],
     }
 
 def format_task(task: dict) -> str:

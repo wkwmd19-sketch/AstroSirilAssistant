@@ -1,4 +1,16 @@
-# AstroSirilAssistant v0.4.1 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.4.2 — Interactive single-FITS + Gradient
+
+v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
+
+### 단일 스택 FITS 흐름
+
+`분석 → [스택된 Linear] → Gradient 값 확인 → [미리보기] → [승인 후 적용] → M31_03_gradient.fits`
+
+미리보기는 표시용 AutoStretch JPEG를 만들지만 실제 작업 FITS는 Linear 상태를 유지합니다.
+
+---
+
+# AstroSirilAssistant v0.4.2 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 

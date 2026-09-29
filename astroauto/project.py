@@ -64,7 +64,7 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
         input_source_mode = "EXTERNAL_REFERENCE"
 
     project = {
-        "schema_version": "0.3.3",
+        "schema_version": "0.4.2",
         "project": {
             "id": pdir.name,
             "target_name": target_clean,

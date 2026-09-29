@@ -10,6 +10,8 @@ from astroauto.analyzer import analyze_project, confirm_linearity
 from astroauto.calibration import scan_project_calibration
 from astroauto.workflow import format_task, next_task_after_analysis
 from astroauto.logging_utils import append_jsonl
+from astroauto.state_actions import confirm_input_stage, confirm_calibration_status, confirm_star_trail_mode
+from astroauto.gradient import preview_gradient, apply_gradient
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -30,7 +32,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.4.1")
+    print("AstroSirilAssistant v0.4.2")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -85,63 +87,21 @@ def cmd_confirm(args):
     return 0
 
 def cmd_confirm_stage(args):
-    pdir = Path(args.project)
-    project = load_project(pdir)
-    p = project["project"]
-    p.setdefault("input_stage", {})
-    p["input_stage"]["source_stage"] = args.stage.upper()
-    p["input_stage"]["user_confirmed"] = True
-    p["current_state"] = "INPUT_STAGE_CONFIRMED"
-
-    if args.stage.upper() == "STACKED_LINEAR":
-        p["image_state"]["linearity"] = "LINEAR"
-        p["image_state"]["linearity_confidence"] = 1.0
-        p["image_state"]["stretched"] = False
-    elif args.stage.upper() == "STACKED_NONLINEAR":
-        p["image_state"]["linearity"] = "NONLINEAR"
-        p["image_state"]["linearity_confidence"] = 1.0
-        p["image_state"]["stretched"] = True
-
-    p["next_task"] = next_task_after_analysis(project)
-    save_project(pdir, project)
-    append_jsonl(pdir, {"event": "USER_CONFIRM_INPUT_STAGE", "value": args.stage.upper(), "status": "SUCCESS"})
+    project = confirm_input_stage(Path(args.project), args.stage)
     print(f"입력 단계를 {args.stage.upper()}로 확정했습니다.")
-    print("\n" + format_task(p["next_task"]))
+    print("\n" + format_task(project["project"]["next_task"]))
     return 0
 
 def cmd_confirm_calibration(args):
-    pdir = Path(args.project)
-    project = load_project(pdir)
-    p = project["project"]
-    p.setdefault("calibration", {})
-    p["calibration"]["input_status"] = args.status.upper()
-    p["calibration"]["user_confirmed"] = True
-
-    if args.status.upper() == "PRECALIBRATED":
-        p["current_state"] = "PRECALIBRATED_CONFIRMED"
-
-    p["next_task"] = next_task_after_analysis(project)
-    save_project(pdir, project)
-    append_jsonl(pdir, {"event": "USER_CONFIRM_CALIBRATION_STATUS", "value": args.status.upper(), "status": "SUCCESS"})
+    project = confirm_calibration_status(Path(args.project), args.status)
     print(f"캘리브레이션 상태를 {args.status.upper()}로 확정했습니다.")
-    print("\n" + format_task(p["next_task"]))
+    print("\n" + format_task(project["project"]["next_task"]))
     return 0
 
 def cmd_confirm_star_trail_mode(args):
-    pdir = Path(args.project)
-    project = load_project(pdir)
-    p = project["project"]
-    if p["target"]["category"] != "STAR_TRAIL":
-        raise ValueError("이 명령은 category=STAR_TRAIL 프로젝트에서만 사용합니다.")
-    p.setdefault("star_trail", {})
-    p["star_trail"]["mode"] = args.mode.upper()
-    p["star_trail"]["user_confirmed"] = True
-    p["current_state"] = "STAR_TRAIL_MODE_CONFIRMED"
-    p["next_task"] = next_task_after_analysis(project)
-    save_project(pdir, project)
-    append_jsonl(pdir, {"event": "USER_CONFIRM_STAR_TRAIL_MODE", "value": args.mode.upper(), "status": "SUCCESS"})
+    project = confirm_star_trail_mode(Path(args.project), args.mode)
     print(f"별 일주 모드를 {args.mode.upper()}로 확정했습니다.")
-    print("\n" + format_task(p["next_task"]))
+    print("\n" + format_task(project["project"]["next_task"]))
     return 0
 
 def cmd_calibration_check(args):
@@ -213,8 +173,38 @@ def cmd_preprocess_run(args):
     print("다음 작업: Background / Gradient Correction")
     return 0
 
+
+def cmd_gradient_preview(args):
+    cfg = load_app_config()
+    jpg, linear_preview, meta = preview_gradient(
+        Path(args.project), cfg,
+        samples=args.samples,
+        tolerance=args.tolerance,
+        smooth=args.smooth,
+        dither=args.dither,
+    )
+    print(f"표시용 JPEG: {jpg}")
+    print(f"Linear 미리보기 FITS: {linear_preview}")
+    return 0
+
+def cmd_gradient_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 Gradient 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, log = apply_gradient(
+        Path(args.project), cfg,
+        samples=args.samples,
+        tolerance=args.tolerance,
+        smooth=args.smooth,
+        dither=args.dither,
+        confirmed=True,
+    )
+    print(f"Gradient Correction 완료: {output}")
+    print("\\n" + format_task(project["project"]["next_task"]))
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.4.1")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.4.2")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -286,6 +276,24 @@ def build_parser():
     p.add_argument("project")
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_preprocess_run)
+
+
+    p = sub.add_parser("gradient-preview", help="RBF Gradient 미리보기 생성")
+    p.add_argument("project")
+    p.add_argument("--samples", type=int, default=20)
+    p.add_argument("--tolerance", type=float, default=1.0)
+    p.add_argument("--smooth", type=float, default=0.5)
+    p.add_argument("--dither", action="store_true")
+    p.set_defaults(func=cmd_gradient_preview)
+
+    p = sub.add_parser("gradient-apply", help="승인 후 RBF Gradient 실제 적용")
+    p.add_argument("project")
+    p.add_argument("--samples", type=int, default=20)
+    p.add_argument("--tolerance", type=float, default=1.0)
+    p.add_argument("--smooth", type=float, default=0.5)
+    p.add_argument("--dither", action="store_true")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_gradient_apply)
 
     return parser
 
