@@ -2,6 +2,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import json
 
 from astroauto.config import load_app_config
 from astroauto.siril import get_siril_info
@@ -12,6 +13,7 @@ from astroauto.workflow import format_task, next_task_after_analysis
 from astroauto.logging_utils import append_jsonl
 from astroauto.state_actions import confirm_input_stage, confirm_calibration_status, confirm_star_trail_mode
 from astroauto.gradient import preview_gradient, apply_gradient
+from astroauto.spcc import fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -32,7 +34,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.4.2")
+    print("AstroSirilAssistant v0.5.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -203,8 +205,56 @@ def cmd_gradient_apply(args):
     print("\\n" + format_task(project["project"]["next_task"]))
     return 0
 
+
+def cmd_spcc_lists(args):
+    cfg = load_app_config()
+    result = fetch_spcc_lists(cfg, mode=args.mode)
+    for key, values in result["lists"].items():
+        print(f"[{key}] ({len(values)})")
+        for item in values:
+            print(f"  {item}")
+    return 0
+
+def cmd_spcc_wcs(args):
+    project = load_project(Path(args.project))
+    current = Path(project["project"]["current_file"])
+    status = inspect_wcs(current)
+    print(json.dumps(status, ensure_ascii=False, indent=2, default=str))
+    return 0
+
+def _spcc_cli_params(args):
+    return dict(
+        mode=args.mode,
+        sensor=args.sensor,
+        osc_filter=args.osc_filter or "",
+        osc_lpf=args.osc_lpf or "",
+        white_reference=args.white_reference,
+        catalog=args.catalog,
+        bgtol_lower=args.bgtol_lower,
+        bgtol_upper=args.bgtol_upper,
+    )
+
+def cmd_spcc_preview(args):
+    cfg = load_app_config()
+    jpg, linear_preview, meta = preview_spcc(
+        Path(args.project), cfg, **_spcc_cli_params(args)
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Linear preview: {linear_preview}")
+    return 0
+
+def cmd_spcc_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 SPCC 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, payload = apply_spcc(
+        Path(args.project), cfg, confirmed=True, **_spcc_cli_params(args)
+    )
+    print(f"SPCC 완료: {output}")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.4.2")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.5.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -294,6 +344,35 @@ def build_parser():
     p.add_argument("--dither", action="store_true")
     p.add_argument("--yes", action="store_true")
     p.set_defaults(func=cmd_gradient_apply)
+
+
+    p = sub.add_parser("spcc-lists", help="현재 Siril SPCC 센서/필터 목록 출력")
+    p.add_argument("--mode", choices=["OSC", "MONO"], default="OSC")
+    p.set_defaults(func=cmd_spcc_lists)
+
+    p = sub.add_parser("spcc-wcs", help="현재 프로젝트 FITS의 WCS 상태 확인")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_spcc_wcs)
+
+    def add_spcc_args(p):
+        p.add_argument("project")
+        p.add_argument("--mode", choices=["OSC", "MONO"], default="OSC")
+        p.add_argument("--sensor", required=True)
+        p.add_argument("--osc-filter", default="")
+        p.add_argument("--osc-lpf", default="")
+        p.add_argument("--white-reference", default="Average Spiral Galaxy")
+        p.add_argument("--catalog", choices=["AUTO", "GAIA_ONLINE", "LOCAL_GAIA"], default="AUTO")
+        p.add_argument("--bgtol-lower", type=float, default=-2.8)
+        p.add_argument("--bgtol-upper", type=float, default=2.0)
+
+    p = sub.add_parser("spcc-preview", help="Plate Solve + SPCC 미리보기")
+    add_spcc_args(p)
+    p.set_defaults(func=cmd_spcc_preview)
+
+    p = sub.add_parser("spcc-apply", help="승인 후 Plate Solve + SPCC 실제 적용")
+    add_spcc_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_spcc_apply)
 
     return parser
 

@@ -1,0 +1,243 @@
+schema_version: "0.1"
+
+topics:
+  gradient.samples:
+    title: "Samples"
+    tooltip: "수평 한 줄당 생성하는 배경 샘플 수입니다. 높일수록 배경 모델이 더 촘촘해집니다."
+    detail: |
+      Siril RBF Background Extraction에서 수평 한 줄당 생성하는 배경 샘플 수입니다.
+
+      기본 시작값: 20
+
+      값을 높이면:
+      - 배경을 더 촘촘하게 모델링할 수 있습니다.
+      - 복잡한 Gradient에 유리할 수 있습니다.
+      - M31처럼 큰 천체가 화면을 많이 차지하면 천체 신호가 배경 샘플에 섞이지 않는지 확인해야 합니다.
+
+      값을 낮추면:
+      - 더 넓고 완만한 배경 변화 위주로 모델링합니다.
+
+      권장:
+      - 20에서 시작해 미리보기로 확인합니다.
+
+  gradient.tolerance:
+    title: "Tolerance"
+    tooltip: "밝은 영역을 배경 샘플에서 제외하는 허용 기준입니다. 낮을수록 더 엄격합니다."
+    detail: |
+      배경 샘플에서 밝은 구조를 제외하는 기준입니다.
+      Siril은 MAD를 기준으로 밝은 샘플을 판정합니다.
+
+      기본 시작값: 1.0
+
+      낮추면:
+      - 밝은 별, 은하 외곽, 성운 구조를 배경에서 더 엄격히 제외하는 방향입니다.
+
+      높이면:
+      - 더 밝은 영역도 배경 샘플 후보로 허용합니다.
+
+      주의:
+      - 화면을 크게 차지하는 은하/성운에서는 지나치게 높은 값이 천체 구조를 배경으로 포함시킬 수 있습니다.
+
+  gradient.smooth:
+    title: "Smooth"
+    tooltip: "RBF 배경 모델의 부드러움을 조절합니다. 높일수록 더 완만한 모델을 만드는 방향입니다."
+    detail: |
+      RBF 배경 모델의 smoothing 정도를 조절합니다.
+
+      기본 시작값: 0.5
+
+      낮추면:
+      - 배경의 세부 변화를 더 민감하게 따라갈 수 있습니다.
+
+      높이면:
+      - 더 부드럽고 완만한 배경 모델을 만드는 방향입니다.
+
+      값이 높거나 낮다고 무조건 좋은 것은 아닙니다.
+      미리보기에서 천체의 희미한 구조가 손실되지 않는지 확인하세요.
+
+  gradient.dither:
+    title: "Dither (Background Extraction)"
+    tooltip: "Background Extraction 샘플링용 옵션입니다. 촬영 시 적도의 Dithering과는 다른 기능입니다."
+    detail: |
+      Siril Background Extraction에서 사용하는 Dither 옵션입니다.
+
+      낮은 동적 범위의 Gradient에서 도움이 될 수 있습니다.
+
+      중요:
+      - 촬영 중 적도의가 프레임 사이에서 움직이는 '촬영 Dithering'과는 다른 기능입니다.
+      - 기본적으로 OFF에서 시작하고 결과를 비교하는 방식이 좋습니다.
+
+  gradient.preview:
+    title: "미리보기"
+    tooltip: "현재 설정으로 임시 결과를 생성합니다. 실제 작업 FITS나 프로젝트 State는 변경하지 않습니다."
+    detail: |
+      현재 파라미터를 원본 작업파일에 확정 적용하기 전에 결과를 확인합니다.
+
+      프로그램은:
+      1. 임시 Linear 결과 FITS를 저장하고
+      2. 표시용으로만 AutoStretch를 적용한 JPEG를 생성합니다.
+
+      JPEG의 AutoStretch는 보기 위한 표시용이며 실제 작업 FITS는 Linear 상태를 유지합니다.
+
+  gradient.apply:
+    title: "승인 후 적용"
+    tooltip: "미리보기에서 확인한 동일한 설정을 실제 작업 FITS에 적용하고 다음 단계로 이동합니다."
+    detail: |
+      현재 파라미터로 생성한 미리보기를 확인한 뒤 실제 작업 이미지에 적용합니다.
+
+      안전장치:
+      - 파라미터를 바꾸면 이전 미리보기 승인은 무효가 됩니다.
+      - 변경된 값으로 다시 미리보기해야 적용할 수 있습니다.
+      - 결과는 새 FITS 파일로 저장됩니다.
+
+  spcc.what:
+    title: "SPCC"
+    tooltip: "Gaia DR3 별 스펙트럼과 센서/필터 특성을 이용해 RGB 색 균형을 보정합니다."
+    detail: |
+      SPCC는 Spectrophotometric Color Calibration의 약자입니다.
+
+      Gaia DR3의 별 스펙트럼 정보와 촬영에 사용한 센서/필터 응답을 이용해
+      이미지의 각 RGB 채널에 보정 계수를 계산합니다.
+
+      중요:
+      - 반드시 Linear 이미지에서 수행해야 합니다.
+      - 이미지가 Plate Solved 상태여야 합니다.
+      - 센서/필터 선택이 실제 촬영 장비와 최대한 가까워야 합니다.
+
+  spcc.platesolve:
+    title: "Plate Solve"
+    tooltip: "사진 속 별 위치를 실제 하늘 좌표와 대응시켜 WCS 천문 좌표 정보를 만드는 과정입니다."
+    detail: |
+      Plate Solving은 이미지의 별 패턴을 천체 카탈로그와 비교하여
+      사진의 중심 좌표, 방향, 픽셀 스케일 등 WCS 정보를 계산하는 작업입니다.
+
+      SPCC는 카탈로그 별과 사진 속 별을 정확히 대응해야 하므로 Plate Solve가 필요합니다.
+
+      v0.5.0:
+      - SPCC 실행 전에 Siril의 platesolve 명령을 자동으로 호출합니다.
+      - 이미 Plate Solved 이미지라면 Siril은 기존 해를 사용합니다.
+      - WCS 및 촬영 메타데이터가 부족하면 Plate Solve가 실패할 수 있습니다.
+
+  spcc.camera_mode:
+    title: "OSC / Mono"
+    tooltip: "컬러 센서(OSC)인지 모노 센서인지 선택합니다. SPCC의 센서/필터 입력 방식이 달라집니다."
+    detail: |
+      OSC:
+      - Bayer 컬러 센서로 촬영해 최종 RGB가 된 이미지입니다.
+      - OSC Sensor와 OSC Filter를 선택합니다.
+
+      Mono:
+      - 모노 센서 + R/G/B 필터를 사용한 이미지입니다.
+      - Mono Sensor와 R/G/B 필터를 각각 선택합니다.
+
+      DWARF 3 같은 컬러 센서는 OSC 경로를 사용합니다.
+
+  spcc.sensor:
+    title: "Sensor"
+    tooltip: "촬영에 사용한 이미지 센서를 선택합니다. 센서의 파장별 감도를 SPCC 계산에 사용합니다."
+    detail: |
+      카메라 센서의 Quantum Efficiency(파장별 감도) 데이터를 SPCC 계산에 사용합니다.
+
+      가능한 실제 촬영 센서와 정확히 일치하는 항목을 선택하세요.
+      정확한 항목이 없다면 Siril 문서의 안내처럼 가장 가까운 항목 또는 적절한 기본값을 사용할 수 있습니다.
+
+      센서/필터 이름은 Siril SPCC 데이터베이스에 등록된 이름과 정확히 일치해야 합니다.
+
+  spcc.osc_filter:
+    title: "OSC Filter"
+    tooltip: "OSC 카메라 앞에 사용한 필터를 선택합니다. 필터의 파장별 투과 특성을 SPCC에 반영합니다."
+    detail: |
+      OSC 센서 앞에 사용한 필터의 스펙트럼 투과 특성을 지정합니다.
+
+      예:
+      - UV/IR Cut
+      - Broadband / Light Pollution filter
+      - 특정 스마트 망원경 필터
+
+      실제 촬영에 사용하지 않은 필터를 선택하면 색 보정 결과가 왜곡될 수 있습니다.
+
+  spcc.osc_lpf:
+    title: "OSC LPF"
+    tooltip: "카메라 내부 Low-Pass/IR 필터가 별도 등록되어 있을 때 선택하는 옵션입니다. 보통 선택 사항입니다."
+    detail: |
+      OSC 카메라 내부의 Low-Pass Filter / IR-cut 계열 응답을 별도로 지정할 때 사용합니다.
+
+      해당 카메라/센서 조합에 필요한 항목인지 확실하지 않으면 비워두고 시작할 수 있습니다.
+
+  spcc.white_reference:
+    title: "White Reference"
+    tooltip: "어떤 스펙트럼을 '흰색 기준'으로 삼을지 선택합니다. 기본값은 Average Spiral Galaxy입니다."
+    detail: |
+      SPCC가 최종 채널 균형을 결정할 때 사용하는 절대적인 흰색 기준 스펙트럼입니다.
+
+      기본값:
+      - Average Spiral Galaxy
+
+      이 기준은 다양한 천체사진에서 널리 사용할 수 있는 기본값입니다.
+
+      태양광을 흰색 기준으로 삼고 싶다면 G2(v) 별 기준을 사용할 수 있습니다.
+
+  spcc.catalog:
+    title: "Gaia DR3 Catalog"
+    tooltip: "SPCC 별 데이터 소스를 선택합니다. AUTO는 로컬 카탈로그가 있으면 우선 사용하고 아니면 온라인을 사용합니다."
+    detail: |
+      SPCC는 Gaia DR3 데이터를 사용합니다.
+
+      AUTO:
+      - Siril 기본 동작을 사용합니다.
+      - 로컬 Gaia DR3 xp_sampled 카탈로그가 있으면 우선 사용할 수 있습니다.
+      - 필요하면 온라인 Gaia를 사용합니다.
+
+      Online Gaia:
+      - 인터넷을 통해 Gaia DR3를 조회합니다.
+
+      Local Gaia:
+      - 설치된 로컬 Gaia SPCC 카탈로그만 사용합니다.
+
+  spcc.bgtol:
+    title: "Background Tolerance"
+    tooltip: "SPCC의 배경 기준에서 이상치를 제외하는 sigma 범위입니다. 기본값은 -2.8 / +2.0입니다."
+    detail: |
+      SPCC가 배경 기준을 측정할 때 이상치를 제외하는 범위를 sigma 단위로 지정합니다.
+
+      Siril 기본값:
+      - Lower: -2.8
+      - Upper: +2.0
+
+      특별한 이유가 없다면 기본값에서 시작하는 것을 권장합니다.
+
+  spcc.list_refresh:
+    title: "SPCC 목록 불러오기"
+    tooltip: "현재 설치된 Siril의 센서/필터/White Reference 목록을 직접 읽어옵니다."
+    detail: |
+      Siril의 spcc_list 명령을 사용해 현재 설치된 SPCC 데이터베이스의 항목을 읽습니다.
+
+      장점:
+      - 이름 오타를 줄일 수 있습니다.
+      - Siril 데이터베이스에 실제로 존재하는 항목만 선택할 수 있습니다.
+      - 센서/필터 데이터베이스가 업데이트되어도 현재 설치 상태를 반영할 수 있습니다.
+
+  spcc.preview:
+    title: "SPCC 미리보기"
+    tooltip: "Plate Solve + SPCC를 임시 복사본에 실행해 결과를 먼저 확인합니다."
+    detail: |
+      현재 Gradient 결과를 직접 바꾸지 않고 임시 복사본에:
+      1. Plate Solve
+      2. SPCC
+      3. Linear preview FITS 저장
+      4. 표시용 AutoStretch JPEG 생성
+      순서로 처리합니다.
+
+      결과가 만족스러우면 같은 설정으로 '승인 후 적용'을 실행합니다.
+
+  spcc.apply:
+    title: "SPCC 승인 후 적용"
+    tooltip: "미리보기에서 확인한 동일한 설정으로 SPCC를 실제 작업 FITS에 적용합니다."
+    detail: |
+      미리보기와 동일한 Sensor / Filter / White Reference / Catalog / Background Tolerance 설정으로
+      실제 SPCC 결과를 새 FITS로 저장합니다.
+
+      적용 후:
+      - project State = COLOR_CALIBRATED
+      - 현재 파일이 새 SPCC FITS로 변경됩니다.
+      - 다음 단계로 이동합니다.

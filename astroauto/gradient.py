@@ -211,7 +211,9 @@ def apply_gradient(
         "purpose": "별의 측광 색 정보를 이용해 RGB 밸런스를 보정합니다.",
         "current_status": "GRADIENT_CORRECTED / LINEAR",
         "recommendations": {
-            "status": "다음 구현 단계에서 자동 파라미터/실행 연결 예정",
+            "engine": "Siril 1.4.4 SPCC",
+            "catalog": "Gaia DR3",
+            "white_reference": "Average Spiral Galaxy 기본 시작값",
         },
         "cautions": [
             "SPCC 전에 plate solving과 센서/필터 정보 확인이 필요합니다.",
@@ -220,7 +222,7 @@ def apply_gradient(
             "SPCC 성공",
             "색 균형 확인",
         ],
-        "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
+        "actions": ["PREVIEW", "RUN", "EDIT"],
     }
     save_project(pdir, project)
 

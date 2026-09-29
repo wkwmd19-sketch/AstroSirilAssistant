@@ -1,4 +1,27 @@
-# AstroSirilAssistant v0.4.2 — Interactive single-FITS + Gradient
+# AstroSirilAssistant v0.5.0 — SPCC + Common Help System
+
+이번 버전의 오늘 테스트 범위:
+
+`기존 M31 프로젝트 열기 → SPCC 목록 불러오기 → Plate Solve 상태 확인 → SPCC 미리보기 → 승인 후 적용`
+
+## 새 기능
+- Siril `spcc_list` 기반 Sensor / Filter / White Reference 목록
+- `platesolve` 자동 선행
+- Siril `spcc` 실제 미리보기/적용
+- Gaia DR3 Catalog 선택
+- Background Tolerance -2.8 / +2.0
+- Common Help System v0.1
+  - 짧은 마우스오버 Tooltip
+  - 각 항목 옆 `?` 상세 도움말
+- 기존 Gradient 항목에도 Help System 적용
+
+SPCC는 Linear + Plate Solved 이미지가 필요합니다.
+오늘 테스트는 OSC 경로를 우선 대상으로 하며 Mono 엔진 지원은 포함하지만
+GUI의 R/G/B 필터 입력은 다음 확장에 추가합니다.
+
+---
+
+# AstroSirilAssistant v0.5.0 — Interactive single-FITS + Gradient
 
 v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
 
@@ -10,7 +33,7 @@ v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리�
 
 ---
 
-# AstroSirilAssistant v0.4.2 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.5.0 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 

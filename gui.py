@@ -17,6 +17,11 @@ from astroauto.state_actions import (
     confirm_star_trail_mode,
 )
 from astroauto.gradient import preview_gradient, apply_gradient
+from astroauto.spcc import (
+    fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc
+)
+from astroauto.help_system import HelpSystem
+from astroauto.config import load_yaml, PACKAGE_ROOT
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -41,10 +46,12 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.4.2")
+        self.title("AstroSirilAssistant v0.5.0")
         self.geometry("1050x820")
         self.minsize(880, 650)
         self.cfg = load_app_config()
+        self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
+        self.help = HelpSystem(self)
         self.project_dir: Path | None = None
 
         self.input_var = tk.StringVar()
@@ -54,11 +61,31 @@ class App(tk.Tk):
         self.root_var = tk.StringVar(value=self.cfg["app"]["project_root"])
         self.status_var = tk.StringVar(value="대기 중")
 
-        self.gradient_samples = tk.StringVar(value="20")
-        self.gradient_tolerance = tk.StringVar(value="1.0")
-        self.gradient_smooth = tk.StringVar(value="0.5")
-        self.gradient_dither = tk.BooleanVar(value=False)
+        gd = self.ui_defaults.get("gradient", {})
+        self.gradient_samples = tk.StringVar(value=str(gd.get("samples", 20)))
+        self.gradient_tolerance = tk.StringVar(value=str(gd.get("tolerance", 1.0)))
+        self.gradient_smooth = tk.StringVar(value=str(gd.get("smooth", 0.5)))
+        self.gradient_dither = tk.BooleanVar(value=bool(gd.get("dither", False)))
         self.gradient_preview_signature = None
+
+        sd = self.ui_defaults.get("spcc", {})
+        self.spcc_mode = tk.StringVar(value=sd.get("camera_mode", "OSC"))
+        self.spcc_sensor = tk.StringVar(value=sd.get("sensor", ""))
+        self.spcc_osc_filter = tk.StringVar(value=sd.get("osc_filter", ""))
+        self.spcc_osc_lpf = tk.StringVar(value=sd.get("osc_lpf", ""))
+        self.spcc_white_ref = tk.StringVar(value=sd.get("white_reference", "Average Spiral Galaxy"))
+        self.spcc_catalog = tk.StringVar(value=sd.get("catalog", "AUTO"))
+        self.spcc_bgtol_lower = tk.StringVar(value=str(sd.get("bgtol_lower", -2.8)))
+        self.spcc_bgtol_upper = tk.StringVar(value=str(sd.get("bgtol_upper", 2.0)))
+        self.spcc_preview_signature = None
+        self.spcc_widgets = {}
+
+        for var in (
+            self.spcc_mode, self.spcc_sensor, self.spcc_osc_filter,
+            self.spcc_osc_lpf, self.spcc_white_ref, self.spcc_catalog,
+            self.spcc_bgtol_lower, self.spcc_bgtol_upper,
+        ):
+            var.trace_add("write", self._invalidate_spcc_preview)
 
         for var in (self.gradient_samples, self.gradient_tolerance, self.gradient_smooth):
             var.trace_add("write", self._invalidate_gradient_preview)
@@ -303,6 +330,9 @@ class App(tk.Tk):
         elif task_id == "GRADIENT_CORRECTION":
             self._build_gradient_controls(controls)
 
+        elif task_id == "COLOR_CALIBRATION_SPCC":
+            self._build_spcc_controls()
+
         else:
             ttk.Label(
                 controls,
@@ -310,19 +340,328 @@ class App(tk.Tk):
             ).pack(side="left", padx=3)
 
     def _build_gradient_controls(self, parent):
-        ttk.Label(parent, text="Samples").pack(side="left", padx=(0,2))
-        ttk.Entry(parent, textvariable=self.gradient_samples, width=5).pack(side="left", padx=(0,8))
+        lbl = ttk.Label(parent, text="Samples")
+        lbl.pack(side="left", padx=(0,2))
+        self.help.tooltip(lbl, "gradient.samples")
+        ent = ttk.Entry(parent, textvariable=self.gradient_samples, width=5)
+        ent.pack(side="left")
+        self.help.tooltip(ent, "gradient.samples")
+        self.help.help_button(parent, "gradient.samples").pack(side="left", padx=(1,6))
 
-        ttk.Label(parent, text="Tolerance").pack(side="left", padx=(0,2))
-        ttk.Entry(parent, textvariable=self.gradient_tolerance, width=6).pack(side="left", padx=(0,8))
+        lbl = ttk.Label(parent, text="Tolerance")
+        lbl.pack(side="left", padx=(0,2))
+        self.help.tooltip(lbl, "gradient.tolerance")
+        ent = ttk.Entry(parent, textvariable=self.gradient_tolerance, width=6)
+        ent.pack(side="left")
+        self.help.tooltip(ent, "gradient.tolerance")
+        self.help.help_button(parent, "gradient.tolerance").pack(side="left", padx=(1,6))
 
-        ttk.Label(parent, text="Smooth").pack(side="left", padx=(0,2))
-        ttk.Entry(parent, textvariable=self.gradient_smooth, width=6).pack(side="left", padx=(0,8))
+        lbl = ttk.Label(parent, text="Smooth")
+        lbl.pack(side="left", padx=(0,2))
+        self.help.tooltip(lbl, "gradient.smooth")
+        ent = ttk.Entry(parent, textvariable=self.gradient_smooth, width=6)
+        ent.pack(side="left")
+        self.help.tooltip(ent, "gradient.smooth")
+        self.help.help_button(parent, "gradient.smooth").pack(side="left", padx=(1,6))
 
-        ttk.Checkbutton(parent, text="Dither", variable=self.gradient_dither).pack(side="left", padx=(0,8))
+        chk = ttk.Checkbutton(parent, text="Dither", variable=self.gradient_dither)
+        chk.pack(side="left")
+        self.help.tooltip(chk, "gradient.dither")
+        self.help.help_button(parent, "gradient.dither").pack(side="left", padx=(1,6))
 
-        ttk.Button(parent, text="미리보기", command=self.gradient_preview).pack(side="left", padx=3)
-        ttk.Button(parent, text="승인 후 적용", command=self.gradient_apply).pack(side="left", padx=3)
+        btn = ttk.Button(parent, text="미리보기", command=self.gradient_preview)
+        btn.pack(side="left", padx=3)
+        self.help.tooltip(btn, "gradient.preview")
+        self.help.help_button(parent, "gradient.preview").pack(side="left", padx=(0,5))
+
+        btn = ttk.Button(parent, text="승인 후 적용", command=self.gradient_apply)
+        btn.pack(side="left", padx=3)
+        self.help.tooltip(btn, "gradient.apply")
+        self.help.help_button(parent, "gradient.apply").pack(side="left", padx=(0,3))
+
+
+    def _build_spcc_controls(self):
+        # SPCC needs more room than a single horizontal row, so rebuild the action area.
+        self._clear_actions()
+        task = load_project(self.project_dir)["project"].get("next_task") if self.project_dir else None
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=8, pady=(6,4))
+        lbl = ttk.Label(
+            head,
+            text="SPCC Color Calibration — Gaia DR3 + Sensor/Filter 기반 색보정",
+        )
+        lbl.pack(side="left")
+        self.help.tooltip(lbl, "spcc.what")
+        self.help.help_button(head, "spcc.what").pack(side="left", padx=5)
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=8, pady=(2,6))
+
+        def row_label(row, text, topic):
+            label = ttk.Label(body, text=text, width=18)
+            label.grid(row=row, column=0, sticky="w", pady=2)
+            self.help.tooltip(label, topic)
+            hb = self.help.help_button(body, topic)
+            hb.grid(row=row, column=3, sticky="w", padx=(4,8))
+            return label
+
+        row_label(0, "Camera Mode", "spcc.camera_mode")
+        mode = ttk.Combobox(body, textvariable=self.spcc_mode, values=["OSC", "MONO"], state="readonly", width=24)
+        mode.grid(row=0, column=1, sticky="w")
+        self.help.tooltip(mode, "spcc.camera_mode")
+        mode.bind("<<ComboboxSelected>>", lambda e: self._refresh_spcc_mode_ui())
+
+        row_label(1, "Sensor", "spcc.sensor")
+        sensor = ttk.Combobox(body, textvariable=self.spcc_sensor, width=42)
+        sensor.grid(row=1, column=1, sticky="ew")
+        self.help.tooltip(sensor, "spcc.sensor")
+        self.spcc_widgets["sensor"] = sensor
+
+        row_label(2, "OSC Filter", "spcc.osc_filter")
+        filt = ttk.Combobox(body, textvariable=self.spcc_osc_filter, width=42)
+        filt.grid(row=2, column=1, sticky="ew")
+        self.help.tooltip(filt, "spcc.osc_filter")
+        self.spcc_widgets["oscfilter"] = filt
+
+        row_label(3, "OSC LPF", "spcc.osc_lpf")
+        lpf = ttk.Combobox(body, textvariable=self.spcc_osc_lpf, width=42)
+        lpf.grid(row=3, column=1, sticky="ew")
+        self.help.tooltip(lpf, "spcc.osc_lpf")
+        self.spcc_widgets["osclpf"] = lpf
+
+        row_label(4, "White Reference", "spcc.white_reference")
+        wr = ttk.Combobox(body, textvariable=self.spcc_white_ref, width=42)
+        wr.grid(row=4, column=1, sticky="ew")
+        self.help.tooltip(wr, "spcc.white_reference")
+        self.spcc_widgets["whiteref"] = wr
+
+        row_label(5, "Gaia Catalog", "spcc.catalog")
+        cat = ttk.Combobox(
+            body, textvariable=self.spcc_catalog,
+            values=["AUTO", "GAIA_ONLINE", "LOCAL_GAIA"],
+            state="readonly", width=24
+        )
+        cat.grid(row=5, column=1, sticky="w")
+        self.help.tooltip(cat, "spcc.catalog")
+
+        row_label(6, "Background Tol.", "spcc.bgtol")
+        tol_frame = ttk.Frame(body)
+        tol_frame.grid(row=6, column=1, sticky="w")
+        ttk.Label(tol_frame, text="Lower").pack(side="left")
+        ttk.Entry(tol_frame, textvariable=self.spcc_bgtol_lower, width=7).pack(side="left", padx=(3,10))
+        ttk.Label(tol_frame, text="Upper").pack(side="left")
+        ttk.Entry(tol_frame, textvariable=self.spcc_bgtol_upper, width=7).pack(side="left", padx=3)
+        self.help.tooltip(tol_frame, "spcc.bgtol")
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=7, column=0, columnspan=4, sticky="w", pady=(8,2))
+
+        btn = ttk.Button(buttons, text="SPCC 목록 불러오기", command=self.load_spcc_lists)
+        btn.pack(side="left", padx=3)
+        self.help.tooltip(btn, "spcc.list_refresh")
+        self.help.help_button(buttons, "spcc.list_refresh").pack(side="left", padx=(0,8))
+
+        btn = ttk.Button(buttons, text="Plate Solve 상태", command=self.show_wcs_status)
+        btn.pack(side="left", padx=3)
+        self.help.tooltip(btn, "spcc.platesolve")
+        self.help.help_button(buttons, "spcc.platesolve").pack(side="left", padx=(0,8))
+
+        btn = ttk.Button(buttons, text="SPCC 미리보기", command=self.spcc_preview)
+        btn.pack(side="left", padx=3)
+        self.help.tooltip(btn, "spcc.preview")
+        self.help.help_button(buttons, "spcc.preview").pack(side="left", padx=(0,8))
+
+        btn = ttk.Button(buttons, text="승인 후 적용", command=self.spcc_apply)
+        btn.pack(side="left", padx=3)
+        self.help.tooltip(btn, "spcc.apply")
+        self.help.help_button(buttons, "spcc.apply").pack(side="left", padx=(0,3))
+
+        body.columnconfigure(1, weight=1)
+        self._refresh_spcc_mode_ui()
+
+    def _refresh_spcc_mode_ui(self):
+        mode = self.spcc_mode.get().upper()
+        # v0.5 UI's first real test path is OSC. Mono is accepted by engine but
+        # RGB filter selectors are planned for the next UI iteration.
+        if mode == "MONO":
+            self.status_var.set("Mono SPCC는 엔진 지원 / GUI R-G-B 필터 입력은 다음 확장 예정")
+        else:
+            self.status_var.set("SPCC OSC 설정 준비")
+
+    def _spcc_signature(self):
+        return (
+            self.spcc_mode.get().strip(),
+            self.spcc_sensor.get().strip(),
+            self.spcc_osc_filter.get().strip(),
+            self.spcc_osc_lpf.get().strip(),
+            self.spcc_white_ref.get().strip(),
+            self.spcc_catalog.get().strip(),
+            self.spcc_bgtol_lower.get().strip(),
+            self.spcc_bgtol_upper.get().strip(),
+        )
+
+    def _invalidate_spcc_preview(self, *args):
+        self.spcc_preview_signature = None
+
+    def _spcc_params(self):
+        return {
+            "mode": self.spcc_mode.get().upper(),
+            "sensor": self.spcc_sensor.get().strip(),
+            "osc_filter": self.spcc_osc_filter.get().strip(),
+            "osc_lpf": self.spcc_osc_lpf.get().strip(),
+            "white_reference": self.spcc_white_ref.get().strip(),
+            "catalog": self.spcc_catalog.get().strip(),
+            "bgtol_lower": float(self.spcc_bgtol_lower.get()),
+            "bgtol_upper": float(self.spcc_bgtol_upper.get()),
+        }
+
+    def load_spcc_lists(self):
+        if not self._require_project():
+            return
+        if self.spcc_mode.get().upper() != "OSC":
+            messagebox.showinfo(
+                "Mono SPCC",
+                "v0.5.0 GUI에서는 오늘 테스트할 OSC 경로를 우선 구현했습니다.\n"
+                "Mono 엔진은 지원하지만 R/G/B 필터 선택 UI는 다음 확장에서 추가합니다."
+            )
+            return
+
+        self.status_var.set("Siril SPCC 데이터베이스 읽는 중...")
+
+        def work():
+            result = fetch_spcc_lists(self.cfg, mode="OSC")
+            lists = result["lists"]
+            self.after(0, lambda: self._apply_spcc_lists(lists))
+            self.after(0, lambda: self.status_var.set("SPCC 목록 로드 완료"))
+
+        self.run_bg(work)
+
+    def _apply_spcc_lists(self, lists):
+        mapping = {
+            "sensor": lists.get("oscsensor", []),
+            "oscfilter": lists.get("oscfilter", []),
+            "osclpf": [""] + lists.get("osclpf", []),
+            "whiteref": lists.get("whiteref", []),
+        }
+        for key, values in mapping.items():
+            widget = self.spcc_widgets.get(key)
+            if widget:
+                widget["values"] = values
+
+        self.write(
+            "\nSPCC 데이터베이스 목록 로드 완료\n"
+            f"OSC Sensors: {len(lists.get('oscsensor', []))}\n"
+            f"OSC Filters: {len(lists.get('oscfilter', []))}\n"
+            f"OSC LPF: {len(lists.get('osclpf', []))}\n"
+            f"White References: {len(lists.get('whiteref', []))}\n"
+        )
+
+    def show_wcs_status(self):
+        if not self._require_project():
+            return
+        try:
+            project = load_project(self.project_dir)
+            current = Path(project["project"]["current_file"])
+            status = inspect_wcs(current)
+            if status["plate_solved"]:
+                msg = (
+                    "현재 FITS에 WCS Plate Solve 정보가 있습니다.\n\n"
+                    f"CTYPE1: {status['ctype1']}\n"
+                    f"CTYPE2: {status['ctype2']}\n"
+                    f"Center: {status['crval1']}, {status['crval2']}\n\n"
+                    "SPCC 실행 시 Siril platesolve가 기존 해를 확인합니다."
+                )
+            else:
+                hints = status["hints"]
+                msg = (
+                    "현재 FITS에서 완전한 WCS Plate Solve 정보를 확인하지 못했습니다.\n\n"
+                    f"RA hint: {hints.get('ra')}\n"
+                    f"DEC hint: {hints.get('dec')}\n"
+                    f"Focal hint: {hints.get('focal_mm')}\n"
+                    f"Pixel hint: {hints.get('pixel_um')}\n\n"
+                    "SPCC 미리보기 시 Siril platesolve를 먼저 시도합니다.\n"
+                    "메타데이터가 부족하면 Plate Solve 단계에서 오류가 날 수 있습니다."
+                )
+            messagebox.showinfo("Plate Solve 상태", msg)
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def spcc_preview(self):
+        if not self._require_project():
+            return
+        if self.spcc_mode.get().upper() != "OSC":
+            messagebox.showwarning("v0.5.0", "이번 테스트 버전의 GUI SPCC 미리보기는 OSC 경로를 우선 지원합니다.")
+            return
+        try:
+            params = self._spcc_params()
+        except ValueError:
+            messagebox.showerror("오류", "SPCC Background Tolerance 숫자 값을 확인하세요.")
+            return
+
+        signature = self._spcc_signature()
+        self.status_var.set("Plate Solve + SPCC 미리보기 실행 중...")
+
+        def work():
+            jpg, linear_preview, meta = preview_spcc(self.project_dir, self.cfg, **params)
+            self.spcc_preview_signature = signature
+            self.after(0, lambda: self.write(
+                "\nSPCC 미리보기 완료\n"
+                f"표시용 JPEG: {jpg}\n"
+                f"Linear SPCC 미리보기 FITS: {linear_preview}\n"
+                f"Plate Solve 명령: {meta['plate_solve_command']}\n"
+                f"SPCC 명령: {meta['spcc_command']}\n"
+            ))
+            self.after(0, lambda: self.status_var.set("SPCC 미리보기 완료"))
+            self.after(0, lambda: self._open_preview(jpg))
+
+        self.run_bg(work)
+
+    def spcc_apply(self):
+        if not self._require_project():
+            return
+        if self.spcc_mode.get().upper() != "OSC":
+            messagebox.showwarning("v0.5.0", "이번 테스트 버전의 GUI SPCC 적용은 OSC 경로를 우선 지원합니다.")
+            return
+        try:
+            params = self._spcc_params()
+        except ValueError:
+            messagebox.showerror("오류", "SPCC Background Tolerance 숫자 값을 확인하세요.")
+            return
+
+        if self.spcc_preview_signature != self._spcc_signature():
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 SPCC 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        ok = messagebox.askyesno(
+            "SPCC 실제 적용",
+            "미리보기와 동일한 설정으로 실제 Linear FITS에 SPCC를 적용합니다.\n\n"
+            f"Sensor: {params['sensor']}\n"
+            f"OSC Filter: {params['osc_filter'] or '(없음)'}\n"
+            f"White Reference: {params['white_reference']}\n"
+            f"Catalog: {params['catalog']}\n"
+            f"Background Tol: {params['bgtol_lower']} / {params['bgtol_upper']}\n\n"
+            "진행할까요?"
+        )
+        if not ok:
+            return
+
+        self.status_var.set("Plate Solve + SPCC 실제 적용 중...")
+
+        def work():
+            project, output, log = apply_spcc(
+                self.project_dir, self.cfg, confirmed=True, **params
+            )
+            self.spcc_preview_signature = None
+            self.after(0, lambda: self._show_project_task(
+                project, f"SPCC 완료\n출력: {output}"
+            ))
+            self.after(0, lambda: self.status_var.set("SPCC 완료"))
+
+        self.run_bg(work)
 
     def _gradient_signature(self):
         return (
