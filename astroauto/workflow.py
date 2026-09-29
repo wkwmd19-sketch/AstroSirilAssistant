@@ -11,6 +11,10 @@ PROFILE_LABELS = {
     "GLOBULAR_CLUSTER": "구상성단",
     "MILKYWAY": "은하수",
     "GENERAL_STARFIELD": "일반 별필드",
+    "STAR_TRAIL": "별 일주사진",
+    "COMET": "혜성/소행성",
+    "PLANETARY_LUNAR": "달/행성",
+    "MOSAIC": "모자이크",
     "UNKNOWN": "미분류",
 }
 
@@ -21,6 +25,49 @@ def next_task_after_analysis(project: dict):
     label = PROFILE_LABELS.get(category, category)
     source_stage = p.get("input_stage", {}).get("source_stage", "UNKNOWN")
     input_status = p.get("calibration", {}).get("input_status", "UNKNOWN")
+    trail_mode = p.get("star_trail", {}).get("mode", "UNKNOWN")
+
+    if category == "STAR_TRAIL":
+        return _star_trail_task(source_stage, input_status, trail_mode)
+
+    if category == "COMET":
+        return {
+            "task_id": "COMET_WORKFLOW_REVIEW",
+            "title": "혜성 워크플로 검토",
+            "summary": "혜성은 별 기준 정렬과 혜성 기준 정렬을 분리해야 할 수 있습니다.",
+            "purpose": "혜성 핵/꼬리 보존과 별 배경 처리를 구분하기 위함입니다.",
+            "current_status": "COMET / RESERVED_PROFILE",
+            "recommendations": {"next_design": "comet-centered registration + star background workflow"},
+            "cautions": ["일반 딥스카이 스택만으로는 혜성 형태가 흐려질 수 있습니다."],
+            "completion_criteria": ["혜성 전용 구현 단계 진입 전 설계 확인"],
+            "actions": ["CONFIRM", "EDIT"],
+        }
+
+    if category == "PLANETARY_LUNAR":
+        return {
+            "task_id": "PLANETARY_LUNAR_WORKFLOW_REVIEW",
+            "title": "달 / 행성 워크플로 검토",
+            "summary": "달/목성/토성은 딥스카이 스택이 아니라 고속 연사/영상 기반 처리가 필요할 수 있습니다.",
+            "purpose": "행성/달용 별도 파이프라인과 외부 도구 연계를 준비하기 위함입니다.",
+            "current_status": "PLANETARY_LUNAR / RESERVED_PROFILE",
+            "recommendations": {"next_design": "SER/AVI input + quality selection + planetary stack"},
+            "cautions": ["Siril 중심 딥스카이 파이프라인에 그대로 넣지 않습니다."],
+            "completion_criteria": ["행성/달 전용 구현 단계 진입 전 설계 확인"],
+            "actions": ["CONFIRM", "EDIT"],
+        }
+
+    if category == "MOSAIC":
+        return {
+            "task_id": "MOSAIC_WORKFLOW_REVIEW",
+            "title": "모자이크 워크플로 검토",
+            "summary": "패널별 처리 후 최종 패널 결합이 필요한 모자이크 촬영입니다.",
+            "purpose": "패널 그룹핑과 모자이크 결합 단계를 분리하기 위함입니다.",
+            "current_status": "MOSAIC / RESERVED_PROFILE",
+            "recommendations": {"next_design": "panel grouping + assemble"},
+            "cautions": ["단일 FOV 딥스카이와 다른 후반부 파이프라인이 필요합니다."],
+            "completion_criteria": ["모자이크 구현 단계 진입 전 설계 확인"],
+            "actions": ["CONFIRM", "EDIT"],
+        }
 
     if source_stage == "UNKNOWN":
         return {
@@ -29,9 +76,7 @@ def next_task_after_analysis(project: dict):
             "summary": "현재 파일이 개별 Light인지, 등록/스택 완료 데이터인지 먼저 확인합니다.",
             "purpose": "캘리브레이션과 스택을 이미 처리한 데이터에 다시 적용하지 않기 위함입니다.",
             "current_status": f"INPUT_ANALYZED / {label}",
-            "recommendations": {
-                "options": "LIGHT_SEQUENCE / SINGLE_LIGHT / REGISTERED_SEQUENCE / STACKED_LINEAR / STACKED_NONLINEAR"
-            },
+            "recommendations": {"options": "LIGHT_SEQUENCE / SINGLE_LIGHT / REGISTERED_SEQUENCE / STACKED_LINEAR / STACKED_NONLINEAR"},
             "cautions": [
                 "DWARF 등 스마트 망원경의 결과 파일은 기기 내부에서 이미 캘리브레이션/스택되었을 수 있습니다.",
                 "확실하지 않으면 UNKNOWN을 유지하고 사용자 확인을 받습니다."
@@ -60,10 +105,13 @@ def next_task_after_analysis(project: dict):
             "summary": "보유한 캘리브레이션 프레임을 감지하고 Light와 조건이 맞는지 검사합니다.",
             "purpose": "스택 전에 센서/광학계의 체계적인 오차를 가능한 범위에서 제거합니다.",
             "current_status": f"{source_stage} / RAW_UNCALIBRATED",
-            "recommendations": {"scan": "calibration/dark, bias, flat, dark_flat"},
+            "recommendations": {
+                "scan": "calibration/dark, bias, flat, dark_flat",
+                "shared_library": "CalibrationLibrary도 함께 조회 예정"
+            },
             "cautions": [
                 "Bias와 Dark-flat을 무조건 동시에 요구하거나 중복 적용하지 않습니다.",
-                "Dark는 Light의 노출/Gain/온도 조건을 비교합니다.",
+                "Dark는 Light의 노출/Gain/온도/해상도/비닝/ROI 조건을 비교합니다.",
                 "Flat은 광학계/필터/센서 형상 일치를 우선 확인합니다."
             ],
             "completion_criteria": ["프레임 존재 여부와 호환성 보고서 생성"],
@@ -99,7 +147,6 @@ def next_task_after_analysis(project: dict):
 
         return _gradient_task(label)
 
-    # Generic conservative fallback
     if linearity == "NONLINEAR":
         return {
             "task_id": "REVIEW_INPUT_STATE",
@@ -114,6 +161,83 @@ def next_task_after_analysis(project: dict):
         }
 
     return _gradient_task(label)
+
+def _star_trail_task(source_stage: str, input_status: str, trail_mode: str):
+    if trail_mode == "UNKNOWN":
+        return {
+            "task_id": "CONFIRM_STAR_TRAIL_MODE",
+            "title": "별 일주사진 유형 확인",
+            "summary": "별 일주사진이 순수 하늘 중심인지, 지상 풍경이 포함된 장면인지 먼저 확인합니다.",
+            "purpose": "일주 합성 안내와 프레임 검토 기준을 맞추기 위함입니다.",
+            "current_status": "STAR_TRAIL / INPUT_ANALYZED",
+            "recommendations": {"options": "STAR_TRAIL_SKY / STAR_TRAIL_LANDSCAPE"},
+            "cautions": [
+                "별 일주사진은 일반 별 정렬을 사용하지 않습니다.",
+                "지상 풍경이 포함되어도 기본적으로 trail composition 파이프라인으로 처리합니다."
+            ],
+            "completion_criteria": ["STAR_TRAIL_SKY 또는 STAR_TRAIL_LANDSCAPE 확정"],
+            "actions": ["CONFIRM", "EDIT"],
+        }
+
+    if source_stage == "UNKNOWN":
+        return {
+            "task_id": "CONFIRM_INPUT_STAGE",
+            "title": "일주 입력 단계 확인",
+            "summary": "현재 입력이 개별 프레임 시퀀스인지 확인합니다.",
+            "purpose": "일주 합성은 보통 다수의 연속 프레임을 기반으로 하기 때문입니다.",
+            "current_status": f"{trail_mode}",
+            "recommendations": {"options": "LIGHT_SEQUENCE / PRECALIBRATED_SEQUENCE / SINGLE_LIGHT(미리보기용)"},
+            "cautions": ["실제 일주 합성에는 보통 연속 촬영 프레임 시퀀스가 필요합니다."],
+            "completion_criteria": ["입력 유형 확정"],
+            "actions": ["CONFIRM", "EDIT"],
+        }
+
+    if input_status == "UNKNOWN":
+        return {
+            "task_id": "CONFIRM_CALIBRATION_STATUS",
+            "title": "캘리브레이션 상태 확인",
+            "summary": "일주 원본 프레임이 이미 보정된 데이터인지 확인합니다.",
+            "purpose": "Dark/Flat 중복 적용을 방지합니다.",
+            "current_status": f"{trail_mode} / {source_stage}",
+            "recommendations": {"options": "RAW_UNCALIBRATED / PRECALIBRATED"},
+            "cautions": ["Dark는 일주사진의 핫픽셀/고정패턴 억제에 유용할 수 있습니다."],
+            "completion_criteria": ["입력 캘리브레이션 상태 확정"],
+            "actions": ["CONFIRM", "EDIT"],
+        }
+
+    if input_status == "RAW_UNCALIBRATED":
+        return {
+            "task_id": "CHECK_CALIBRATION_FRAMES",
+            "title": "Dark / Flat / Bias / Dark-flat 검사",
+            "summary": "일주 프레임용 캘리브레이션 프레임을 점검합니다.",
+            "purpose": "핫픽셀, 고정패턴, 비네팅 등을 줄여 trail 품질을 높입니다.",
+            "current_status": f"{trail_mode} / RAW_UNCALIBRATED",
+            "recommendations": {"scan": "calibration/dark, bias, flat, dark_flat"},
+            "cautions": [
+                "Flat은 있으면 유용하지만 필수는 아닙니다.",
+                "Bias와 Dark-flat은 센서/워크플로에 따라 선택합니다."
+            ],
+            "completion_criteria": ["캘리브레이션 프레임 호환성 보고서 생성"],
+            "actions": ["RUN", "EDIT", "SKIP"],
+        }
+
+    return {
+        "task_id": "FRAME_QUALITY_CHECK",
+        "title": "일주 프레임 품질 점검",
+        "summary": "프레임 수, 시간 간격, 흔들림, 구름, 비행기/위성 흔적 여부를 검토합니다.",
+        "purpose": "trail 끊김과 불필요한 인공 흔적을 최소화하면서 합성 대상을 정리합니다.",
+        "current_status": f"{trail_mode} / READY_FOR_TRAIL",
+        "recommendations": {
+            "checks": "frame_count / time_gap / cloud / shake / airplane_satellite_candidates",
+            "next": "STAR_TRAIL_COMPOSE"
+        },
+        "cautions": [
+            "일주사진은 일반 딥스카이 registration/stack을 사용하지 않습니다.",
+            "문제 프레임은 자동 삭제가 아니라 후보 제안 후 사용자 확인 방식이 적합합니다."
+        ],
+        "completion_criteria": ["제외 후보 프레임 확인", "합성 전 검토 완료"],
+        "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
+    }
 
 def _gradient_task(label: str):
     return {

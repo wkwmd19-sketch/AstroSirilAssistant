@@ -10,7 +10,7 @@
 6. Registration
 7. Stacking
 
-## 그 다음
+## 딥스카이 후속
 
 8. Gradient `subsky`
 9. SPCC
@@ -23,3 +23,12 @@
 13. FIXED/TRACKED 움직임 분석
 14. 지상/하늘 분리 스택
 15. 필요 시 Sequator 연계
+
+## 별 일주사진
+
+16. frame sequence import 규격
+17. time gap 자동 분석
+18. 흔들림/구름/비행기/위성 후보 검출
+19. frame exclude / keep UI
+20. 실제 trail composition 엔진
+21. StarStaX 등 외부 엔진 연계 옵션

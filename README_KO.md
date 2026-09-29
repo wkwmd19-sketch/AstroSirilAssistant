@@ -1,113 +1,67 @@
-# AstroSirilAssistant v0.3.1 — Calibration-aware MVP
+# AstroSirilAssistant v0.4.0 — 첫 실제 Siril 전처리/스택 실행 버전
 
-v0.3에 **Dark / Bias / Flat / Dark-flat 관리와 검증 구조**를 추가한 보완판입니다.
+이제 규격만 있는 단계에서 벗어나,
+**FITS Light sequence에 대해 Siril CLI를 실제 실행하여 Calibration → Registration → Stack**까지 수행할 수 있습니다.
 
-## 새 프로젝트 기본 경로
+## 가장 쉬운 실행
 
-`D:\AstroProjects_Auto\{대상}_{YYYY-MM-DD}_Auto\`
+1. `install_windows.bat`
+2. `run_sequence_gui.bat`
+3. Lights / Dark / Flat / Bias / Dark-flat 폴더 지정
+4. 대상명 / 날짜 / 카메라 모드 지정
+5. `1. 프로젝트 생성`
+6. `2. 실행 계획 보기`
+7. 계획 확인
+8. `3. 승인 후 실제 실행`
 
-예:
+## 반자동 안전 원칙
 
-`D:\AstroProjects_Auto\M31_2026-09-29_Auto\`
+실제 Siril 처리는 사용자 승인 전에는 실행되지 않습니다.
 
-## 새 폴더 구조
+GUI에서도 반드시:
+`계획 생성 → 확인 → 실제 실행`
+순서를 거칩니다.
 
-```text
-M31_2026-09-29_Auto\
-├─ input\
-│  └─ lights\
-├─ calibration\
-│  ├─ dark\
-│  ├─ bias\
-│  ├─ flat\
-│  ├─ dark_flat\
-│  └─ masters\
-├─ working\
-│  ├─ 00_calibrated\
-│  ├─ 01_registered\
-│  ├─ 02_stacked\
-│  ├─ 03_gradient\
-│  ├─ 04_color\
-│  ├─ 05_denoise\
-│  ├─ 06_stretch\
-│  ├─ 07_starnet\
-│  ├─ 08_starless\
-│  ├─ 09_recombine\
-│  └─ 10_final\
-├─ output\
-├─ logs\
-└─ temp\
-```
+## v0.4 실제 지원 범위
 
-## 캘리브레이션 상태
+- 딥스카이 FITS Light sequence
+- OSC 또는 Mono
+- Dark
+- Flat
+- Bias
+- Dark-flat
+- Master 생성
+- Calibration
+- Deep-sky registration
+- Rejection stack
 
-입력은 반드시 다음 중 하나로 관리합니다.
+## 아직 전용 실행 경로를 사용하지 않는 대상
 
-- `RAW_UNCALIBRATED`
-- `PRECALIBRATED`
-- `UNKNOWN`
+- 별 일주사진
+- 혜성
+- 달 / 목성 / 토성
+- 모자이크
 
-`PRECALIBRATED` 입력에는 캘리브레이션을 다시 적용하지 않습니다.
+이 대상들은 프로파일/규격은 이미 존재하지만, 각각 전용 엔진으로 구현할 예정입니다.
 
-## 입력 단계
+## CLI 예
 
-- `LIGHT_SEQUENCE`
-- `SINGLE_LIGHT`
-- `REGISTERED_SEQUENCE`
-- `STACKED_LINEAR`
-- `STACKED_NONLINEAR`
-- `UNKNOWN`
+프로젝트 생성:
 
-DWARF 등 스마트 망원경 결과물처럼 내부 처리 여부가 확실하지 않으면 `UNKNOWN`으로 유지하고 사용자 확인을 받습니다.
+`run_cli.bat new-sequence --lights "D:\M31\lights" --darks "D:\M31\darks" --flats "D:\M31\flats" --target M31 --date 2026-09-29 --category GALAXY --camera-mode OSC`
 
-## 캘리브레이션 검사
+계획 확인:
 
-프로젝트 생성 후 보유한 파일을 다음 폴더에 넣습니다.
+`run_cli.bat preprocess-plan "D:\AstroProjects_Auto\M31_2026-09-29_Auto"`
 
-- Dark → `calibration\dark`
-- Bias → `calibration\bias`
-- Flat → `calibration\flat`
-- Dark-flat → `calibration\dark_flat`
+실제 실행:
 
-그 다음:
+`run_cli.bat preprocess-run "D:\AstroProjects_Auto\M31_2026-09-29_Auto" --yes`
 
-`run_cli.bat calibration-check "D:\AstroProjects_Auto\M31_2026-09-29_Auto"`
+최종 스택 예:
 
-프로그램은 각 FITS 헤더에서 가능한 범위 내에서 다음 조건을 읽고 비교합니다.
+`D:\AstroProjects_Auto\M31_2026-09-29_Auto\working\02_stacked\M31_02_stacked.fit`
 
-### Dark
-- 프레임 크기
-- 노출시간
-- Gain
-- 센서 온도(헤더에 있을 경우)
-
-### Flat
-- 프레임 크기
-- Filter
-- Bayer pattern
-- 광학계/필터 일치 여부는 메타데이터가 부족하면 사용자 확인
-
-### Bias
-- 프레임 크기
-- Gain(알 수 있을 경우)
-
-### Dark-flat
-- 프레임 크기
-- Flat 노출시간과의 일치
-- Gain
-- 온도(알 수 있을 경우)
-
-## 중요한 정책
-
-Bias와 Dark-flat은 **무조건 둘 다 요구하지 않습니다.**
-센서와 실제 촬영 방식에 따라 적절한 경로를 선택하도록 설계되어 있습니다.
-
-캘리브레이션 프레임이 없다고 해서 프로그램이 임의로 만들어내지 않습니다.
-없거나 불확실하면 그 영향을 설명하고 사용자의 선택을 받습니다.
-
-## 현재 한계
-
-v0.3.1은 캘리브레이션 프레임의 **감지/메타데이터 분석/호환성 검사/State 관리**까지 구현합니다.
-
-실제 Siril `preprocess`/master 생성/캘리브레이션 실행은 다음 구현 단계에서 연결합니다.
-이는 중복 캘리브레이션 방지와 센서별 정책을 먼저 안정화하기 위함입니다.
+다음 구현 목표는 이 결과를 이어 받아:
+**Gradient → SPCC → GHS → StarNet → Pixel Math 재합성**
+경로를 실제 실행 기능으로 연결하는 것입니다.

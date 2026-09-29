@@ -1,0 +1,24 @@
+schema_version: "0.3.3"
+
+subframe_quality:
+  metrics:
+    fwhm:
+      meaning: "별 크기/시상 상태"
+    eccentricity:
+      meaning: "별 타원도, 추적 불량/흔들림 힌트"
+    star_count:
+      meaning: "구름/초점/배경 상태 힌트"
+    background_level:
+      meaning: "광해/박명/구름/달빛 영향"
+    median_signal:
+      meaning: "전반적인 신호량"
+    shake_score:
+      meaning: "미세 흔들림 후보"
+    cloud_score:
+      meaning: "구름 통과 후보"
+    artifact_score:
+      meaning: "비행기/위성/차량 불빛 등 후보"
+
+  policy:
+    reject_mode: "SUGGEST_ONLY"
+    final_decision: "USER_CONFIRMS"

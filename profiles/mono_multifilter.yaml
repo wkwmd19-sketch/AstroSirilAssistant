@@ -1,0 +1,24 @@
+profile:
+  id: "MONO_MULTIFILTER"
+  display_name: "Mono / LRGB / Narrowband"
+  filter_groups:
+    - "L"
+    - "R"
+    - "G"
+    - "B"
+    - "Ha"
+    - "OIII"
+    - "SII"
+  principles:
+    - "필터 그룹별 calibration / registration / stack"
+    - "채널 합성 이전까지는 그룹 독립 처리 가능"
+    - "최종 결합 단계에서 RGB / SHO / HOO 등 전략 적용"
+  current_limits:
+    implemented_in_v0_3_3:
+      - "예약 프로파일"
+      - "설계 문서"
+      - "세션/필터 그룹 개념"
+    planned_next:
+      - "filter_group 인식"
+      - "채널별 파이프라인"
+      - "최종 채널 합성"

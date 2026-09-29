@@ -1,0 +1,47 @@
+profile:
+  id: "STAR_TRAIL"
+  display_name: "별 일주사진"
+
+  variants:
+    STAR_TRAIL_SKY:
+      description: "지상 풍경이 없거나 영향이 매우 작은 순수 별 일주사진"
+      pipeline:
+        - "CALIBRATION_CHECK"
+        - "FRAME_QUALITY_CHECK"
+        - "STAR_TRAIL_COMPOSE"
+        - "FINALIZE"
+      notes:
+        - "별 정렬을 수행하지 않습니다."
+        - "프레임 간 시간 간격(gap)을 확인합니다."
+        - "비행기/위성/구름/심한 흔들림 프레임을 검토합니다."
+
+    STAR_TRAIL_LANDSCAPE:
+      description: "산, 나무, 건물 등 지상 풍경이 포함된 별 일주사진"
+      pipeline:
+        - "CALIBRATION_CHECK"
+        - "FRAME_QUALITY_CHECK"
+        - "STAR_TRAIL_COMPOSE"
+        - "FINALIZE"
+      notes:
+        - "고정 삼각대 기준 지상은 정지, 별은 이동하는 결과를 기대합니다."
+        - "지상 풍경이 포함되어도 일반 별 정렬은 사용하지 않습니다."
+        - "프레임 제외/유지 반자동 판단이 중요합니다."
+
+  priorities:
+    preserve_trail_continuity: "VERY_HIGH"
+    detect_frame_gaps: "HIGH"
+    detect_artifacts: "HIGH"
+    dark_usefulness: "HIGH"
+    flat_usefulness: "OPTIONAL_HIGH"
+
+  current_limits:
+    implemented_in_v0_3_2:
+      - "프로파일"
+      - "상태머신"
+      - "캘리브레이션 연동"
+      - "작업 추천/설명"
+    planned_next:
+      - "실제 trail composition 엔진"
+      - "gap 검출"
+      - "비행기/위성 흔적 후보 감지"
+      - "프레임 제외 UI"

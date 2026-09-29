@@ -59,6 +59,38 @@ def analyze_project(project_dir: Path, config: dict):
         "masters": {},
         "compatibility": {},
     })
+    p.setdefault("star_trail", {
+        "mode": "UNKNOWN",
+        "user_confirmed": False,
+        "frame_quality_checked": False,
+        "frame_quality_report": None,
+        "composition": {
+            "engine": "UNKNOWN",
+            "mode": "MAX_OR_LIGHTEN_PENDING",
+            "gap_check": "PENDING",
+            "artifact_candidates": [],
+        },
+    })
+    p.setdefault("sessions", {
+        "multi_session": False,
+        "count": 1,
+        "items": [],
+        "classified": False,
+    })
+    p.setdefault("filter_groups", {
+        "is_multifilter": False,
+        "items": [],
+        "classified": False,
+    })
+    p.setdefault("quality", {
+        "checked": False,
+        "metrics": {},
+        "candidate_rejects": [],
+    })
+    p.setdefault("tracking_events", {
+        "classified": False,
+        "events": [],
+    })
     p["image_state"]["linearity"] = linearity["status"]
     p["image_state"]["linearity_confidence"] = linearity["confidence"]
     p["image_state"]["stretched"] = (

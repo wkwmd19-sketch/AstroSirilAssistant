@@ -1,4 +1,4 @@
-schema_version: "0.3.1"
+schema_version: "0.3.3"
 
 states:
   PROJECT_CREATED:
@@ -9,40 +9,101 @@ states:
 
   INPUT_ANALYZED:
     allowed_next:
+      - "SESSIONS_CLASSIFIED"
       - "INPUT_STAGE_CONFIRMED"
+      - "STAR_TRAIL_MODE_CONFIRMED"
       - "REVIEW_REQUIRED"
 
-  INPUT_STAGE_CONFIRMED:
+  SESSIONS_CLASSIFIED:
+    allowed_next:
+      - "FILTER_GROUPS_CLASSIFIED"
+      - "INPUT_STAGE_CONFIRMED"
+
+  FILTER_GROUPS_CLASSIFIED:
     allowed_next:
       - "CALIBRATION_CHECKED"
       - "PRECALIBRATED_CONFIRMED"
       - "STACKED_LINEAR"
+      - "STAR_TRAIL_MODE_CONFIRMED"
+
+  INPUT_STAGE_CONFIRMED:
+    allowed_next:
+      - "CALIBRATION_LIBRARY_CHECKED"
+      - "CALIBRATION_CHECKED"
+      - "PRECALIBRATED_CONFIRMED"
+      - "STACKED_LINEAR"
+      - "STAR_TRAIL_MODE_CONFIRMED"
+
+  STAR_TRAIL_MODE_CONFIRMED:
+    allowed_next:
+      - "CALIBRATION_LIBRARY_CHECKED"
+      - "CALIBRATION_CHECKED"
+      - "PRECALIBRATED_CONFIRMED"
+      - "FRAME_QUALITY_CHECKED"
+
+  CALIBRATION_LIBRARY_CHECKED:
+    allowed_next:
+      - "CALIBRATION_CHECKED"
+      - "REVIEW_REQUIRED"
 
   CALIBRATION_CHECKED:
     allowed_next:
       - "CALIBRATED"
       - "CALIBRATION_SKIPPED"
       - "REVIEW_REQUIRED"
+      - "FRAME_QUALITY_CHECKED"
 
   CALIBRATED:
-    allowed_next: ["REGISTERED"]
+    allowed_next:
+      - "FRAME_QUALITY_CHECKED"
+      - "REGISTERED"
 
   CALIBRATION_SKIPPED:
-    allowed_next: ["REGISTERED"]
+    allowed_next:
+      - "FRAME_QUALITY_CHECKED"
+      - "REGISTERED"
+
+  FRAME_QUALITY_CHECKED:
+    allowed_next:
+      - "TRACKING_EVENTS_CLASSIFIED"
+      - "STAR_TRAIL_COMPOSITED"
+      - "REGISTERED"
+
+  TRACKING_EVENTS_CLASSIFIED:
+    allowed_next:
+      - "REGISTERED"
+      - "STAR_TRAIL_COMPOSITED"
+
+  STAR_TRAIL_COMPOSITED:
+    allowed_next: ["FINALIZED"]
 
   PRECALIBRATED_CONFIRMED:
     allowed_next:
+      - "FRAME_QUALITY_CHECKED"
       - "REGISTERED"
       - "STACKED_LINEAR"
       - "GRADIENT_CORRECTED"
 
   REGISTERED:
-    allowed_next: ["STACKED_LINEAR"]
+    allowed_next:
+      - "STACKED_LINEAR"
+      - "MOSAIC_ASSEMBLY_PENDING"
+
+  MOSAIC_ASSEMBLY_PENDING:
+    allowed_next: ["STACKED_LINEAR", "REVIEW_REQUIRED"]
 
   STACKED_LINEAR:
     allowed_next:
       - "GRADIENT_CORRECTED"
       - "COLOR_CALIBRATED"
+      - "COMET_REVIEW_PENDING"
+      - "PLANETARY_LUNAR_REVIEW_PENDING"
+
+  COMET_REVIEW_PENDING:
+    allowed_next: ["FINALIZED", "REVIEW_REQUIRED"]
+
+  PLANETARY_LUNAR_REVIEW_PENDING:
+    allowed_next: ["FINALIZED", "REVIEW_REQUIRED"]
 
   GRADIENT_CORRECTED:
     allowed_next: ["COLOR_CALIBRATED"]
@@ -79,6 +140,9 @@ states:
       - "INPUT_STAGE_CONFIRMED"
       - "CALIBRATION_CHECKED"
       - "STACKED_LINEAR"
+      - "STAR_TRAIL_MODE_CONFIRMED"
+      - "SESSIONS_CLASSIFIED"
+      - "FILTER_GROUPS_CLASSIFIED"
 
   EXPORTED:
     allowed_next: []
@@ -98,3 +162,15 @@ guards:
     require:
       image_state.linearity: "LINEAR"
       image_state.stretched: false
+
+  STAR_TRAIL_COMPOSE:
+    deny_states:
+      - "REGISTERED"
+      - "STACKED_LINEAR"
+    reason: "별 일주사진은 일반 별 정렬/딥스카이 스택을 수행하지 않습니다."
+
+  PLANETARY_LUNAR:
+    note: "예약된 프로파일입니다. v0.3.3에서는 별도 워크플로 설계만 포함합니다."
+
+  COMET:
+    note: "예약된 프로파일입니다. 혜성 정렬/별 정렬 분기 설계만 포함합니다."

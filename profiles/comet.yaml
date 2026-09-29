@@ -1,0 +1,15 @@
+profile:
+  id: "COMET"
+  display_name: "혜성/소행성"
+  processing_principle:
+    - "별 기준 정렬과 혜성 기준 정렬을 분리"
+    - "필요 시 별 배경과 혜성 핵/꼬리 결과를 따로 생성"
+  current_limits:
+    implemented_in_v0_3_3:
+      - "예약 프로파일"
+      - "상태머신"
+      - "설계 문서"
+    planned_next:
+      - "혜성 중심 추적"
+      - "별 배경 합성"
+      - "이중 결과물 생성"

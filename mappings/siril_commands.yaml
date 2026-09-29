@@ -1,63 +1,57 @@
-schema_version: "0.3"
+schema_version: "0.4.0"
 
 command_mapping:
-  ANALYZE_INPUT:
-    executor: "SIRIL_CLI"
-    command_family: "jsonmetadata"
-    stable_supported_from: "1.4.0"
+  target_siril: "1.4.4"
 
-  LOAD_IMAGE:
-    executor: "SIRIL_CLI"
-    command_family: "load"
+  SEQUENCE_CONVERT:
+    executor: "SIRIL_NATIVE"
+    command_template: 'convert {basename} -fitseq "-out={output_dir}"'
+    notes:
+      - "FITS/RAW 등 Siril 지원 입력을 sequence로 변환"
+      - "v0.4 실행 엔진은 우선 FITS sequence 입력을 공식 지원"
 
-  SAVE_FITS_FLOAT32:
-    executor: "SIRIL_CLI"
+  CALIBRATE_SEQUENCE:
+    executor: "SIRIL_NATIVE"
+    command_template: 'calibrate {sequence} {master_args} {cfa_args} -fitseq'
+    notes:
+      - "Siril 1.4.4의 calibrate 명령 사용"
+
+  REGISTER_DEEPSKY_2PASS:
+    executor: "SIRIL_NATIVE"
     commands:
-      - "set32bits"
-      - "save"
+      - 'register {sequence} -2pass'
+      - 'seqapplyreg {sequence} -prefix=r_ -framing=min'
+    notes:
+      - "2pass는 변환 데이터만 계산하므로 seqapplyreg를 이어서 실행"
+
+  STACK_DEEPSKY:
+    executor: "SIRIL_NATIVE"
+    command_template: 'stack {sequence} rej winsorized 3 3 -norm=addscale -weight=wfwhm "-out={output_stem}" -32b'
+
+  STARNET_STABLE:
+    executor: "SIRIL_NATIVE"
+    command_template: 'starnet {options}'
+    stable_supported: "1.4.4"
+    notes:
+      - "Siril 1.4.4 stable에는 scriptable starnet 명령이 존재"
+      - "linear 입력에는 -stretch 옵션 사용 가능"
 
   GRADIENT_CORRECTION:
-    executor: "SIRIL_CLI"
+    executor: "SIRIL_NATIVE"
     command_family: "subsky"
-    implementation_status: "PLANNED_V0.4"
+    implementation_status: "NEXT_AFTER_PREPROCESS"
 
   SPCC:
-    executor: "SIRIL_CLI"
+    executor: "SIRIL_NATIVE"
     command_family: "spcc"
-    implementation_status: "PLANNED_V0.4"
+    implementation_status: "NEXT_AFTER_PREPROCESS"
 
   GHS:
-    executor: "SIRIL_CLI"
+    executor: "SIRIL_NATIVE"
     command_family: "ght"
-    implementation_status: "PLANNED_V0.4"
-
-  STARNET:
-    executor: "SIRIL_PYTHON_SCRIPT"
-    command_family: "pyscript"
-    runtime_adapter_required: true
-    implementation_status: "PLANNED"
+    implementation_status: "NEXT_AFTER_PREPROCESS"
 
   PIXELMATH_RECOMBINE:
-    executor: "SIRIL_CLI"
+    executor: "SIRIL_NATIVE"
     command_family: "pm"
-    implementation_status: "PLANNED"
-
-
-CALIBRATION_SCAN:
-  executor: "ASTROAUTO_NATIVE"
-  implementation_status: "IMPLEMENTED_V0.3.1"
-  notes:
-    - "Dark/Bias/Flat/Dark-flat 폴더를 스캔하고 FITS 헤더 호환성을 검사"
-
-MASTER_CALIBRATION_FRAMES:
-  executor: "SIRIL_CLI"
-  implementation_status: "PLANNED_NEXT"
-  notes:
-    - "Master Dark/Bias/Flat/Dark-flat 생성은 센서/데이터 유형별 정책을 확정한 뒤 연결"
-
-PREPROCESS_LIGHTS:
-  executor: "SIRIL_CLI"
-  implementation_status: "PLANNED_NEXT"
-  guards:
-    - "PRECALIBRATED 입력에는 실행 금지"
-    - "호환성 검사와 사용자 승인 필요"
+    implementation_status: "NEXT_AFTER_PREPROCESS"

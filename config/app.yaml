@@ -1,5 +1,5 @@
 app:
-  version: "0.3.1"
+  version: "0.4.0"
   project_root: 'D:\AstroProjects_Auto'
   copy_input_into_project: true
 
@@ -33,19 +33,31 @@ calibration:
       gain_tolerance: 0.0
       temperature_tolerance_c: 3.0
       require_same_dimensions: true
+      require_same_binning_when_known: true
+      require_same_roi_when_known: true
+      require_same_sensor_mode_when_known: true
     flat:
       require_same_dimensions: true
       require_same_filter_when_known: true
       require_same_bayer_pattern_when_known: true
+      require_same_binning_when_known: true
+      require_same_roi_when_known: true
+      require_same_optical_train_when_known: true
     bias:
       require_same_dimensions: true
       gain_tolerance: 0.0
+      require_same_binning_when_known: true
+      require_same_roi_when_known: true
+      require_same_sensor_mode_when_known: true
     dark_flat:
       exposure_relative_tolerance: 0.05
       exposure_absolute_tolerance_sec: 0.2
       gain_tolerance: 0.0
       temperature_tolerance_c: 3.0
       require_same_dimensions: true
+      require_same_binning_when_known: true
+      require_same_roi_when_known: true
+      require_same_sensor_mode_when_known: true
 
   policy:
     bias_darkflat_mode: "AUTO_DECIDE"
@@ -53,3 +65,41 @@ calibration:
     allow_no_darkflat_when_bias_used: true
     never_apply_calibration_twice: true
     unknown_precalibrated_state_requires_user_confirmation: true
+
+sessions:
+  enable_multi_session: true
+  session_grouping_keys:
+    - "date"
+    - "camera"
+    - "filter"
+    - "binning"
+    - "dimensions"
+
+quality:
+  enable_subframe_quality: true
+  metrics:
+    - "fwhm"
+    - "eccentricity"
+    - "star_count"
+    - "background_level"
+    - "median_signal"
+    - "shake_score"
+    - "cloud_score"
+    - "artifact_score"
+  candidate_reject_policy: "SUGGEST_ONLY"
+
+tracking_events:
+  recognize:
+    - "DITHER"
+    - "MERIDIAN_FLIP"
+    - "ROTATION_CHANGE"
+
+library:
+  calibration_library_root: 'D:\AstroProjects_Auto\CalibrationLibrary'
+  use_shared_master_library: true
+
+future:
+  reserve_profiles:
+    - "MOSAIC"
+    - "COMET"
+    - "PLANETARY_LUNAR"

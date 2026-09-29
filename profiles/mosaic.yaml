@@ -1,0 +1,14 @@
+profile:
+  id: "MOSAIC"
+  display_name: "모자이크 촬영"
+  purpose:
+    - "여러 패널을 이어 넓은 시야각 이미지 생성"
+  current_limits:
+    implemented_in_v0_3_3:
+      - "예약 프로파일"
+      - "상태머신"
+      - "설계 문서"
+    planned_next:
+      - "패널 그룹핑"
+      - "패널별 calibration/registration"
+      - "mosaic assemble"

@@ -93,3 +93,19 @@ def write_jsonmetadata(config: dict, fits_path: Path, output_json: Path):
             f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
         )
     return proc
+
+
+def run_script_file(config: dict, script_path: Path, cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """Run a real Siril script file with siril-cli -s."""
+    info = get_siril_info(config)
+    timeout = int(config.get("siril", {}).get("command_timeout_sec", 180))
+    proc = subprocess.run(
+        [str(info.executable), "-s", str(Path(script_path).resolve())],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(cwd) if cwd else None,
+        timeout=timeout,
+    )
+    return proc

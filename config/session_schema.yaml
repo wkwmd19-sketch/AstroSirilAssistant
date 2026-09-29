@@ -1,0 +1,22 @@
+schema_version: "0.3.3"
+
+session:
+  fields:
+    - session_id
+    - capture_date
+    - target_name
+    - category
+    - camera
+    - telescope_or_lens
+    - mount
+    - tracking_mode
+    - filter_group
+    - filter_name
+    - binning
+    - roi
+    - dimensions
+    - exposure_sec
+    - gain
+    - temperature_c
+    - file_count
+    - notes

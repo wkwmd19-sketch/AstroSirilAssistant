@@ -8,6 +8,8 @@ from .config import save_yaml
 
 PROJECT_DIRS = [
     "input/lights",
+    "input/sessions",
+    "input/filter_groups",
     "calibration/dark",
     "calibration/bias",
     "calibration/flat",
@@ -41,7 +43,7 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
     if not input_file.exists():
         raise FileNotFoundError(input_file)
     if not is_fits(input_file):
-        raise ValueError("v0.3.1 MVP의 단일 입력 생성은 FITS(.fit/.fits/.fts)만 지원합니다.")
+        raise ValueError("v0.3.3 MVP의 단일 입력 생성은 FITS(.fit/.fits/.fts)만 지원합니다.")
 
     pdir = root / project_name(target, capture_date)
     if pdir.exists():
@@ -62,7 +64,7 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
         input_source_mode = "EXTERNAL_REFERENCE"
 
     project = {
-        "schema_version": "0.3.1",
+        "schema_version": "0.3.3",
         "project": {
             "id": pdir.name,
             "target_name": target_clean,
@@ -84,6 +86,22 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
                 "sensor": "UNKNOWN",
                 "filter": {"type": "UNKNOWN", "name": "UNKNOWN"},
                 "tracking": {"mode": "UNKNOWN", "confidence": None, "user_confirmed": False},
+                "binning": "UNKNOWN",
+                "roi": "UNKNOWN",
+                "sensor_mode": "UNKNOWN",
+            },
+
+            "sessions": {
+                "multi_session": False,
+                "count": 1,
+                "items": [],
+                "classified": False,
+            },
+
+            "filter_groups": {
+                "is_multifilter": False,
+                "items": [],
+                "classified": False,
             },
 
             "input_stage": {
@@ -91,11 +109,26 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
                 "user_confirmed": False,
             },
 
+            "star_trail": {
+                "mode": "UNKNOWN",
+                "user_confirmed": False,
+                "frame_quality_checked": False,
+                "frame_quality_report": None,
+                "composition": {
+                    "engine": "UNKNOWN",
+                    "mode": "MAX_OR_LIGHTEN_PENDING",
+                    "gap_check": "PENDING",
+                    "artifact_candidates": [],
+                },
+            },
+
             "calibration": {
                 "input_status": "UNKNOWN",
                 "user_confirmed": False,
                 "checked": False,
                 "recommended_action": "CHECK",
+                "used_shared_library": False,
+                "library_candidates": [],
                 "frames": {
                     "dark": {"available": False, "path": "calibration/dark", "count": 0},
                     "bias": {"available": False, "path": "calibration/bias", "count": 0},
@@ -104,6 +137,17 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
                 },
                 "masters": {},
                 "compatibility": {},
+            },
+
+            "quality": {
+                "checked": False,
+                "metrics": {},
+                "candidate_rejects": [],
+            },
+
+            "tracking_events": {
+                "classified": False,
+                "events": [],
             },
 
             "current_state": "INPUT_IMPORTED",

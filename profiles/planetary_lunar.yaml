@@ -1,0 +1,20 @@
+profile:
+  id: "PLANETARY_LUNAR"
+  display_name: "달 / 행성"
+  targets:
+    - "Moon"
+    - "Jupiter"
+    - "Saturn"
+  processing_principle:
+    - "딥스카이 장노출 스택과 분리"
+    - "고속 연사 또는 영상 기반 lucky imaging 가능성 고려"
+    - "AutoStakkert 류 외부 도구 연계 가능성 예약"
+  current_limits:
+    implemented_in_v0_3_3:
+      - "예약 프로파일"
+      - "상태머신"
+      - "설계 문서"
+    planned_next:
+      - "SER/AVI/영상 입력"
+      - "프레임 품질 선별"
+      - "planetary stack/wavelet/sharpen flow"

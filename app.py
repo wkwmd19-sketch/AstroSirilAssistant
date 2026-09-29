@@ -10,11 +10,14 @@ from astroauto.analyzer import analyze_project, confirm_linearity
 from astroauto.calibration import scan_project_calibration
 from astroauto.workflow import format_task, next_task_after_analysis
 from astroauto.logging_utils import append_jsonl
+from astroauto.sequence_project import create_sequence_project
+from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
 CATEGORIES = [
     "GALAXY", "EMISSION_NEBULA", "REFLECTION_NEBULA", "DARK_NEBULA",
     "PLANETARY_NEBULA", "SUPERNOVA_REMNANT", "OPEN_CLUSTER",
-    "GLOBULAR_CLUSTER", "MILKYWAY", "GENERAL_STARFIELD", "UNKNOWN"
+    "GLOBULAR_CLUSTER", "MILKYWAY", "GENERAL_STARFIELD", "STAR_TRAIL",
+    "COMET", "PLANETARY_LUNAR", "MOSAIC", "UNKNOWN"
 ]
 
 SOURCE_STAGES = [
@@ -23,10 +26,11 @@ SOURCE_STAGES = [
 ]
 
 CAL_STATUS = ["RAW_UNCALIBRATED", "PRECALIBRATED", "UNKNOWN"]
+STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.3.1")
+    print("AstroSirilAssistant v0.4.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -64,8 +68,10 @@ def cmd_status(args):
     p = project["project"]
     print(f"Project: {p['id']}")
     print(f"State: {p['current_state']}")
+    print(f"Category: {p['target']['category']}")
     print(f"Source stage: {p.get('input_stage', {}).get('source_stage', 'UNKNOWN')}")
     print(f"Calibration input status: {p.get('calibration', {}).get('input_status', 'UNKNOWN')}")
+    print(f"Star trail mode: {p.get('star_trail', {}).get('mode', 'UNKNOWN')}")
     print(f"Linearity: {p['image_state']['linearity']}")
     print(f"Current file: {p['current_file']}")
     if p.get("next_task"):
@@ -87,7 +93,6 @@ def cmd_confirm_stage(args):
     p["input_stage"]["user_confirmed"] = True
     p["current_state"] = "INPUT_STAGE_CONFIRMED"
 
-    # STACKED_* stage provides strong user confirmation of linearity.
     if args.stage.upper() == "STACKED_LINEAR":
         p["image_state"]["linearity"] = "LINEAR"
         p["image_state"]["linearity_confidence"] = 1.0
@@ -122,6 +127,23 @@ def cmd_confirm_calibration(args):
     print("\n" + format_task(p["next_task"]))
     return 0
 
+def cmd_confirm_star_trail_mode(args):
+    pdir = Path(args.project)
+    project = load_project(pdir)
+    p = project["project"]
+    if p["target"]["category"] != "STAR_TRAIL":
+        raise ValueError("이 명령은 category=STAR_TRAIL 프로젝트에서만 사용합니다.")
+    p.setdefault("star_trail", {})
+    p["star_trail"]["mode"] = args.mode.upper()
+    p["star_trail"]["user_confirmed"] = True
+    p["current_state"] = "STAR_TRAIL_MODE_CONFIRMED"
+    p["next_task"] = next_task_after_analysis(project)
+    save_project(pdir, project)
+    append_jsonl(pdir, {"event": "USER_CONFIRM_STAR_TRAIL_MODE", "value": args.mode.upper(), "status": "SUCCESS"})
+    print(f"별 일주 모드를 {args.mode.upper()}로 확정했습니다.")
+    print("\n" + format_task(p["next_task"]))
+    return 0
+
 def cmd_calibration_check(args):
     cfg = load_app_config()
     project, report = scan_project_calibration(Path(args.project), cfg)
@@ -138,8 +160,61 @@ def cmd_calibration_check(args):
     print(f"\n상세 로그: {Path(args.project) / 'logs' / 'calibration_report.json'}")
     return 0
 
+
+def cmd_new_sequence(args):
+    cfg = load_app_config()
+    root = Path(args.root or cfg["app"]["project_root"])
+    pdir = create_sequence_project(
+        root=root,
+        target=args.target,
+        capture_date=args.date,
+        category=args.category,
+        lights_dir=Path(args.lights),
+        darks_dir=Path(args.darks) if args.darks else None,
+        flats_dir=Path(args.flats) if args.flats else None,
+        bias_dir=Path(args.bias) if args.bias else None,
+        dark_flats_dir=Path(args.dark_flats) if args.dark_flats else None,
+        camera_mode=args.camera_mode,
+        input_status=args.input_status,
+        copy_inputs=args.copy_inputs,
+    )
+    print(f"Sequence 프로젝트 생성: {pdir}")
+    print("다음: preprocess-plan로 실행 계획을 확인하세요.")
+    return 0
+
+def cmd_preprocess_plan(args):
+    plan, plan_path, script_path = build_preprocess_plan(Path(args.project))
+    print("=== Siril 전처리/스택 계획 ===")
+    print(f"Lights: {plan['counts']['lights']}장")
+    print(f"Dark: {plan['counts']['dark']}장")
+    print(f"Flat: {plan['counts']['flat']}장")
+    print(f"Bias: {plan['counts']['bias']}장")
+    print(f"Dark-flat: {plan['counts']['dark_flat']}장")
+    print(f"Camera mode: {plan['camera_mode']}")
+    if plan["warnings"]:
+        print("\n주의:")
+        for item in plan["warnings"]:
+            print(f"- {item}")
+    print("\n실행 단계:")
+    for phase in plan["phases"]:
+        print(f"- {phase}")
+    print(f"\nPlan: {plan_path}")
+    print(f"Siril script: {script_path}")
+    print("\n실제 실행은 preprocess-run --yes 로 승인 후 진행합니다.")
+    return 0
+
+def cmd_preprocess_run(args):
+    if not args.yes:
+        raise PermissionError("실제 실행에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, plan = execute_preprocess(Path(args.project), cfg, confirmed=True)
+    print("Calibration / Registration / Stack 완료")
+    print(f"출력: {output}")
+    print("다음 작업: Background / Gradient Correction")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.3.1")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.4.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -178,9 +253,39 @@ def build_parser():
     p.add_argument("status", choices=CAL_STATUS + [x.lower() for x in CAL_STATUS])
     p.set_defaults(func=cmd_confirm_calibration)
 
+    p = sub.add_parser("confirm-star-trail-mode")
+    p.add_argument("project")
+    p.add_argument("mode", choices=STAR_TRAIL_MODES + [x.lower() for x in STAR_TRAIL_MODES])
+    p.set_defaults(func=cmd_confirm_star_trail_mode)
+
     p = sub.add_parser("calibration-check")
     p.add_argument("project")
     p.set_defaults(func=cmd_calibration_check)
+
+
+    p = sub.add_parser("new-sequence", help="FITS Light sequence 프로젝트 생성")
+    p.add_argument("--lights", required=True)
+    p.add_argument("--darks")
+    p.add_argument("--flats")
+    p.add_argument("--bias")
+    p.add_argument("--dark-flats")
+    p.add_argument("--target", required=True)
+    p.add_argument("--date", required=True)
+    p.add_argument("--category", choices=CATEGORIES, default="UNKNOWN")
+    p.add_argument("--camera-mode", choices=["AUTO", "OSC", "MONO"], default="AUTO")
+    p.add_argument("--input-status", choices=["RAW_UNCALIBRATED", "PRECALIBRATED"], default="RAW_UNCALIBRATED")
+    p.add_argument("--root")
+    p.add_argument("--copy-inputs", action="store_true")
+    p.set_defaults(func=cmd_new_sequence)
+
+    p = sub.add_parser("preprocess-plan", help="Siril Calibration/Register/Stack 계획 생성")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_preprocess_plan)
+
+    p = sub.add_parser("preprocess-run", help="승인 후 Siril Calibration/Register/Stack 실제 실행")
+    p.add_argument("project")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_preprocess_run)
 
     return parser
 

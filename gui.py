@@ -22,6 +22,10 @@ CATEGORIES = [
     ("구상성단", "GLOBULAR_CLUSTER"),
     ("은하수", "MILKYWAY"),
     ("일반 별필드", "GENERAL_STARFIELD"),
+    ("별 일주사진", "STAR_TRAIL"),
+    ("혜성/소행성", "COMET"),
+    ("달/행성", "PLANETARY_LUNAR"),
+    ("모자이크", "MOSAIC"),
     ("모름/자동판단 대기", "UNKNOWN"),
 ]
 LABEL_TO_ID = dict(CATEGORIES)
@@ -29,7 +33,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.3.1")
+        self.title("AstroSirilAssistant v0.3.3")
         self.geometry("900x700")
         self.cfg = load_app_config()
 
