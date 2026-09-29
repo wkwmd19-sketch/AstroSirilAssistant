@@ -1,18 +1,14 @@
 {
-  "package": "AstroSirilAssistant_v0.11.0",
-  "version": "0.11.0",
-  "features": [
-    "Stars Processing actual preview/apply/skip",
-    "Stars brightness scale via Siril fmul",
-    "Stars saturation via Siril satu",
-    "Target-aware Stars recommendations v0.2",
-    "M31 feature profile produces a 0.60 pre-statistics brightness starting point",
-    "Screen-aware startup geometry",
-    "Scrollable workflow area",
-    "Resizable vertical log pane",
-    "Responsive workflow width",
-    "Automatic task scroll-into-view",
-    "PIXEL_MATH_RECOMBINE becomes next task"
+  "package": "AstroSirilAssistant_v0.11.1",
+  "version": "0.11.1",
+  "hotfixes": [
+    "Prevent scrolling when workflow content is shorter than viewport",
+    "Use fixed 24px Canvas scroll increment",
+    "Limit wheel handler to workflow descendants",
+    "Do not auto-scroll action panel unless content actually overflows",
+    "Re-layout log PanedWindow sash after Windows/Tk geometry settles",
+    "Remember user's previous log-pane sash ratio",
+    "Surface pane management errors instead of silently swallowing them"
   ],
   "python_files": {
     "app.py": "OK",
@@ -88,11 +84,5 @@
     "profiles/supernova_remnant.yaml": "OK"
   },
   "python_errors": [],
-  "yaml_errors": [],
-  "core_runtime_checks": {
-    "stars_commands": true,
-    "m31_features": true,
-    "stars_help": true,
-    "dynamic_ui_code": true
-  }
+  "yaml_errors": []
 }

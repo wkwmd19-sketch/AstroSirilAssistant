@@ -80,7 +80,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.11.0")
+        self.title("AstroSirilAssistant v0.11.1")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.ui_defaults = load_yaml(PACKAGE_ROOT / "config" / "ui_defaults.yaml")
@@ -244,6 +244,7 @@ class App(tk.Tk):
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
         self.logs_visible = False
+        self._log_sash_ratio = 0.68
         self._busy = False
         self._busy_started = None
         self._busy_timer_id = None
@@ -289,6 +290,7 @@ class App(tk.Tk):
             self.workspace_holder,
             highlightthickness=0,
             borderwidth=0,
+            yscrollincrement=24,
         )
         self.workspace_scrollbar = ttk.Scrollbar(
             self.workspace_holder,
@@ -310,8 +312,13 @@ class App(tk.Tk):
 
         frm.bind("<Configure>", self._on_workspace_inner_configure)
         self.workspace_canvas.bind("<Configure>", self._on_workspace_canvas_configure)
-        self.workspace_canvas.bind("<Enter>", self._bind_workspace_wheel)
-        self.workspace_canvas.bind("<Leave>", self._unbind_workspace_wheel)
+
+        # Bind once, then scroll only when the pointer is actually inside the
+        # workflow area. This avoids repeated bind/unbind behavior and prevents
+        # unrelated widgets from losing their own mouse-wheel bindings.
+        self.bind_all("<MouseWheel>", self._on_workspace_mousewheel, add="+")
+        self.bind_all("<Button-4>", self._on_workspace_linux_wheel, add="+")
+        self.bind_all("<Button-5>", self._on_workspace_linux_wheel, add="+")
 
         ttk.Label(frm, text="원본/스택 FITS").grid(row=0, column=0, sticky="w", pady=4)
         ttk.Entry(frm, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew")
@@ -395,10 +402,48 @@ class App(tk.Tk):
         scrollbar.pack(side="right", fill="y")
         self.output.configure(yscrollcommand=scrollbar.set)
 
+    def _workspace_bbox(self):
+        try:
+            return self.workspace_canvas.bbox("all")
+        except Exception:
+            return None
+
+    def _workspace_overflows(self):
+        bbox = self._workspace_bbox()
+        if not bbox:
+            return False
+        content_h = max(0, bbox[3] - bbox[1])
+        viewport_h = max(1, self.workspace_canvas.winfo_height())
+        return content_h > viewport_h + 2
+
+    def _sync_workspace_scroll_state(self):
+        """Keep short pages pinned to the top; only enable scrolling on overflow."""
+        try:
+            bbox = self._workspace_bbox()
+            if not bbox:
+                return
+
+            self.workspace_canvas.configure(scrollregion=bbox)
+
+            if self._workspace_overflows():
+                try:
+                    self.workspace_scrollbar.state(["!disabled"])
+                except Exception:
+                    pass
+            else:
+                # Critical v0.11.1 fix:
+                # Canvas can otherwise move a short page inside a taller viewport,
+                # creating a huge blank region above the controls.
+                self.workspace_canvas.yview_moveto(0.0)
+                try:
+                    self.workspace_scrollbar.state(["disabled"])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     def _on_workspace_inner_configure(self, _event=None):
-        self.workspace_canvas.configure(
-            scrollregion=self.workspace_canvas.bbox("all")
-        )
+        self._sync_workspace_scroll_state()
 
     def _on_workspace_canvas_configure(self, event):
         # Make controls follow the available width rather than retaining a
@@ -410,42 +455,99 @@ class App(tk.Tk):
             )
         except Exception:
             pass
+        self.after_idle(self._sync_workspace_scroll_state)
 
-    def _bind_workspace_wheel(self, _event=None):
-        self.bind_all("<MouseWheel>", self._on_workspace_mousewheel)
-        self.bind_all("<Button-4>", self._on_workspace_linux_wheel)
-        self.bind_all("<Button-5>", self._on_workspace_linux_wheel)
+    def _is_in_workspace(self, widget):
+        """Return True only for widgets inside the scrollable workflow area."""
+        current = widget
+        while current is not None:
+            if current in (self.workspace_inner, self.workspace_canvas, self.workspace_holder):
+                return True
+            try:
+                current = current.master
+            except Exception:
+                current = None
+        return False
 
-    def _unbind_workspace_wheel(self, _event=None):
-        try:
-            self.unbind_all("<MouseWheel>")
-            self.unbind_all("<Button-4>")
-            self.unbind_all("<Button-5>")
-        except Exception:
-            pass
+    def _wheel_target_is_editable_combo(self, widget):
+        # Do not hijack the wheel while the pointer is directly over a Combobox.
+        # That widget may have its own platform-specific behavior.
+        return isinstance(widget, ttk.Combobox)
 
     def _on_workspace_mousewheel(self, event):
-        if not event.delta:
-            return
-        step = -1 if event.delta > 0 else 1
-        self.workspace_canvas.yview_scroll(step * 3, "units")
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            widget = None
+
+        if not widget or not self._is_in_workspace(widget):
+            return None
+        if self._wheel_target_is_editable_combo(widget):
+            return None
+        if not self._workspace_overflows():
+            self.workspace_canvas.yview_moveto(0.0)
+            return "break"
+
+        delta = int(getattr(event, "delta", 0) or 0)
+        if delta == 0:
+            return None
+
+        # Windows normally reports +/-120 per notch. High-resolution wheels
+        # can report smaller deltas, so preserve direction with a minimum step.
+        if abs(delta) >= 120:
+            notches = max(-3, min(3, int(delta / 120)))
+        else:
+            notches = 1 if delta > 0 else -1
+
+        # Canvas yscrollincrement=24: 2 units ≈ 48 px per wheel notch.
+        self.workspace_canvas.yview_scroll(-notches * 2, "units")
+        return "break"
 
     def _on_workspace_linux_wheel(self, event):
-        step = -3 if event.num == 4 else 3
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except Exception:
+            widget = None
+
+        if not widget or not self._is_in_workspace(widget):
+            return None
+        if self._wheel_target_is_editable_combo(widget):
+            return None
+        if not self._workspace_overflows():
+            self.workspace_canvas.yview_moveto(0.0)
+            return "break"
+
+        step = -2 if event.num == 4 else 2
         self.workspace_canvas.yview_scroll(step, "units")
+        return "break"
 
     def _ensure_action_visible(self):
         try:
             self.update_idletasks()
-            content_h = max(1, self.workspace_inner.winfo_height())
-            action_y = self.action_box.winfo_y()
+            self._sync_workspace_scroll_state()
+
+            # A page shorter than the viewport must NEVER be auto-scrolled.
+            if not self._workspace_overflows():
+                self.workspace_canvas.yview_moveto(0.0)
+                return
+
+            bbox = self._workspace_bbox()
+            if not bbox:
+                return
+
+            content_h = max(1, bbox[3] - bbox[1])
+            viewport_h = max(1, self.workspace_canvas.winfo_height())
+            max_top = max(0, content_h - viewport_h)
+
+            action_y = max(0, self.action_box.winfo_y() - 12)
             action_h = self.action_box.winfo_height()
+
             view_top = self.workspace_canvas.canvasy(0)
-            view_bottom = view_top + self.workspace_canvas.winfo_height()
+            view_bottom = view_top + viewport_h
 
             if action_y < view_top or action_y + action_h > view_bottom:
-                fraction = max(0.0, min(1.0, (action_y - 12) / content_h))
-                self.workspace_canvas.yview_moveto(fraction)
+                target_top = max(0, min(max_top, action_y))
+                self.workspace_canvas.yview_moveto(target_top / content_h)
         except Exception:
             pass
 
@@ -468,35 +570,70 @@ class App(tk.Tk):
         self.output.insert("end", text + "\n")
         self.output.see("end")
 
+    def _set_log_sash(self):
+        """Give the log pane a visible height after Tk finishes geometry layout."""
+        if not self.logs_visible:
+            return
+        try:
+            panes = self.main_pane.panes()
+            if len(panes) < 2:
+                return
+
+            self.update_idletasks()
+            total_h = max(1, self.main_pane.winfo_height())
+
+            # Keep both panes usable. On a normal window this opens the log at
+            # roughly 32% of the window height.
+            desired = int(total_h * self._log_sash_ratio)
+            desired = max(180, min(desired, max(180, total_h - 150)))
+            self.main_pane.sashpos(0, desired)
+        except Exception:
+            pass
+
     def toggle_logs(self):
         if self.logs_visible:
             try:
-                self.main_pane.forget(self.log_frame)
+                total_h = max(1, self.main_pane.winfo_height())
+                if len(self.main_pane.panes()) >= 2:
+                    current = self.main_pane.sashpos(0)
+                    self._log_sash_ratio = max(0.45, min(0.85, current / total_h))
             except Exception:
                 pass
+
+            try:
+                self.main_pane.forget(self.log_frame)
+            except Exception as e:
+                messagebox.showerror("로그 패널 오류", f"로그 패널을 닫지 못했습니다.\n{e}")
+                return
+
             self.log_toggle_btn.configure(text="▼ 상세 로그 보기")
             self.logs_visible = False
-        else:
-            try:
-                self.main_pane.add(self.log_frame, weight=2)
-            except Exception:
-                pass
-            self.log_toggle_btn.configure(text="▲ 상세 로그 숨기기")
-            self.logs_visible = True
+            return
 
-            # Give the workflow most of the space initially. The user can drag
-            # the sash to resize either pane.
-            def place_sash():
-                try:
-                    h = max(300, self.main_pane.winfo_height())
-                    self.main_pane.sashpos(0, int(h * 0.68))
-                except Exception:
-                    pass
-            self.after_idle(place_sash)
+        try:
+            # Only add it when it is not already managed.
+            if str(self.log_frame) not in set(self.main_pane.panes()):
+                self.main_pane.add(self.log_frame, weight=2)
+        except Exception as e:
+            messagebox.showerror("로그 패널 오류", f"로그 패널을 열지 못했습니다.\n{e}")
+            return
+
+        self.log_toggle_btn.configure(text="▲ 상세 로그 숨기기")
+        self.logs_visible = True
+
+        # `after_idle` in v0.11.0 ran before the PanedWindow had finished its
+        # second-pane geometry on some Windows systems. Re-apply the sash after
+        # actual timed layout passes so the pane cannot remain 1 px tall.
+        self.update_idletasks()
+        self._set_log_sash()
+        self.after(40, self._set_log_sash)
+        self.after(140, self._set_log_sash)
 
     def show_logs(self):
         if not self.logs_visible:
             self.toggle_logs()
+        else:
+            self._set_log_sash()
 
     def copy_logs(self):
         text = self.output.get("1.0", "end-1c")

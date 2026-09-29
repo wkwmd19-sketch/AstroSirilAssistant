@@ -1,4 +1,18 @@
-# AstroSirilAssistant v0.11.0 — Stars Processing + Dynamic UI
+# AstroSirilAssistant v0.11.1 — Dynamic UI Hotfix
+
+v0.11.0의 Stars Processing 기능은 그대로 유지합니다.
+
+이번 Hotfix:
+- 짧은 페이지에서 마우스휠을 움직이면 UI가 위/아래로 크게 밀리던 문제 수정
+- 화면보다 내용이 짧을 때 Scroll 자체를 비활성화
+- 실제 overflow에서만 일정한 픽셀 단위로 Scroll
+- `상세 로그 보기`를 눌러도 Log Pane이 1px 높이로 남아 보이지 않던 문제 수정
+- Log Pane을 열 때 geometry 완료 후 sash 위치를 여러 번 안정화
+- 사용자가 조절한 로그 높이 비율을 다시 열 때 복원
+
+---
+
+# AstroSirilAssistant v0.11.1 — Stars Processing + Dynamic UI
 
 현재 실제 처리 흐름:
 
@@ -26,7 +40,7 @@
 
 ---
 
-# AstroSirilAssistant v0.11.0 — Starless Processing + Target-aware Recommendations
+# AstroSirilAssistant v0.11.1 — Starless Processing + Target-aware Recommendations
 
 현재 실제 흐름:
 
@@ -50,7 +64,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.11.0 — StarNet / 별 분리
+# AstroSirilAssistant v0.11.1 — StarNet / 별 분리
 
 현재 실제 처리 흐름:
 
@@ -75,7 +89,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.11.0 — GHS Stretch
+# AstroSirilAssistant v0.11.1 — GHS Stretch
 
 처리 흐름:
 
@@ -96,7 +110,7 @@ Starless Processing 실제 UI로 자동 마이그레이션됩니다.
 
 ---
 
-# AstroSirilAssistant v0.11.0 — Deblur / Deconvolution
+# AstroSirilAssistant v0.11.1 — Deblur / Deconvolution
 
 이번 버전은 v0.6.0의 Denoise 다음 단계를 실제 구현합니다.
 
@@ -115,7 +129,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.11.0 — 작업 상태 UX + Denoise
+# AstroSirilAssistant v0.11.1 — 작업 상태 UX + Denoise
 
 ## 새 UI
 - 승인 후 적용 성공 팝업
@@ -134,7 +148,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.11.0 — Help UI 정리 + SPCC Hotfix
+# AstroSirilAssistant v0.11.1 — Help UI 정리 + SPCC Hotfix
 
 - 파라미터별 `?` 버튼 → 섹션당 `도움말 ?` 1개로 정리
 - Tooltip은 항목명 Label에만 표시
@@ -143,7 +157,7 @@ Deblur는 Siril 1.4.4의:
 
 ---
 
-# AstroSirilAssistant v0.11.0 — SPCC + Common Help System
+# AstroSirilAssistant v0.11.1 — SPCC + Common Help System
 
 이번 버전의 오늘 테스트 범위:
 
@@ -166,7 +180,7 @@ GUI의 R/G/B 필터 입력은 다음 확장에 추가합니다.
 
 ---
 
-# AstroSirilAssistant v0.11.0 — Interactive single-FITS + Gradient
+# AstroSirilAssistant v0.11.1 — Interactive single-FITS + Gradient
 
 v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리보기/적용 기능이 추가되었습니다.
 
@@ -178,7 +192,7 @@ v0.4.2에서는 `run_gui.bat`에 실제 단계 선택 버튼과 Gradient 미리�
 
 ---
 
-# AstroSirilAssistant v0.11.0 — Siril 1.4.4 script hotfix
+# AstroSirilAssistant v0.11.1 — Siril 1.4.4 script hotfix
 
 > v0.4.1 fixes the single-FITS analysis failure caused by the missing `requires` command in Siril 1.4.4.
 
