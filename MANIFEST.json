@@ -1,14 +1,15 @@
 {
-  "package": "AstroSirilAssistant_v0.6.0",
-  "version": "0.6.0",
+  "package": "AstroSirilAssistant_v0.7.0",
+  "version": "0.7.0",
   "features": [
-    "Apply-success popup for Gradient/SPCC/Denoise",
-    "Indeterminate progress bar + elapsed time",
-    "Disable major controls while processing",
-    "Collapsible detailed log + copy log",
-    "Auto-expand logs on errors",
-    "Siril 1.4.4 Denoise preview/apply/skip",
-    "Migration from v0.5.x COLOR_CALIBRATED project to DENOISE task"
+    "Siril makepsf stars PSF generation",
+    "Richardson-Lucy deconvolution preview/apply/skip",
+    "RL iteration / TV-FH regularization / alpha / multiplicative controls",
+    "Saved PSF artifact",
+    "Automatic v0.6 DENOISED project migration to DEBLUR",
+    "Next task becomes GHS_STRETCH",
+    "Common Help System entries for all Deblur terms",
+    "Existing progress/log/success-popup UX reused"
   ],
   "python_files": {
     "app.py": "OK",
@@ -16,6 +17,7 @@
     "astroauto/analyzer.py": "OK",
     "astroauto/calibration.py": "OK",
     "astroauto/config.py": "OK",
+    "astroauto/deblur.py": "OK",
     "astroauto/denoise.py": "OK",
     "astroauto/fits_analysis.py": "OK",
     "astroauto/gradient.py": "OK",
@@ -32,6 +34,7 @@
     "gui.py": "OK",
     "sequence_gui.py": "OK",
     "tests/test_calibration_logic.py": "OK",
+    "tests/test_deblur_command.py": "OK",
     "tests/test_denoise_command.py": "OK",
     "tests/test_gradient_command.py": "OK",
     "tests/test_help_catalog.py": "OK",
@@ -70,17 +73,10 @@
   },
   "python_errors": [],
   "yaml_errors": [],
-  "unit_test_summary": {
-    "ran": 0,
-    "failures": 0,
-    "errors": 0,
-    "runner_error": "'test_calibration_logic' module incorrectly imported from '/mnt/data/AstroSirilAssistant_v0.5.1/tests'. Expected '/mnt/data/AstroSirilAssistant_v0.6.0/tests'. Is this module globally installed?"
-  },
   "core_runtime_checks": {
-    "denoise_default": true,
-    "denoise_flags": true,
-    "spcc_default_bgtol": true,
-    "denoise_help": true,
-    "gradient_help": true
+    "makepsf_default": true,
+    "rl_default": true,
+    "rl_tv": true,
+    "deblur_help": true
   }
 }

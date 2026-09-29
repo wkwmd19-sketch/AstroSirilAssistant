@@ -15,6 +15,7 @@ from astroauto.state_actions import confirm_input_stage, confirm_calibration_sta
 from astroauto.gradient import preview_gradient, apply_gradient
 from astroauto.spcc import fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc
 from astroauto.denoise import preview_denoise, apply_denoise, skip_denoise
+from astroauto.deblur import preview_deblur, apply_deblur, skip_deblur
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 
@@ -35,7 +36,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.6.0")
+    print("AstroSirilAssistant v0.7.0")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -287,8 +288,46 @@ def cmd_denoise_skip(args):
     print("Denoise를 건너뛰었습니다.")
     return 0
 
+
+def _deblur_cli_params(args):
+    kernel = None if args.kernel_size is None else args.kernel_size
+    return dict(
+        symmetric_psf=args.symmetric_psf,
+        kernel_size=kernel,
+        iterations=args.iterations,
+        regularization=args.regularization,
+        alpha=args.alpha,
+        multiplicative=args.multiplicative,
+    )
+
+def cmd_deblur_preview(args):
+    cfg = load_app_config()
+    jpg, linear_preview, meta = preview_deblur(
+        Path(args.project), cfg, **_deblur_cli_params(args)
+    )
+    print(f"JPEG: {jpg}")
+    print(f"Linear preview: {linear_preview}")
+    print(f"PSF: {meta.get('psf_file')}")
+    return 0
+
+def cmd_deblur_apply(args):
+    if not args.yes:
+        raise PermissionError("실제 Deblur 적용에는 --yes 승인이 필요합니다.")
+    cfg = load_app_config()
+    project, output, payload = apply_deblur(
+        Path(args.project), cfg, confirmed=True, **_deblur_cli_params(args)
+    )
+    print(f"Deblur 완료: {output}")
+    print(f"PSF: {payload.get('psf_file')}")
+    return 0
+
+def cmd_deblur_skip(args):
+    skip_deblur(Path(args.project))
+    print("Deblur를 건너뛰었습니다.")
+    return 0
+
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.6.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.7.0")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")
@@ -428,6 +467,29 @@ def build_parser():
     p = sub.add_parser("denoise-skip", help="Denoise 단계 건너뛰기")
     p.add_argument("project")
     p.set_defaults(func=cmd_denoise_skip)
+
+
+    def add_deblur_args(p):
+        p.add_argument("project")
+        p.add_argument("--symmetric-psf", action="store_true")
+        p.add_argument("--kernel-size", type=int)
+        p.add_argument("--iterations", type=int, default=10)
+        p.add_argument("--regularization", choices=["NONE", "TV", "FH"], default="NONE")
+        p.add_argument("--alpha", type=float, default=3000)
+        p.add_argument("--multiplicative", action="store_true")
+
+    p = sub.add_parser("deblur-preview", help="PSF + Richardson-Lucy Deblur 미리보기")
+    add_deblur_args(p)
+    p.set_defaults(func=cmd_deblur_preview)
+
+    p = sub.add_parser("deblur-apply", help="승인 후 Richardson-Lucy Deblur 실제 적용")
+    add_deblur_args(p)
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_deblur_apply)
+
+    p = sub.add_parser("deblur-skip", help="Deblur 단계 건너뛰기")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_deblur_skip)
 
     return parser
 

@@ -22,3 +22,13 @@ denoise:
   cosmetic_correction: true
   da3d: false
   independent_channels: false
+
+
+deblur:
+  psf_source: "STARS"
+  symmetric_psf: false
+  kernel_size: null
+  iterations: 10
+  regularization: "NONE"
+  alpha: 3000
+  multiplicative: false

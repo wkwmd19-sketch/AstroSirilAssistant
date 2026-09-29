@@ -1,4 +1,4 @@
-schema_version: "0.6.0"
+schema_version: "0.7.0"
 
 command_mapping:
   target_siril: "1.4.4"
@@ -79,3 +79,21 @@ DENOISE:
   notes:
     - "VST is intentionally omitted from the default stacked-image UI."
     - "Preview is required before GUI apply."
+
+
+DEBLUR:
+  executor: "SIRIL_NATIVE"
+  implementation_status: "IMPLEMENTED_V0.7.0"
+  psf:
+    command_template: 'makepsf stars {optional_sym} {optional_ks} "-savepsf={psf_path}"'
+    default_source: "STARS"
+  restore:
+    command_template: "rl -iters={iterations} {optional_regularization} {optional_alpha} {optional_mul}"
+    method: "RICHARDSON_LUCY"
+    default_iterations: 10
+    default_regularization: "NONE"
+    default_alpha: 3000
+    multiplicative: false
+  safety:
+    require_linear: true
+    require_preview_same_parameters_before_gui_apply: true

@@ -28,6 +28,10 @@ from astroauto.denoise import (
     make_denoise_task, migrate_post_spcc_task,
     preview_denoise, apply_denoise, skip_denoise,
 )
+from astroauto.deblur import (
+    make_deblur_task, migrate_post_denoise_task,
+    preview_deblur, apply_deblur, skip_deblur,
+)
 
 CATEGORIES = [
     ("은하", "GALAXY"),
@@ -52,7 +56,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.6.0")
+        self.title("AstroSirilAssistant v0.7.0")
         self.geometry("1050x820")
         self.minsize(880, 650)
         self.cfg = load_app_config()
@@ -108,6 +112,24 @@ class App(tk.Tk):
             self.denoise_da3d, self.denoise_independent,
         ):
             var.trace_add("write", self._invalidate_denoise_preview)
+
+        bd = self.ui_defaults.get("deblur", {})
+        self.deblur_symmetric = tk.BooleanVar(value=bool(bd.get("symmetric_psf", False)))
+        self.deblur_kernel = tk.StringVar(
+            value="" if bd.get("kernel_size") in (None, "") else str(bd.get("kernel_size"))
+        )
+        self.deblur_iterations = tk.StringVar(value=str(bd.get("iterations", 10)))
+        self.deblur_regularization = tk.StringVar(value=str(bd.get("regularization", "NONE")))
+        self.deblur_alpha = tk.StringVar(value=str(bd.get("alpha", 3000)))
+        self.deblur_multiplicative = tk.BooleanVar(value=bool(bd.get("multiplicative", False)))
+        self.deblur_preview_signature = None
+
+        for var in (
+            self.deblur_symmetric, self.deblur_kernel,
+            self.deblur_iterations, self.deblur_regularization,
+            self.deblur_alpha, self.deblur_multiplicative,
+        ):
+            var.trace_add("write", self._invalidate_deblur_preview)
 
         self.operation_var = tk.StringVar(value="대기 중")
         self.elapsed_var = tk.StringVar(value="")
@@ -385,6 +407,7 @@ class App(tk.Tk):
 
         self.project_dir = pdir
         project = migrate_post_spcc_task(pdir)
+        project = migrate_post_denoise_task(pdir)
         p = project["project"]
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
@@ -489,6 +512,9 @@ class App(tk.Tk):
 
         elif task_id == "DENOISE":
             self._build_denoise_controls()
+
+        elif task_id == "DEBLUR":
+            self._build_deblur_controls()
 
         else:
             ttk.Label(
@@ -990,6 +1016,247 @@ class App(tk.Tk):
             project = skip_denoise(self.project_dir)
             self._show_project_task(project, "Denoise 건너뜀")
             self.status_var.set("Denoise 건너뜀")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
+
+    def _build_deblur_controls(self):
+        self._clear_actions()
+
+        head = ttk.Frame(self.action_box)
+        head.pack(fill="x", padx=10, pady=(8,6))
+
+        title = ttk.Label(head, text="Deblur / Deconvolution", font=("", 10, "bold"))
+        title.pack(side="left")
+        self.help.tooltip(title, "deblur.what")
+        ttk.Label(
+            head,
+            text="Detected Stars PSF + Richardson-Lucy",
+        ).pack(side="left", padx=(8,0))
+
+        self.help.section_help_button(
+            head,
+            "Deblur / Deconvolution 도움말",
+            [
+                "deblur.what",
+                "deblur.psf",
+                "deblur.symmetric",
+                "deblur.kernel",
+                "deblur.iterations",
+                "deblur.regularization",
+                "deblur.alpha",
+                "deblur.mul",
+                "deblur.preview",
+                "deblur.apply",
+                "deblur.skip",
+            ],
+        ).pack(side="right")
+
+        body = ttk.Frame(self.action_box)
+        body.pack(fill="x", padx=10, pady=(2,8))
+
+        def row_label(row, text, topic):
+            label = ttk.Label(body, text=text, width=21)
+            label.grid(row=row, column=0, sticky="w", pady=3, padx=(0,8))
+            self.help.tooltip(label, topic)
+            return label
+
+        row_label(0, "PSF Source", "deblur.psf")
+        ttk.Label(body, text="Detected Stars (자동)").grid(row=0, column=1, sticky="w", pady=3)
+
+        row_label(1, "Symmetric PSF", "deblur.symmetric")
+        ttk.Checkbutton(body, variable=self.deblur_symmetric).grid(row=1, column=1, sticky="w", pady=3)
+
+        row_label(2, "PSF Kernel Size", "deblur.kernel")
+        kernel = ttk.Entry(body, textvariable=self.deblur_kernel, width=10)
+        kernel.grid(row=2, column=1, sticky="w", pady=3)
+        ttk.Label(body, text="비워두면 Siril 기본값").grid(row=2, column=2, sticky="w", padx=(8,0))
+
+        row_label(3, "RL Iterations", "deblur.iterations")
+        ttk.Entry(body, textvariable=self.deblur_iterations, width=10).grid(row=3, column=1, sticky="w", pady=3)
+
+        row_label(4, "Regularization", "deblur.regularization")
+        reg = ttk.Combobox(
+            body,
+            textvariable=self.deblur_regularization,
+            values=["NONE", "TV", "FH"],
+            state="readonly",
+            width=12,
+        )
+        reg.grid(row=4, column=1, sticky="w", pady=3)
+        reg.bind("<<ComboboxSelected>>", lambda e: self._refresh_deblur_ui())
+
+        row_label(5, "Alpha", "deblur.alpha")
+        self.deblur_alpha_entry = ttk.Entry(body, textvariable=self.deblur_alpha, width=10)
+        self.deblur_alpha_entry.grid(row=5, column=1, sticky="w", pady=3)
+
+        row_label(6, "Multiplicative RL", "deblur.mul")
+        ttk.Checkbutton(body, variable=self.deblur_multiplicative).grid(row=6, column=1, sticky="w", pady=3)
+
+        ttk.Label(
+            body,
+            text="※ 기본 시작값: 별 기반 PSF / 10 iterations / 정규화 없음",
+        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6,8))
+
+        buttons = ttk.Frame(body)
+        buttons.grid(row=8, column=0, columnspan=3, sticky="w")
+        ttk.Button(
+            buttons, text="Deblur 미리보기", command=self.deblur_preview
+        ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="승인 후 적용", command=self.deblur_apply
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons, text="Deblur 건너뛰기", command=self.deblur_skip
+        ).pack(side="left", padx=6)
+
+        body.columnconfigure(1, weight=1)
+        self._refresh_deblur_ui()
+
+    def _refresh_deblur_ui(self):
+        if not hasattr(self, "deblur_alpha_entry"):
+            return
+        try:
+            if self.deblur_regularization.get().upper() == "NONE":
+                self.deblur_alpha_entry.state(["disabled"])
+            else:
+                self.deblur_alpha_entry.state(["!disabled"])
+        except Exception:
+            pass
+
+    def _deblur_signature(self):
+        return (
+            bool(self.deblur_symmetric.get()),
+            self.deblur_kernel.get().strip(),
+            self.deblur_iterations.get().strip(),
+            self.deblur_regularization.get().strip().upper(),
+            self.deblur_alpha.get().strip(),
+            bool(self.deblur_multiplicative.get()),
+        )
+
+    def _invalidate_deblur_preview(self, *args):
+        self.deblur_preview_signature = None
+
+    def _deblur_params(self):
+        kernel_text = self.deblur_kernel.get().strip()
+        kernel_size = None if not kernel_text else int(kernel_text)
+        return {
+            "symmetric_psf": bool(self.deblur_symmetric.get()),
+            "kernel_size": kernel_size,
+            "iterations": int(self.deblur_iterations.get()),
+            "regularization": self.deblur_regularization.get().strip().upper(),
+            "alpha": float(self.deblur_alpha.get()),
+            "multiplicative": bool(self.deblur_multiplicative.get()),
+        }
+
+    def deblur_preview(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._deblur_params()
+        except ValueError:
+            messagebox.showerror(
+                "오류",
+                "Deblur 숫자 값을 확인하세요.\n"
+                "Kernel Size는 비워두거나 홀수 정수, Iterations는 정수, Alpha는 숫자여야 합니다."
+            )
+            return
+
+        signature = self._deblur_signature()
+
+        def work():
+            return preview_deblur(self.project_dir, self.cfg, **params)
+
+        def done(result):
+            jpg, linear_preview, meta = result
+            self.deblur_preview_signature = signature
+            self.write(
+                "\nDeblur 미리보기 완료\n"
+                f"표시용 JPEG: {jpg}\n"
+                f"Linear Deblur 미리보기 FITS: {linear_preview}\n"
+                f"PSF: {meta.get('psf_file')}\n"
+                f"PSF 명령: {meta['makepsf_command']}\n"
+                f"RL 명령: {meta['rl_command']}\n"
+            )
+            self.status_var.set("Deblur 미리보기 완료")
+            self._open_preview(jpg)
+
+        self.run_bg(
+            work,
+            operation="PSF 생성 + Richardson-Lucy 미리보기",
+            on_success=done,
+        )
+
+    def deblur_apply(self):
+        if not self._require_project():
+            return
+        try:
+            params = self._deblur_params()
+        except ValueError:
+            messagebox.showerror("오류", "Deblur 숫자 값을 확인하세요.")
+            return
+
+        if self.deblur_preview_signature != self._deblur_signature():
+            messagebox.showwarning(
+                "미리보기 필요",
+                "현재 Deblur 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+            )
+            return
+
+        kernel_label = params["kernel_size"] if params["kernel_size"] is not None else "Siril 기본값"
+        ok = messagebox.askyesno(
+            "Deblur 실제 적용",
+            "미리보기와 동일한 설정으로 실제 Linear FITS에 Deblur를 적용합니다.\n\n"
+            f"PSF: Detected Stars\n"
+            f"Symmetric: {params['symmetric_psf']}\n"
+            f"Kernel: {kernel_label}\n"
+            f"Iterations: {params['iterations']}\n"
+            f"Regularization: {params['regularization']}\n"
+            f"Alpha: {params['alpha']}\n"
+            f"Multiplicative: {params['multiplicative']}\n\n"
+            "진행할까요?"
+        )
+        if not ok:
+            return
+
+        def work():
+            return apply_deblur(
+                self.project_dir, self.cfg, confirmed=True, **params
+            )
+
+        def done(result):
+            project, output, log = result
+            self.deblur_preview_signature = None
+            self._show_project_task(
+                project,
+                f"Deblur 완료\n출력: {output}\nPSF: {log.get('psf_file')}"
+            )
+            self.status_var.set("Deblur 완료")
+            next_task = project["project"].get("next_task", {})
+            self._show_apply_success(
+                "Deblur / Deconvolution",
+                output,
+                next_task.get("title"),
+            )
+
+        self.run_bg(
+            work,
+            operation="PSF 생성 + Richardson-Lucy 실제 적용",
+            on_success=done,
+        )
+
+    def deblur_skip(self):
+        if not self._require_project():
+            return
+        ok = messagebox.askyesno(
+            "Deblur 건너뛰기",
+            "Siril Deconvolution을 적용하지 않고 GHS Stretch 준비로 이동할까요?"
+        )
+        if not ok:
+            return
+        try:
+            project = skip_deblur(self.project_dir)
+            self._show_project_task(project, "Deblur 건너뜀")
+            self.status_var.set("Deblur 건너뜀")
         except Exception as e:
             messagebox.showerror("오류", str(e))
 

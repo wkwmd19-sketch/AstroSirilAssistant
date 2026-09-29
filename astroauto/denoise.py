@@ -7,6 +7,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .deblur import make_deblur_task
 
 def make_denoise_task() -> dict:
     return {
@@ -225,7 +226,7 @@ def apply_denoise(project_dir: Path, config: dict, confirmed: bool = False, **pa
     p["image_state"]["denoised"] = True
     p["image_state"]["linearity"] = "LINEAR"
     p["image_state"]["stretched"] = False
-    p["next_task"] = make_post_denoise_task(skipped=False)
+    p["next_task"] = make_deblur_task()
     save_project(pdir, project)
 
     payload = {
@@ -253,7 +254,9 @@ def skip_denoise(project_dir: Path):
     p = project["project"]
     if p.get("current_state") != "COLOR_CALIBRATED":
         raise ValueError("Denoise 건너뛰기는 COLOR_CALIBRATED 상태에서만 사용합니다.")
-    p["next_task"] = make_post_denoise_task(skipped=True)
+    p["next_task"] = make_deblur_task()
+    p["next_task"]["current_status"] = "COLOR_CALIBRATED / LINEAR / DENOISE_SKIPPED"
+    p["next_task"]["summary"] = "Denoise를 건너뛴 Linear 이미지에서 선택적으로 Deblur를 수행합니다."
     save_project(pdir, project)
     append_jsonl(pdir, {
         "event": "DENOISE_SKIP",
