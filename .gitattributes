@@ -1,0 +1,2 @@
+# Preserve release file bytes, especially Windows BAT CRLF.
+* -text

@@ -1,0 +1,36 @@
+# Python environments and generated caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local configuration and editor state
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log
+
+# Local image-processing projects and generated outputs
+/AstroProjects_Auto/
+/working/
+/output/
+/temp/
+*.fit
+*.fits
+*.fts
+*.fit.fz
+*.fits.fz
+*.tif
+*.tiff
