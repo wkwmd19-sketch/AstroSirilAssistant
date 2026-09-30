@@ -172,7 +172,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.15.0")
+        self.title("AstroSirilAssistant v0.15.1")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)

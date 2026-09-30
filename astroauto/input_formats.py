@@ -215,9 +215,21 @@ def _normalize_raw(config: dict, source: Path, destination: Path):
         staged = stage / source.name
         shutil.copy2(source, staged)
 
-        emit_log("RAW Decode: Siril/LibRaw + Debayer")
+        # `cwd=stage` changes the OS subprocess directory, but Siril may
+        # override its *internal* current directory with a saved GUI setting
+        # (e.g. the user's Pictures directory). `convertraw` only scans Siril's
+        # internal current directory; explicitly switch it before conversion.
+        # Keep the one-RAW staging directory isolated to avoid converting any
+        # other photographs by accident. Use forward slashes and quote the
+        # entire directory argument for Windows paths containing spaces.
+        if not staged.is_file():
+            raise SirilError(f"RAW 임시 입력 파일을 확인하지 못했습니다: {staged}")
+        stage_arg = normalize_siril_path(stage)
         out_arg = normalize_siril_path(out)
+        emit_log("RAW Decode: Siril/LibRaw + Debayer")
+        emit_log(f"RAW 변환 폴더: {stage_arg}")
         commands = [
+            f'cd "{stage_arg}"',
             "set32bits",
             "setext fits",
             f'convertraw astroauto_raw -debayer "-out={out_arg}"',

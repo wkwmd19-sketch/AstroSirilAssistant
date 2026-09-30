@@ -1,3 +1,9 @@
+# AstroSirilAssistant v0.15.1 — CR3/RAW 변환 경로 수정
+
+Siril 내부 작업 디렉터리를 RAW 임시 폴더로 명시적으로 지정해 `convertraw`의 `No RAW files were found for conversion` 오류를 수정했습니다. 자세한 내용은 `docs/HOTFIX_v0.15.1.md`를 참조하세요.
+
+---
+
 # AstroSirilAssistant v0.15.0 — Multi-format Intake
 
 이번 버전은 단일 이미지 입력 계층을 FITS 전용에서 다중 포맷으로 확장합니다.
