@@ -37,20 +37,35 @@ PROJECT_DIRS = [
 ]
 
 def project_name(target: str, capture_date: str) -> str:
+    """Current v0.14.3 project directory convention."""
+    return f"Auto_{safe_target_name(target)}_{capture_date}"
+
+def legacy_project_name(target: str, capture_date: str) -> str:
+    """v0.14.2-and-earlier directory convention, kept for discovery only."""
     return f"{safe_target_name(target)}_{capture_date}_Auto"
 
+def find_existing_project_dir(root: Path, target: str, capture_date: str) -> Path | None:
+    root = Path(root)
+    candidates = [
+        root / project_name(target, capture_date),
+        root / legacy_project_name(target, capture_date),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
 def next_available_project_dir(root: Path, target: str, capture_date: str) -> Path:
-    """Return a non-existing project path while keeping the required `_Auto` suffix."""
+    """Return a non-existing Auto_<target>_<date>[_NN] project directory."""
     root = Path(root)
     target_clean = safe_target_name(target)
-
     first = root / project_name(target_clean, capture_date)
     if not first.exists():
         return first
 
     index = 2
     while True:
-        candidate = root / f"{target_clean}_{capture_date}_{index:02d}_Auto"
+        candidate = root / f"Auto_{target_clean}_{capture_date}_{index:02d}"
         if not candidate.exists():
             return candidate
         index += 1
@@ -87,7 +102,7 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
         input_source_mode = "EXTERNAL_REFERENCE"
 
     project = {
-        "schema_version": "0.14.0",
+        "schema_version": "0.14.3",
         "project": {
             "id": pdir.name,
             "target_name": target_clean,

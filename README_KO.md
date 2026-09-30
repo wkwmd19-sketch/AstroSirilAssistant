@@ -1,3 +1,23 @@
+# AstroSirilAssistant v0.14.3 — Fast Preview / Cancel / Project UX
+
+이번 업데이트:
+
+- 새 프로젝트 폴더: `Auto_<대상>_<촬영일>`
+- 중복 프로젝트 팝업: `기존 프로젝트 열기 / 새 프로젝트 만들기 / 취소`
+- 기존 `<대상>_<촬영일>_Auto` 프로젝트 호환 유지
+- Parallax `빠른 미리보기` (기본 중앙 1536×1536, 원본 픽셀 스케일 유지)
+- Parallax `전체 미리보기` 분리
+- 실제 적용 전 동일 설정의 전체 미리보기 필수
+- Siril/SyQon 실시간 로그 스트리밍
+- Progress 실행 중 `중단` 버튼
+- Windows에서 Siril 하위 프로세스까지 종료 요청
+- 중단/실패한 Preview temp 결과 재사용 방지
+- Sequence GUI에도 동일한 중단 기능 적용
+
+최종 산출물 파일명 `M31_final_Auto.*` 규칙은 변경하지 않습니다.
+
+---
+
 # AstroSirilAssistant v0.14.2 — Project Collision UX Hotfix
 
 동일한 `대상명 + 촬영일` 프로젝트가 이미 있을 때 더 이상 일반 오류로 끝나지 않습니다.

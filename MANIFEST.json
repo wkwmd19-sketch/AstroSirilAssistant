@@ -1,16 +1,27 @@
 {
-  "package": "AstroSirilAssistant_v0.14.2",
-  "version": "0.14.2",
-  "hotfix": "Existing project collision UX",
+  "package": "AstroSirilAssistant_v0.14.3",
+  "version": "0.14.3",
   "python_errors": [],
   "yaml_errors": [],
   "core_checks": {
-    "unique_project_helper": true,
-    "preserves_auto_suffix": true,
-    "collision_dialog": true,
-    "open_existing_path": true,
-    "no_overwrite_message": true,
-    "bat_hotfix_preserved": true,
-    "syqon_preserved": true
+    "project_prefix": true,
+    "legacy_discovery": true,
+    "custom_collision_buttons": true,
+    "quick_full_buttons": true,
+    "cancel_main": true,
+    "cancel_sequence": true,
+    "streaming_runner": true,
+    "quick_crop": true,
+    "final_output_unchanged": true
+  },
+  "python_files_checked": 57,
+  "yaml_files_checked": 25,
+  "targeted_tests": {
+    "project_naming": "PASS",
+    "siril_requires_injection": "PASS",
+    "live_log_and_cancel": "PASS",
+    "main_gui_xvfb_smoke": "PASS",
+    "sequence_gui_xvfb_smoke": "PASS",
+    "deblur_quick_full_ui_smoke": "PASS"
   }
 }

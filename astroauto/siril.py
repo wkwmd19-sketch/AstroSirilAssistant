@@ -3,9 +3,15 @@ from pathlib import Path
 import subprocess
 import re
 import shutil
+import queue
+import threading
+import time
 from dataclasses import dataclass
 
 from .utils import normalize_siril_path
+from .execution import (
+    current_control, emit_log, ExecutionCancelled, popen_group_kwargs
+)
 
 @dataclass
 class SirilInfo:
@@ -54,14 +60,110 @@ def get_siril_info(config: dict) -> SirilInfo:
         raise SirilError(f"Siril 버전 확인 실패: {combined.strip()}")
     return SirilInfo(executable=exe, version=_parse_version(combined))
 
-def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeout_sec: int | None = None) -> subprocess.CompletedProcess:
-    """Run commands through `siril-cli -s -`.
+def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, timeout: int):
+    control = current_control()
+    proc = subprocess.Popen(
+        [str(x) for x in args],
+        stdin=subprocess.PIPE if input_text is not None else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(cwd) if cwd else None,
+        bufsize=1,
+        **popen_group_kwargs(),
+    )
+    if control:
+        control.register(proc)
 
-    Siril 1.4.x checks that the first script command is `requires`.
-    Without it, Siril may report a successful script exit while skipping
-    the actual commands. We therefore inject the configured minimum
-    supported version unless the caller already supplied `requires`.
-    """
+    lines = []
+    q = queue.Queue()
+    sentinel = object()
+
+    def reader():
+        try:
+            if proc.stdout:
+                for line in iter(proc.stdout.readline, ''):
+                    q.put(line)
+        finally:
+            q.put(sentinel)
+
+    reader_thread = threading.Thread(target=reader, daemon=True)
+    reader_thread.start()
+
+    try:
+        if input_text is not None and proc.stdin:
+            proc.stdin.write(input_text)
+            proc.stdin.flush()
+            proc.stdin.close()
+
+        deadline = time.monotonic() + max(1, int(timeout))
+        reader_done = False
+
+        while True:
+            while True:
+                try:
+                    item = q.get_nowait()
+                except queue.Empty:
+                    break
+                if item is sentinel:
+                    reader_done = True
+                    continue
+                lines.append(item)
+                emit_log(item.rstrip('\r\n'))
+
+            if control and control.cancelled:
+                control._terminate_process_tree(proc)
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    pass
+                raise ExecutionCancelled('사용자가 Siril/SyQon 작업을 중단했습니다.')
+
+            if time.monotonic() > deadline:
+                if control:
+                    control._terminate_process_tree(proc)
+                else:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                raise subprocess.TimeoutExpired(args, timeout)
+
+            if proc.poll() is not None and reader_done and q.empty():
+                break
+            time.sleep(0.05)
+
+        # Drain anything queued between the last loop and process exit.
+        while True:
+            try:
+                item = q.get_nowait()
+            except queue.Empty:
+                break
+            if item is sentinel:
+                continue
+            lines.append(item)
+            emit_log(item.rstrip('\r\n'))
+
+        return subprocess.CompletedProcess(
+            args=[str(x) for x in args],
+            returncode=proc.returncode,
+            stdout=''.join(lines),
+            stderr='',
+        )
+    finally:
+        if control:
+            control.unregister(proc)
+        try:
+            if proc.stdout:
+                proc.stdout.close()
+        except Exception:
+            pass
+
+
+def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeout_sec: int | None = None) -> subprocess.CompletedProcess:
+    """Run commands through `siril-cli -s -` with live log streaming and cancellation."""
     info = get_siril_info(config)
     timeout = int(timeout_sec if timeout_sec is not None else config.get("siril", {}).get("command_timeout_sec", 180))
     minimum = str(config.get("siril", {}).get("minimum_supported", "1.4.0"))
@@ -72,17 +174,12 @@ def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeo
         cleaned.insert(0, f"requires {minimum}")
 
     script = "\n".join(cleaned).rstrip() + "\n"
-    proc = subprocess.run(
+    return _run_streaming_process(
         [str(info.executable), "-s", "-"],
-        input=script,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        cwd=str(cwd) if cwd else None,
-        timeout=timeout
+        input_text=script,
+        cwd=cwd,
+        timeout=timeout,
     )
-    return proc
 
 def write_jsonmetadata(config: dict, fits_path: Path, output_json: Path):
     fits_s = normalize_siril_path(fits_path)
@@ -110,16 +207,13 @@ def write_jsonmetadata(config: dict, fits_path: Path, output_json: Path):
 
 
 def run_script_file(config: dict, script_path: Path, cwd: Path | None = None) -> subprocess.CompletedProcess:
-    """Run a real Siril script file with siril-cli -s."""
+    """Run a real Siril script file with live log streaming and cancellation."""
     info = get_siril_info(config)
     timeout = int(config.get("siril", {}).get("command_timeout_sec", 180))
-    proc = subprocess.run(
+    return _run_streaming_process(
         [str(info.executable), "-s", str(Path(script_path).resolve())],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        cwd=str(cwd) if cwd else None,
+        input_text=None,
+        cwd=cwd,
         timeout=timeout,
     )
-    return proc
+

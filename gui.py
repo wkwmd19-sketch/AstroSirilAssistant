@@ -10,9 +10,13 @@ import time
 from astroauto.config import load_app_config
 from astroauto.ui_theme import apply_astro_theme, apply_screen_aware_geometry, style_text_widget, style_canvas
 from astroauto.syqon import detect_syqon
-from astroauto.project import create_project, load_project, project_name, next_available_project_dir
+from astroauto.project import (
+    create_project, load_project, project_name, next_available_project_dir,
+    find_existing_project_dir,
+)
 from astroauto.analyzer import analyze_project, confirm_linearity
 from astroauto.siril import get_siril_info
+from astroauto.execution import TaskControl, ExecutionCancelled, execution_context
 from astroauto.workflow import format_task
 from astroauto.state_actions import (
     confirm_input_stage,
@@ -92,7 +96,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.2")
+        self.title("AstroSirilAssistant v0.14.3")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -197,6 +201,7 @@ class App(tk.Tk):
         self.deblur_alpha = tk.StringVar(value=str(bn.get("alpha", 3000)))
         self.deblur_multiplicative = tk.BooleanVar(value=bool(bn.get("multiplicative", False)))
         self.deblur_preview_signature = None
+        self.deblur_preview_mode = None
 
         for var in (
             self.deblur_engine,
@@ -329,6 +334,10 @@ class App(tk.Tk):
         self._busy_started = None
         self._busy_timer_id = None
         self._busy_disabled_widgets = []
+        self._current_control = None
+        self._current_operation = None
+        self._cancel_requested = False
+        self._long_running_notice_sent = False
 
         self._build()
 
@@ -457,6 +466,11 @@ class App(tk.Tk):
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12, 8), fill="x", expand=True)
         ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+        self.cancel_btn = ttk.Button(
+            op, text="중단", command=self.request_cancel
+        )
+        self.cancel_btn.pack(side="left", padx=(8,0))
+        self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(frm)
         log_toolbar.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 10))
@@ -741,7 +755,11 @@ class App(tk.Tk):
         if disabled:
             self._busy_disabled_widgets = []
             for w in self._walk_widgets(self):
-                if w in (getattr(self, "log_toggle_btn", None), getattr(self, "copy_log_btn", None)):
+                if w in (
+                    getattr(self, "log_toggle_btn", None),
+                    getattr(self, "copy_log_btn", None),
+                    getattr(self, "cancel_btn", None),
+                ):
                     continue
                 if isinstance(w, (ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton)):
                     try:
@@ -764,6 +782,12 @@ class App(tk.Tk):
             return
         sec = int(time.monotonic() - self._busy_started)
         self.elapsed_var.set(f"경과 {sec//60:02d}:{sec%60:02d}")
+        if sec >= 300 and not self._long_running_notice_sent:
+            self._long_running_notice_sent = True
+            self.write(
+                "\n⏱ 장시간 작업이 계속되고 있습니다. "
+                "상세 로그에서 진행 상황을 확인하거나 [중단]을 사용할 수 있습니다.\n"
+            )
         self._busy_timer_id = self.after(500, self._tick_elapsed)
 
     def _begin_busy(self, label: str):
@@ -771,14 +795,18 @@ class App(tk.Tk):
             raise RuntimeError("다른 작업이 실행 중입니다.")
         self._busy = True
         self._busy_started = time.monotonic()
+        self._current_operation = label
+        self._cancel_requested = False
+        self._long_running_notice_sent = False
         self.operation_var.set(f"● 실행 중: {label}")
         self.elapsed_var.set("경과 00:00")
         self.progress.start(12)
         self._set_processing_controls_disabled(True)
+        self.cancel_btn.state(["!disabled"])
         self.write(f"\n▶ 실행 시작: {label}\n")
         self._tick_elapsed()
 
-    def _end_busy(self, label: str, success: bool):
+    def _end_busy(self, label: str, success: bool = False, cancelled: bool = False):
         if self._busy_timer_id:
             try:
                 self.after_cancel(self._busy_timer_id)
@@ -786,28 +814,88 @@ class App(tk.Tk):
                 pass
             self._busy_timer_id = None
         self.progress.stop()
+        self.cancel_btn.state(["disabled"])
         self._set_processing_controls_disabled(False)
         self._busy = False
-        if success:
+        self._current_control = None
+        self._current_operation = None
+        if cancelled:
+            self.operation_var.set(f"■ 중단됨: {label}")
+        elif success:
             self.operation_var.set(f"✓ 완료: {label}")
         else:
             self.operation_var.set(f"✕ 오류: {label}")
 
+    def _execution_log_line(self, line: str):
+        line = str(line).rstrip()
+        if not line:
+            return
+        def apply_line():
+            self.write(f"│ {line}")
+            low = line.lower()
+            stage = None
+            if any(x in low for x in ("cuda", "gpu", "directml")):
+                stage = "GPU / AI 처리"
+            elif "model" in low and any(x in low for x in ("load", "loading", "loaded")):
+                stage = "모델 로딩"
+            elif any(x in low for x in ("tile", "inference", "processing")):
+                stage = "AI 처리"
+            elif any(x in low for x in ("saving", "save ", "writing")):
+                stage = "결과 저장"
+            if stage and self._busy and self._current_operation:
+                self.operation_var.set(f"● 실행 중: {self._current_operation} · {stage}")
+        self.after(0, apply_line)
+
+    def request_cancel(self):
+        if not self._busy or not self._current_control or self._cancel_requested:
+            return
+        operation = self._current_operation or "현재 작업"
+        stronger = any(x in operation for x in ("실제 적용", "실제 실행", "Finalize", "Export"))
+        detail = (
+            "완료되지 않은 출력은 정상 결과로 채택하지 않으며 프로젝트 상태는 완료로 갱신하지 않습니다."
+            if stronger else
+            "완료되지 않은 미리보기/임시 파일은 재사용하지 않습니다."
+        )
+        if not messagebox.askyesno(
+            "작업 중단",
+            f"{operation}을(를) 중단할까요?\n\n{detail}"
+        ):
+            return
+        self._cancel_requested = True
+        self.cancel_btn.state(["disabled"])
+        self.operation_var.set(f"■ 중단 요청 중: {operation}")
+        self.status_var.set("중단 요청 중...")
+        self.write("\n■ 사용자 중단 요청 — 실행 중인 Siril/SyQon 프로세스를 종료합니다.\n")
+        self._current_control.cancel()
+
     def run_bg(self, func, operation: str | None = None, on_success=None):
+        control = TaskControl()
         if operation:
             try:
                 self._begin_busy(operation)
+                self._current_control = control
             except Exception as e:
                 messagebox.showwarning("실행 중", str(e))
                 return
 
         def runner():
             try:
-                result = func()
+                with execution_context(control, log_callback=self._execution_log_line):
+                    result = func()
+                    if control.cancelled:
+                        raise ExecutionCancelled("사용자가 작업을 중단했습니다.")
+            except ExecutionCancelled as e:
+                def cancelled():
+                    if operation:
+                        self._end_busy(operation, cancelled=True)
+                    self.status_var.set("작업 중단됨")
+                    self.write(f"\n■ 작업 중단 완료: {operation or '작업'}\n{e}\n")
+                self.after(0, cancelled)
+                return
             except Exception as e:
                 def fail():
                     if operation:
-                        self._end_busy(operation, False)
+                        self._end_busy(operation, success=False)
                     self.status_var.set("오류")
                     self.write(f"\n✕ 오류: {operation or '작업'}\n{e}\n")
                     self.show_logs()
@@ -817,7 +905,7 @@ class App(tk.Tk):
 
             def done():
                 if operation:
-                    self._end_busy(operation, True)
+                    self._end_busy(operation, success=True)
                 if on_success:
                     on_success(result)
             self.after(0, done)
@@ -840,6 +928,53 @@ class App(tk.Tk):
             self.after(0, lambda: self.status_var.set("Siril 연결 OK"))
         self.run_bg(work, operation="Siril 연결 확인")
 
+    def _project_collision_dialog(self, existing: Path, fresh: Path):
+        result = {"value": None}
+        win = tk.Toplevel(self)
+        win.title("동일 프로젝트가 이미 존재합니다")
+        win.transient(self)
+        win.resizable(False, False)
+        win.grab_set()
+
+        outer = ttk.Frame(win, padding=18)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(
+            outer,
+            text="같은 대상명 + 촬영일의 프로젝트가 이미 존재합니다.",
+            font=("Segoe UI Semibold", 11),
+        ).pack(anchor="w")
+        ttk.Label(outer, text="기존 프로젝트:", style="Muted.TLabel").pack(anchor="w", pady=(14,3))
+        ttk.Label(outer, text=str(existing), wraplength=650).pack(anchor="w")
+        ttk.Label(outer, text="새 프로젝트:", style="Muted.TLabel").pack(anchor="w", pady=(10,3))
+        ttk.Label(outer, text=str(fresh), wraplength=650).pack(anchor="w")
+        ttk.Label(
+            outer,
+            text="원하는 작업을 선택하세요. 기존 프로젝트는 덮어쓰거나 삭제되지 않습니다.",
+            wraplength=650,
+        ).pack(anchor="w", pady=(14,14))
+
+        row = ttk.Frame(outer)
+        row.pack(fill="x")
+        def choose(value):
+            result["value"] = value
+            win.destroy()
+        ttk.Button(
+            row, text="기존 프로젝트 열기", command=lambda: choose("OPEN")
+        ).pack(side="left")
+        ttk.Button(
+            row, text="새 프로젝트 만들기", style="Accent.TButton",
+            command=lambda: choose("NEW")
+        ).pack(side="left", padx=8)
+        ttk.Button(row, text="취소", command=lambda: choose(None)).pack(side="right")
+        win.protocol("WM_DELETE_WINDOW", lambda: choose(None))
+
+        win.update_idletasks()
+        x = self.winfo_rootx() + max(20, (self.winfo_width() - win.winfo_width()) // 2)
+        y = self.winfo_rooty() + max(20, (self.winfo_height() - win.winfo_height()) // 3)
+        win.geometry(f"+{x}+{y}")
+        self.wait_window(win)
+        return result["value"]
+
     def create_and_analyze(self):
         input_path = self.input_var.get().strip()
         target = self.target_var.get().strip()
@@ -850,29 +985,18 @@ class App(tk.Tk):
 
         category = LABEL_TO_ID[self.category_var.get()]
         root = Path(self.root_var.get().strip())
-        base_pdir = root / project_name(target, capture_date)
+        existing_pdir = find_existing_project_dir(root, target, capture_date)
         requested_pdir = None
 
-        if base_pdir.exists():
+        if existing_pdir is not None:
             fresh_pdir = next_available_project_dir(root, target, capture_date)
-            choice = messagebox.askyesnocancel(
-                "동일 프로젝트가 이미 존재합니다",
-                "같은 대상명 + 촬영일의 프로젝트가 이미 있습니다.\n\n"
-                f"기존 프로젝트:\n{base_pdir}\n\n"
-                "예(Y)  : 기존 프로젝트 열기\n"
-                f"아니오(N): 새 프로젝트 생성 ({fresh_pdir.name})\n"
-                "취소    : 아무 작업도 하지 않음\n\n"
-                "기존 폴더는 덮어쓰거나 삭제하지 않습니다."
-            )
-
+            choice = self._project_collision_dialog(existing_pdir, fresh_pdir)
             if choice is None:
                 self.status_var.set("대기 중")
                 return
-
-            if choice is True:
-                self._load_project_from_path(base_pdir)
+            if choice == "OPEN":
+                self._load_project_from_path(existing_pdir)
                 return
-
             requested_pdir = fresh_pdir
 
         self.status_var.set("프로젝트 생성 및 분석 중...")
@@ -1858,9 +1982,12 @@ class App(tk.Tk):
         buttons = ttk.Frame(body)
         buttons.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8,0))
         ttk.Button(
-            buttons, text="Restoration 미리보기", command=self.deblur_preview,
+            buttons, text="빠른 미리보기", command=self.deblur_preview_quick,
             style="Accent.TButton"
         ).pack(side="left", padx=(0,6))
+        ttk.Button(
+            buttons, text="전체 미리보기", command=self.deblur_preview_full
+        ).pack(side="left", padx=6)
         ttk.Button(
             buttons, text="승인 후 적용", command=self.deblur_apply,
             style="Success.TButton"
@@ -1914,6 +2041,7 @@ class App(tk.Tk):
 
     def _invalidate_deblur_preview(self, *args):
         self.deblur_preview_signature = None
+        self.deblur_preview_mode = None
 
     def _deblur_params(self):
         engine = self.deblur_engine.get().strip().upper()
@@ -1945,7 +2073,13 @@ class App(tk.Tk):
             "multiplicative": bool(self.deblur_multiplicative.get()),
         }
 
-    def deblur_preview(self):
+    def deblur_preview_quick(self):
+        self._start_deblur_preview("QUICK")
+
+    def deblur_preview_full(self):
+        self._start_deblur_preview("FULL")
+
+    def _start_deblur_preview(self, mode: str):
         if not self._require_project():
             return
         try:
@@ -1955,28 +2089,44 @@ class App(tk.Tk):
             return
 
         signature = self._deblur_signature()
+        mode = str(mode).upper()
+        label = "빠른 미리보기" if mode == "QUICK" else "전체 미리보기"
 
         def work():
-            return preview_deblur(self.project_dir, self.cfg, **params)
+            return preview_deblur(
+                self.project_dir, self.cfg, preview_mode=mode, **params
+            )
 
         def done(result):
             jpg, linear_preview, meta = result
             self.deblur_preview_signature = signature
+            self.deblur_preview_mode = mode
+            crop = meta.get("crop") or {}
+            crop_text = ""
+            if mode == "QUICK":
+                crop_text = (
+                    f"빠른 미리보기 영역: {crop.get('crop_width')}×{crop.get('crop_height')} "
+                    f"/ 원본 {crop.get('source_width')}×{crop.get('source_height')}\n"
+                )
             self.write(
-                "\nRestoration 미리보기 완료\n"
+                f"\nRestoration {label} 완료\n"
                 f"Engine: {meta['engine']}\n"
+                f"{crop_text}"
                 f"표시용 JPEG: {jpg}\n"
                 f"Linear Preview FITS: {linear_preview}\n"
                 f"Script: {meta.get('script_path')}\n"
                 f"명령: {meta.get('engine_command')}\n"
                 f"PSF: {meta.get('psf_file')}\n"
             )
-            self.status_var.set(f"Restoration 미리보기 완료 · {meta['engine']}")
+            if mode == "QUICK":
+                self.status_var.set("빠른 미리보기 완료 · 적용 전 전체 미리보기를 확인하세요")
+            else:
+                self.status_var.set(f"전체 미리보기 완료 · {meta['engine']}")
             self._open_preview(jpg)
 
         self.run_bg(
             work,
-            operation="Restoration / Deblur 미리보기",
+            operation=f"Restoration / Deblur {label}",
             on_success=done,
         )
 
@@ -1989,10 +2139,14 @@ class App(tk.Tk):
             messagebox.showerror("오류", "Restoration 숫자 값을 확인하세요.")
             return
 
-        if self.deblur_preview_signature != self._deblur_signature():
+        if (
+            self.deblur_preview_signature != self._deblur_signature()
+            or self.deblur_preview_mode != "FULL"
+        ):
             messagebox.showwarning(
-                "미리보기 필요",
-                "현재 Restoration 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+                "전체 미리보기 필요",
+                "빠른 미리보기는 값 비교용입니다.\n"
+                "현재 설정과 동일한 값으로 [전체 미리보기]를 확인한 뒤 적용하세요."
             )
             return
 
@@ -2014,6 +2168,7 @@ class App(tk.Tk):
         def done(result):
             project, output, log = result
             self.deblur_preview_signature = None
+            self.deblur_preview_mode = None
             self._show_project_task(
                 project,
                 f"Restoration 완료\nEngine: {log.get('engine')}\n출력: {output}"

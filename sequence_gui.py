@@ -10,6 +10,7 @@ from astroauto.config import load_app_config
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 from astroauto.siril import get_siril_info
+from astroauto.execution import TaskControl, ExecutionCancelled, execution_context
 from astroauto.ui_theme import (
     apply_astro_theme,
     apply_screen_aware_geometry,
@@ -34,7 +35,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.2 · Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.14.3 · Deep Sky Sequence")
         apply_screen_aware_geometry(self)
         self.palette = apply_astro_theme(self)
 
@@ -66,6 +67,9 @@ class SequenceApp(tk.Tk):
         self._busy_started = None
         self._busy_timer_id = None
         self._busy_disabled_widgets = []
+        self._current_control = None
+        self._current_operation = None
+        self._cancel_requested = False
 
         self._build()
 
@@ -228,6 +232,9 @@ class SequenceApp(tk.Tk):
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12,8), fill="x", expand=True)
         ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+        self.cancel_btn = ttk.Button(op, text="중단", command=self.request_cancel)
+        self.cancel_btn.pack(side="left", padx=(8,0))
+        self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(f)
         log_toolbar.grid(row=6, column=0, sticky="ew", pady=(4,10))
@@ -429,6 +436,8 @@ class SequenceApp(tk.Tk):
                 for w in children:
                     if w in (getattr(self, "log_toggle_btn", None), getattr(self, "copy_log_btn", None)):
                         continue
+                    if w is getattr(self, "cancel_btn", None):
+                        continue
                     if isinstance(w, (ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton)):
                         try:
                             if "disabled" not in w.state():
@@ -457,40 +466,78 @@ class SequenceApp(tk.Tk):
             raise RuntimeError("다른 작업이 실행 중입니다.")
         self._busy = True
         self._busy_started = time.monotonic()
+        self._current_operation = label
+        self._cancel_requested = False
         self.operation_var.set(f"● 실행 중: {label}")
         self.elapsed_var.set("경과 00:00")
         self.progress.start(12)
         self._set_controls_disabled(True)
+        self.cancel_btn.state(["!disabled"])
         self.write(f"\n▶ 실행 시작: {label}")
         self._tick_elapsed()
 
-    def _end_busy(self, label, success):
+    def _end_busy(self, label, success=False, cancelled=False):
         if self._busy_timer_id:
-            try:
-                self.after_cancel(self._busy_timer_id)
-            except Exception:
-                pass
+            try: self.after_cancel(self._busy_timer_id)
+            except Exception: pass
             self._busy_timer_id = None
         self.progress.stop()
+        self.cancel_btn.state(["disabled"])
         self._set_controls_disabled(False)
         self._busy = False
-        self.operation_var.set(
-            f"{'✓ 완료' if success else '✕ 오류'}: {label}"
-        )
+        self._current_control = None
+        self._current_operation = None
+        if cancelled:
+            self.operation_var.set(f"■ 중단됨: {label}")
+        else:
+            self.operation_var.set(f"{'✓ 완료' if success else '✕ 오류'}: {label}")
+
+    def _execution_log_line(self, line):
+        line = str(line).rstrip()
+        if line:
+            self.after(0, lambda s=line: self.write(f"│ {s}"))
+
+    def request_cancel(self):
+        if not self._busy or not self._current_control or self._cancel_requested:
+            return
+        operation = self._current_operation or "현재 작업"
+        if not messagebox.askyesno(
+            "작업 중단",
+            f"{operation}을(를) 중단할까요?\n\n완료되지 않은 출력은 정상 결과로 채택하지 않습니다."
+        ):
+            return
+        self._cancel_requested = True
+        self.cancel_btn.state(["disabled"])
+        self.operation_var.set(f"■ 중단 요청 중: {operation}")
+        self.status.set("중단 요청 중...")
+        self.write("■ 사용자 중단 요청 — 실행 중인 Siril 프로세스를 종료합니다.")
+        self._current_control.cancel()
 
     def run_bg(self, fn, operation, on_success=None):
+        control = TaskControl()
         try:
             self._begin_busy(operation)
+            self._current_control = control
         except Exception as e:
             messagebox.showwarning("실행 중", str(e))
             return
 
         def worker():
             try:
-                result = fn()
+                with execution_context(control, log_callback=self._execution_log_line):
+                    result = fn()
+                    if control.cancelled:
+                        raise ExecutionCancelled("사용자가 작업을 중단했습니다.")
+            except ExecutionCancelled as e:
+                def cancelled():
+                    self._end_busy(operation, cancelled=True)
+                    self.status.set("작업 중단됨")
+                    self.write(f"■ 작업 중단 완료: {e}")
+                self.after(0, cancelled)
+                return
             except Exception as e:
                 def fail():
-                    self._end_busy(operation, False)
+                    self._end_busy(operation, success=False)
                     self.status.set("오류")
                     self.write(f"\n✕ 오류: {operation}\n{e}")
                     self.show_logs()
@@ -499,11 +546,9 @@ class SequenceApp(tk.Tk):
                 return
 
             def done():
-                self._end_busy(operation, True)
-                if on_success:
-                    on_success(result)
+                self._end_busy(operation, success=True)
+                if on_success: on_success(result)
             self.after(0, done)
-
         threading.Thread(target=worker, daemon=True).start()
 
     # ------------------------------------------------------------------

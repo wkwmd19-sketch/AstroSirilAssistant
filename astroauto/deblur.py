@@ -1,12 +1,16 @@
 from __future__ import annotations
 from pathlib import Path
 import json
+import shutil
+import uuid
 
 from .project import load_project, save_project
 from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .execution import ExecutionCancelled
+from .preview_utils import make_center_crop_fits
 from .ghs import make_ghs_task
 from .syqon import (
     require_syqon_script,
@@ -203,91 +207,131 @@ def _parallax_command(config: dict, params: dict):
     )
     return script_path, cmd
 
-def preview_deblur(project_dir: Path, config: dict, **params):
+def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL", **params):
     pdir = Path(project_dir)
     project = load_project(pdir)
     current = _current_linear_file(project)
     target = project["project"]["target_name"]
     engine = str(params.get("engine", "SYQON_PARALLAX")).upper()
+    preview_mode = str(preview_mode).upper()
+    if preview_mode not in ("QUICK", "FULL"):
+        raise ValueError("preview_mode는 QUICK / FULL 중 하나여야 합니다.")
 
-    temp_dir = pdir / "temp" / "deblur_preview"
+    base_temp = pdir / "temp" / "deblur_preview"
     preview_dir = pdir / "output" / "preview"
-    temp_dir.mkdir(parents=True, exist_ok=True)
+    base_temp.mkdir(parents=True, exist_ok=True)
     preview_dir.mkdir(parents=True, exist_ok=True)
 
-    linear_stem = temp_dir / f"{target}_restore_preview_linear"
-    jpg_stem = preview_dir / f"{target}_restore_preview"
+    # A unique run directory prevents a cancelled/incomplete result from being
+    # mistaken for the next preview.
+    run_token = uuid.uuid4().hex[:10]
+    run_dir = base_temp / f"{preview_mode.lower()}_{run_token}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    preview_input = current
+    crop_meta = None
 
-    psf_file = None
-    engine_command = None
-    script_path = None
+    try:
+        if preview_mode == "QUICK":
+            crop_path = run_dir / f"{target}_quick_input.fits"
+            crop_meta = make_center_crop_fits(
+                current,
+                crop_path,
+                max_size=int(config.get("syqon", {}).get("quick_preview_size", 1536)),
+            )
+            preview_input = crop_path
 
-    if engine == "SYQON_PARALLAX":
-        script_path, engine_command = _parallax_command(config, params)
-        commands = [
-            "set32bits",
-            "setext fits",
-            f'load "{normalize_siril_path(current)}"',
-            engine_command,
-            f'save "{normalize_siril_path(linear_stem)}"',
-            "autostretch -linked",
-            f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
-            "close",
-        ]
-        proc = run_script(
-            config, commands, cwd=current.parent,
-            timeout_sec=int(config.get("syqon", {}).get("command_timeout_sec", 3600)),
-        )
-        assert_syqon_process_success(proc, "SyQon Parallax")
-    elif engine == "SIRIL_RL":
-        psf_stem = temp_dir / f"{target}_restore_preview_psf"
-        commands, psf_cmd, rl_cmd = _native_commands(
-            current, linear_stem, psf_stem, params
-        )
-        engine_command = f"{psf_cmd}  →  {rl_cmd}"
-        commands.extend([
-            "autostretch -linked",
-            f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
-            "close",
-        ])
-        proc = run_script(config, commands, cwd=current.parent)
-        if proc.returncode != 0:
+        linear_stem = run_dir / f"{target}_restore_{preview_mode.lower()}_linear"
+        jpg_stem = preview_dir / f"{target}_restore_{preview_mode.lower()}_preview_{run_token}"
+
+        psf_file = None
+        engine_command = None
+        script_path = None
+
+        if engine == "SYQON_PARALLAX":
+            script_path, engine_command = _parallax_command(config, params)
+            commands = [
+                "set32bits",
+                "setext fits",
+                f'load "{normalize_siril_path(preview_input)}"',
+                engine_command,
+                f'save "{normalize_siril_path(linear_stem)}"',
+                "autostretch -linked",
+                f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
+                "close",
+            ]
+            timeout = int(
+                config.get("syqon", {}).get(
+                    "quick_preview_timeout_sec" if preview_mode == "QUICK" else "command_timeout_sec",
+                    900 if preview_mode == "QUICK" else 3600,
+                )
+            )
+            proc = run_script(config, commands, cwd=preview_input.parent, timeout_sec=timeout)
+            assert_syqon_process_success(proc, "SyQon Parallax")
+        elif engine == "SIRIL_RL":
+            psf_stem = run_dir / f"{target}_restore_{preview_mode.lower()}_psf"
+            commands, psf_cmd, rl_cmd = _native_commands(
+                preview_input, linear_stem, psf_stem, params
+            )
+            engine_command = f"{psf_cmd}  →  {rl_cmd}"
+            commands.extend([
+                "autostretch -linked",
+                f'savejpg "{normalize_siril_path(jpg_stem)}" 95',
+                "close",
+            ])
+            proc = run_script(config, commands, cwd=preview_input.parent)
+            if proc.returncode != 0:
+                raise SirilError(
+                    "Siril RL Restoration 미리보기 생성 실패\n"
+                    f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+                )
+            psf_file = _find_saved(psf_stem)
+        else:
+            raise ValueError("Restoration Engine은 SYQON_PARALLAX / SIRIL_RL 중 하나여야 합니다.")
+
+        linear_preview = _find_saved(linear_stem)
+        jpg = jpg_stem.with_suffix(".jpg")
+        if not linear_preview or not jpg.exists():
             raise SirilError(
-                "Siril RL Restoration 미리보기 생성 실패\n"
+                "Restoration 실행 후 미리보기 출력 파일을 찾지 못했습니다.\n"
+                "SyQon 모델/스크립트 또는 Siril 로그를 확인하세요.\n"
                 f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
             )
-        psf_file = _find_saved(psf_stem)
-    else:
-        raise ValueError("Restoration Engine은 SYQON_PARALLAX / SIRIL_RL 중 하나여야 합니다.")
 
-    linear_preview = _find_saved(linear_stem)
-    jpg = jpg_stem.with_suffix(".jpg")
-    if not linear_preview or not jpg.exists():
-        raise SirilError(
-            "Restoration 실행 후 미리보기 출력 파일을 찾지 못했습니다.\n"
-            "SyQon 모델/스크립트 또는 Siril 로그를 확인하세요.\n"
-            f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+        meta = {
+            "timestamp": iso_now(),
+            "engine": engine,
+            "preview_mode": preview_mode,
+            "input_file": str(current),
+            "preview_input_file": str(preview_input),
+            "crop": crop_meta,
+            "display_preview": str(jpg),
+            "linear_preview": str(linear_preview),
+            "psf_file": str(psf_file) if psf_file else None,
+            "script_path": str(script_path) if script_path else None,
+            "engine_command": engine_command,
+            "parameters": params,
+            "siril_stdout": proc.stdout,
+            "siril_stderr": proc.stderr,
+        }
+        (pdir / "logs" / f"deblur_preview_{preview_mode.lower()}.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
         )
-
-    meta = {
-        "timestamp": iso_now(),
-        "engine": engine,
-        "input_file": str(current),
-        "display_preview": str(jpg),
-        "linear_preview": str(linear_preview),
-        "psf_file": str(psf_file) if psf_file else None,
-        "script_path": str(script_path) if script_path else None,
-        "engine_command": engine_command,
-        "parameters": params,
-        "siril_stdout": proc.stdout,
-        "siril_stderr": proc.stderr,
-    }
-    (pdir / "logs" / "deblur_preview.json").write_text(
-        json.dumps(meta, ensure_ascii=False, indent=2, default=str),
-        encoding="utf-8",
-    )
-    append_jsonl(pdir, {"event": "DEBLUR_PREVIEW", "status": "SUCCESS", **meta})
-    return jpg, linear_preview, meta
+        append_jsonl(pdir, {"event": "DEBLUR_PREVIEW", "status": "SUCCESS", **meta})
+        return jpg, linear_preview, meta
+    except ExecutionCancelled:
+        shutil.rmtree(run_dir, ignore_errors=True)
+        # A JPG may have been partially created just before cancellation.
+        try:
+            candidate = jpg_stem.with_suffix(".jpg") if 'jpg_stem' in locals() else None
+            if candidate and candidate.exists(): candidate.unlink()
+        except Exception:
+            pass
+        raise
+    except Exception:
+        # Failed preview outputs are never reusable.
+        shutil.rmtree(run_dir, ignore_errors=True)
+        raise
 
 def apply_deblur(project_dir: Path, config: dict, confirmed: bool = False, **params):
     if not confirmed:
