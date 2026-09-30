@@ -1,34 +1,16 @@
 {
-  "package": "AstroSirilAssistant_v0.14.1",
-  "version": "0.14.1",
-  "hotfix": "Windows CMD-safe BAT launchers",
+  "package": "AstroSirilAssistant_v0.14.2",
+  "version": "0.14.2",
+  "hotfix": "Existing project collision UX",
   "python_errors": [],
   "yaml_errors": [],
-  "bat_checks": {
-    "run_gui.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 713
-    },
-    "run_sequence_gui.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 722
-    },
-    "run_common.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 696
-    },
-    "install_windows.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 349
-    },
-    "run_cli.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 137
-    }
+  "core_checks": {
+    "unique_project_helper": true,
+    "preserves_auto_suffix": true,
+    "collision_dialog": true,
+    "open_existing_path": true,
+    "no_overwrite_message": true,
+    "bat_hotfix_preserved": true,
+    "syqon_preserved": true
   }
 }

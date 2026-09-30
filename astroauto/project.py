@@ -39,17 +39,38 @@ PROJECT_DIRS = [
 def project_name(target: str, capture_date: str) -> str:
     return f"{safe_target_name(target)}_{capture_date}_Auto"
 
+def next_available_project_dir(root: Path, target: str, capture_date: str) -> Path:
+    """Return a non-existing project path while keeping the required `_Auto` suffix."""
+    root = Path(root)
+    target_clean = safe_target_name(target)
+
+    first = root / project_name(target_clean, capture_date)
+    if not first.exists():
+        return first
+
+    index = 2
+    while True:
+        candidate = root / f"{target_clean}_{capture_date}_{index:02d}_Auto"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
 def create_project(root: Path, target: str, capture_date: str, category: str,
-                   input_file: Path, copy_input: bool = True):
+                   input_file: Path, copy_input: bool = True,
+                   project_dir: Path | None = None):
     input_file = Path(input_file)
     if not input_file.exists():
         raise FileNotFoundError(input_file)
     if not is_fits(input_file):
         raise ValueError("v0.3.3 MVP의 단일 입력 생성은 FITS(.fit/.fits/.fts)만 지원합니다.")
 
-    pdir = root / project_name(target, capture_date)
+    pdir = Path(project_dir) if project_dir is not None else root / project_name(target, capture_date)
     if pdir.exists():
-        raise FileExistsError(f"이미 프로젝트가 존재합니다: {pdir}")
+        raise FileExistsError(
+            "동일한 프로젝트 폴더가 이미 존재합니다.\n"
+            f"{pdir}\n\n"
+            "기존 프로젝트를 열거나 새 번호 프로젝트를 생성하세요."
+        )
 
     for rel in PROJECT_DIRS:
         (pdir / rel).mkdir(parents=True, exist_ok=True)

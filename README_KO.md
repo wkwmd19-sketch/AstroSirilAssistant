@@ -1,3 +1,23 @@
+# AstroSirilAssistant v0.14.2 — Project Collision UX Hotfix
+
+동일한 `대상명 + 촬영일` 프로젝트가 이미 있을 때 더 이상 일반 오류로 끝나지 않습니다.
+
+GUI가 선택지를 표시합니다.
+
+- **예**: 기존 프로젝트 열기
+- **아니오**: 새 번호 프로젝트 생성
+- **취소**: 중단
+
+새 프로젝트 예:
+
+`M31_2026-09-30_02_Auto`
+
+기존 프로젝트는 절대 덮어쓰거나 삭제하지 않습니다.
+
+v0.14.1 Windows BAT 수정, v0.14.0 Parallax/Prism 및 Astro Graphite UI는 그대로 포함합니다.
+
+---
+
 # AstroSirilAssistant v0.14.1 — Windows BAT Launcher Hotfix
 
 v0.14.0에서 일부 Windows `cmd.exe` 환경이 BAT launcher를 잘못 해석하는 문제를 수정했습니다.

@@ -10,7 +10,7 @@ import time
 from astroauto.config import load_app_config
 from astroauto.ui_theme import apply_astro_theme, apply_screen_aware_geometry, style_text_widget, style_canvas
 from astroauto.syqon import detect_syqon
-from astroauto.project import create_project, load_project
+from astroauto.project import create_project, load_project, project_name, next_available_project_dir
 from astroauto.analyzer import analyze_project, confirm_linearity
 from astroauto.siril import get_siril_info
 from astroauto.workflow import format_task
@@ -92,7 +92,7 @@ ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.1")
+        self.title("AstroSirilAssistant v0.14.2")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -850,8 +850,32 @@ class App(tk.Tk):
 
         category = LABEL_TO_ID[self.category_var.get()]
         root = Path(self.root_var.get().strip())
+        base_pdir = root / project_name(target, capture_date)
+        requested_pdir = None
+
+        if base_pdir.exists():
+            fresh_pdir = next_available_project_dir(root, target, capture_date)
+            choice = messagebox.askyesnocancel(
+                "동일 프로젝트가 이미 존재합니다",
+                "같은 대상명 + 촬영일의 프로젝트가 이미 있습니다.\n\n"
+                f"기존 프로젝트:\n{base_pdir}\n\n"
+                "예(Y)  : 기존 프로젝트 열기\n"
+                f"아니오(N): 새 프로젝트 생성 ({fresh_pdir.name})\n"
+                "취소    : 아무 작업도 하지 않음\n\n"
+                "기존 폴더는 덮어쓰거나 삭제하지 않습니다."
+            )
+
+            if choice is None:
+                self.status_var.set("대기 중")
+                return
+
+            if choice is True:
+                self._load_project_from_path(base_pdir)
+                return
+
+            requested_pdir = fresh_pdir
+
         self.status_var.set("프로젝트 생성 및 분석 중...")
-        self._clear_actions()
         self.output.delete("1.0", "end")
 
         def work():
@@ -862,6 +886,7 @@ class App(tk.Tk):
                 category=category,
                 input_file=Path(input_path),
                 copy_input=True,
+                project_dir=requested_pdir,
             )
             project, report, task = analyze_project(pdir, self.cfg)
             self.project_dir = pdir
@@ -882,16 +907,13 @@ class App(tk.Tk):
 
         self.run_bg(work, operation="프로젝트 생성 + 분석")
 
-    def open_project(self):
-        path = filedialog.askdirectory(title="기존 AstroSirilAssistant 프로젝트 선택")
-        if not path:
-            return
-        pdir = Path(path)
+    def _load_project_from_path(self, pdir: Path):
+        pdir = Path(pdir)
         try:
             project = load_project(pdir)
         except Exception as e:
             messagebox.showerror("오류", str(e))
-            return
+            return False
 
         self.project_dir = pdir
         project = migrate_post_spcc_task(pdir)
@@ -904,6 +926,7 @@ class App(tk.Tk):
         project = migrate_ready_for_recombine(pdir)
         project = migrate_ready_for_final_export(pdir)
         p = project["project"]
+
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
             p.get("target", {}).get("category", "UNKNOWN"), "모름/자동판단 대기"
@@ -923,9 +946,17 @@ class App(tk.Tk):
         )
         if task:
             text += "\n" + format_task(task)
+
         self.write(text, clear=True)
         self.render_task(task)
         self.status_var.set("기존 프로젝트 로드 완료")
+        return True
+
+    def open_project(self):
+        path = filedialog.askdirectory(title="기존 AstroSirilAssistant 프로젝트 선택")
+        if not path:
+            return
+        self._load_project_from_path(Path(path))
 
     def _clear_actions(self):
         for child in self.action_box.winfo_children():

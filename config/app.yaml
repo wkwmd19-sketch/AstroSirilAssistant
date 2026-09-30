@@ -1,5 +1,5 @@
 app:
-  version: 0.14.1
+  version: 0.14.2
   project_root: D:\AstroProjects_Auto
   copy_input_into_project: true
 siril:
@@ -96,4 +96,4 @@ future:
 syqon:
   script_roots: []
   command_timeout_sec: 3600
-version: 0.14.1
+version: 0.14.2
