@@ -1,3 +1,81 @@
+# AstroSirilAssistant v0.15.0 — Multi-format Intake
+
+이번 버전은 단일 이미지 입력 계층을 FITS 전용에서 다중 포맷으로 확장합니다.
+기존에 Windows + Siril 1.4.4 + SyQon 환경에서 Final까지 검증된 FITS 처리 파이프라인은 유지하고,
+입력 단계 앞에 **원본 보존 → 이미지 분석 → 작업용 FITS 표준화** 계층을 추가했습니다.
+
+## 지원 입력
+
+- FITS: `.fits`, `.fit`, `.fts`, `.fits.fz`
+- Camera RAW: `.cr2`, `.cr3`, `.nef`, `.arw`, `.dng`, `.raf`, `.orf`, `.rw2`, `.pef`
+- Raster: `.tif`, `.tiff`, `.png`, `.jpg`, `.jpeg`
+
+## 입력 원칙
+
+- 사용자가 선택한 원본은 `input/original`에 그대로 복사해 보존합니다.
+- 실제 보정은 `input/normalized/<target>_00_input.fits`에서 시작합니다.
+- Camera RAW는 Siril의 RAW 변환 경로(LibRaw)에서 Debayer한 뒤 32-bit 작업 모드 FITS로 표준화합니다.
+- RAW 변환 결과가 명확하게 생성되지 않으면 실패로 처리합니다. Debayer 여부가 불명확한 일반 loader fallback은 사용하지 않습니다.
+- JPEG는 손실압축/표시용 형식이므로 Non-linear 입력으로 취급합니다.
+- PNG/TIFF는 확장자만으로 Linear/Non-linear를 단정하지 않습니다.
+- FITS 입력은 분석은 원본에서 직접 수행하고, 프로젝트 생성 시 원본 보존본과 정규화 작업본을 분리합니다.
+
+## 프로젝트 입력 구조
+
+```text
+Auto_<대상>_<촬영일>/
+├─ input/
+│  ├─ original/       # 사용자 원본, 수정 금지
+│  ├─ normalized/     # 파이프라인용 FITS
+│  ├─ metadata/       # 원본/변환 메타데이터 JSON
+│  └─ lights/         # 기존/Sequence 호환
+├─ working/
+├─ output/
+├─ logs/
+└─ project.yaml
+```
+
+## 이미지 분석
+
+프로젝트 생성 전 `이미지 분석`이 다음을 수행합니다.
+
+- 입력 형식 분류
+- 필요한 경우 작업용 FITS 생성
+- 해상도/비트 깊이/촬영 메타데이터 분석
+- 대상명과 촬영일 자동 입력 시도
+- Linear/Non-linear 안전 판정
+- 변환 방식과 원본 형식 기록
+
+분석 캐시의 작업용 FITS는 프로젝트 생성 후 `input/normalized`로 복사되고 임시 캐시는 정리됩니다.
+
+## 메타데이터
+
+`input/metadata/source_metadata.json`에 원본 파일 정보, 변환된 FITS 헤더 매핑,
+Siril 메타데이터를 기록합니다. `project.yaml`에도 source format / family / lossy / RAW 여부와
+normalization method를 기록합니다.
+
+## 현재 범위
+
+v0.15.0은 **다중 포맷 단일 이미지 입력 계층의 첫 버전**입니다.
+
+- 기존 FITS 딥스카이 보정 파이프라인은 유지됩니다.
+- RAW 시퀀스의 정식 Calibration → Debayer → Registration → Stack은 별도 Sequence 흐름의 역할입니다.
+- 달/행성, 은하수/풍경, 별 일주 등의 전용 후처리 파이프라인은 이후 프로파일 단계에서 확장합니다.
+- JPEG/PNG/TIFF를 억지로 Linear 딥스카이 파이프라인에 자동 투입하지 않습니다.
+
+## 첫 실기 검증 권장
+
+1. CR3 한 장 선택
+2. `이미지 분석`
+3. 로그에서 `RAW Decode: Siril/LibRaw + Debayer` 확인
+4. 카메라/촬영일/노출/ISO 등 표시 확인
+5. 프로젝트 생성
+6. `input/original`에 CR3가 그대로 있는지 확인
+7. `input/normalized`에 32-bit 작업용 FITS가 생성됐는지 확인
+8. 정규화 FITS의 색/방향/해상도/Linear 상태를 확인한 뒤 다음 단계 진행
+
+---
+
 # AstroSirilAssistant v0.14.9 — Focus & Input Polish
 
 프로젝트 입력 화면의 Windows 렌더링 잔여 픽셀과 포커스 UX를 다듬은 소규모 UI 패치입니다.

@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class V014StructureTests(unittest.TestCase):
     def test_new_project_pipeline_order(self):
         text = (ROOT / "astroauto" / "project.py").read_text(encoding="utf-8")
-        self.assertIn('"schema_version": "0.14.0"', text)
+        self.assertIn('"schema_version": "0.15.0"', text)
         self.assertIn('"processing_preset": "MANUAL_INSPIRED_SYQON"', text)
         self.assertIn('["GRADIENT", "SPCC", "DEBLUR", "DENOISE", "GHS"]', text)
         self.assertIn('"working/05_restore"', text)

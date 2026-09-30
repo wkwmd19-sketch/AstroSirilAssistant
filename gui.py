@@ -19,7 +19,10 @@ from astroauto.analyzer import (
 )
 from astroauto.intake import (
     inspect_input_header, target_from_header, capture_date_from_header,
-    infer_category_from_target, format_image_info,
+    infer_category_from_target, format_image_info, format_analysis_info,
+)
+from astroauto.input_formats import (
+    describe_input, supported_dialog_patterns, cleanup_analysis_cache,
 )
 from astroauto.siril import get_siril_info
 from astroauto.execution import TaskControl, ExecutionCancelled, execution_context
@@ -169,7 +172,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.9")
+        self.title("AstroSirilAssistant v0.15.0")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -184,7 +187,7 @@ class App(tk.Tk):
         self.copyright_var = tk.StringVar(value="")
         self.root_var = tk.StringVar(value=self.cfg["app"]["project_root"])
         self.status_var = tk.StringVar(value="대기 중")
-        self.image_info_var = tk.StringVar(value="이미지를 선택하면 FITS 헤더의 촬영 정보를 표시합니다.")
+        self.image_info_var = tk.StringVar(value="이미지를 선택하면 형식과 촬영 정보를 확인합니다.")
         self.current_stage_var = tk.StringVar(value="현재 단계 : 이미지를 선택하고 분석을 시작하세요.")
         self.next_stage_var = tk.StringVar(value="다음 작업 : 이미지 분석")
         self._intake_analysis_report = None
@@ -496,7 +499,7 @@ class App(tk.Tk):
         )
         ttk.Label(
             input_card,
-            text="이미지를 등록하면 기본 촬영 정보를 불러옵니다. 이미지 분석을 완료한 뒤 프로젝트를 생성하세요.",
+            text="FITS·RAW·TIFF·PNG·JPEG를 등록할 수 있습니다. 이미지 분석 후 안전한 작업용 FITS를 준비하고 프로젝트를 생성합니다.",
             style="CardMuted.TLabel", wraplength=1040,
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 15))
 
@@ -926,8 +929,9 @@ class App(tk.Tk):
         try:
             inspection = inspect_input_header(path)
             header = inspection.get("header") or {}
+            source = inspection.get("source") or describe_input(path).to_dict()
         except Exception as exc:
-            self.image_info_var.set(f"FITS 헤더를 읽지 못했습니다: {exc}")
+            self.image_info_var.set(f"이미지 정보를 읽지 못했습니다: {exc}")
             self.target_var.set("")
             self.date_var.set("")
             self.category_var.set("기타 / 직접입력")
@@ -939,12 +943,24 @@ class App(tk.Tk):
         self.date_var.set(capture_date)
         self._category_auto = True
         self._set_category_from_target(target, force=True)
-        self.image_info_var.set(format_image_info(header))
+
+        if source.get("fits"):
+            self.image_info_var.set(format_image_info(header, source))
+        else:
+            fmt = source.get("format", "이미지")
+            warning = source.get("warning") or "분석 후 촬영 정보와 작업용 FITS 상태를 표시합니다."
+            self.image_info_var.set(f"{fmt} · {warning}")
 
     def pick_input(self):
         path = filedialog.askopenfilename(
             title="이미지 선택",
-            filetypes=[("FITS", "*.fits *.fit *.fts"), ("All files", "*.*")]
+            filetypes=[
+                ("지원 이미지", supported_dialog_patterns()),
+                ("FITS", "*.fits *.fit *.fts *.fits.fz"),
+                ("카메라 RAW", "*.cr2 *.cr3 *.nef *.arw *.dng *.raf *.orf *.rw2 *.pef"),
+                ("TIFF / PNG / JPEG", "*.tif *.tiff *.png *.jpg *.jpeg"),
+                ("모든 파일", "*.*"),
+            ]
         )
         if not path:
             return
@@ -954,7 +970,7 @@ class App(tk.Tk):
         self._load_header_hints(Path(path))
         if hasattr(self, "analyze_btn"):
             self.analyze_btn.state(["!disabled"])
-        self.status_var.set("이미지 등록 완료 · 분석을 실행하세요.")
+        self.status_var.set("이미지 등록 완료 · 형식과 메타데이터를 분석하세요.")
 
     def pick_root(self):
         path = filedialog.askdirectory(title="저장 위치 선택")
@@ -1268,19 +1284,25 @@ class App(tk.Tk):
             if header_date:
                 self.date_var.set(header_date)
 
-            info = format_image_info(header)
             linearity = report.get("linearity_assessment") or {}
             linearity_status = linearity.get("status", "UNKNOWN")
-            self.image_info_var.set(f"{info} · Linear 판정 {linearity_status}")
+            self.image_info_var.set(format_analysis_info(report))
 
             stats = report.get("pixel_statistics") or {}
+            source = report.get("source") or {}
+            normalization = report.get("normalization") or {}
+            warning = source.get("warning") or ""
             self.write(
                 "이미지 분석 완료\n"
                 f"파일: {path}\n"
+                f"입력 형식: {source.get('format', 'UNKNOWN')}\n"
+                f"작업 형식: {normalization.get('working_format', 'FITS')} {normalization.get('precision', '')}\n"
+                f"변환 방식: {normalization.get('method', 'DIRECT_FITS')}\n"
                 f"Siril: {report.get('siril', {}).get('version', 'UNKNOWN')}\n"
                 f"이미지 shape: {stats.get('shape')}\n"
                 f"Linear 판정: {linearity_status}\n"
-                f"판정 이유: {linearity.get('reason', '')}\n",
+                f"판정 이유: {linearity.get('reason', '')}\n"
+                + (f"주의: {warning}\n" if warning else ""),
                 clear=True,
             )
             self.status_var.set("이미지 분석 완료 · 프로젝트를 생성할 수 있습니다.")
@@ -1391,6 +1413,7 @@ class App(tk.Tk):
                 self.status_var.set("대기 중")
                 return
             if choice == "OPEN":
+                cleanup_analysis_cache(self._intake_analysis_report)
                 self._load_project_from_path(existing_pdir)
                 return
             requested_pdir = fresh_pdir
@@ -1407,12 +1430,14 @@ class App(tk.Tk):
                 copy_input=True,
                 project_dir=requested_pdir,
                 copyright_text=self.copyright_var.get().strip(),
+                analysis_report=self._intake_analysis_report,
             )
             project, report, task = apply_analysis_to_project(
                 pdir,
                 self._intake_analysis_report,
                 self._intake_analysis_diagnostics,
             )
+            cleanup_analysis_cache(self._intake_analysis_report)
             return pdir, project, report, task
 
         def done(result):
@@ -1420,6 +1445,7 @@ class App(tk.Tk):
             self.project_dir = pdir
             self.write(
                 f"프로젝트 생성 완료\n{pdir}\n\n"
+                f"입력 형식: {report.get('source', {}).get('format', 'FITS')}\n"
                 f"Siril: {report.get('siril', {}).get('version', 'UNKNOWN')}\n"
                 f"이미지 shape: {report.get('pixel_statistics', {}).get('shape')}\n"
                 f"Linear 판정: {report.get('linearity_assessment', {}).get('status', 'UNKNOWN')}\n\n"
@@ -1475,6 +1501,14 @@ class App(tk.Tk):
                 self.date_var.set(p.get("capture", {}).get("date", ""))
                 self.copyright_var.set(str((p.get("metadata") or {}).get("copyright") or ""))
                 self._category_auto = False
+                try:
+                    inspection = inspect_input_header(Path(current))
+                    header = inspection.get("header") or {}
+                    source_fmt = (p.get("input") or {}).get("source_format") or "FITS"
+                    source_view = {"format": source_fmt}
+                    self.image_info_var.set(format_image_info(header, source_view))
+                except Exception:
+                    pass
             except Exception:
                 pass
         self._intake_analysis_report = None

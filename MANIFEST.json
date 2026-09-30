@@ -1,52 +1,43 @@
 {
-  "package": "AstroSirilAssistant_v0.14.9",
-  "version": "0.14.9",
-  "update": "Project intake split, FITS metadata autofill, copyright metadata, and cozy UI cleanup",
-  "validation": {
-    "python_syntax_errors": 0,
-    "yaml_parse_errors": 0,
-    "targeted_ui_tests": "13 passed",
-    "gui_smoke": "passed with lightweight astropy import stub",
-    "broader_regression": "80 passed; 2 Safe-Band FITS I/O tests not runnable because the lightweight astropy stub has no PrimaryHDU",
-    "windows_runtime": "pending user test"
-  },
+  "package": "AstroSirilAssistant_v0.15.0",
+  "version": "0.15.0",
+  "update": "Multi-format single-image intake with immutable source preservation and internal FITS normalization",
   "features": {
-    "analysis_before_project_create": true,
-    "header_object_date_autofill": true,
-    "known_target_category_autofill": true,
-    "unknown_target_label": "기타 / 직접입력",
-    "copyright_project_metadata": true,
-    "copyright_final_fits_header": "COPYRGHT",
-    "readonly_path_fields": true,
-    "slim_arrowless_scrollbars": true,
-    "elapsed_format": "MM:SS"
+    "formats": [
+      "FITS",
+      "CR2",
+      "CR3",
+      "NEF",
+      "ARW",
+      "DNG",
+      "RAF",
+      "ORF",
+      "RW2",
+      "PEF",
+      "TIFF",
+      "PNG",
+      "JPEG"
+    ],
+    "preserve_original": true,
+    "working_format": "FITS",
+    "working_precision": "32-bit float for normalized non-FITS input",
+    "raw_decoder": "Siril convertraw / LibRaw with -debayer",
+    "jpeg_policy": "NONLINEAR",
+    "png_tiff_policy": "CONFIRM_LINEARITY",
+    "source_metadata_json": true,
+    "legacy_projects_supported": true
   },
-  "bat_checks": {
-    "run_gui.bat": {
-      "ascii": true,
-      "crlf": true
-    },
-    "run_sequence_gui.bat": {
-      "ascii": true,
-      "crlf": true
-    },
-    "run_common.bat": {
-      "ascii": true,
-      "crlf": true
-    },
-    "install_windows.bat": {
-      "ascii": true,
-      "crlf": true
-    },
-    "run_cli.bat": {
-      "ascii": true,
-      "crlf": true
-    }
-  },
-  "python_errors": [],
-  "yaml_errors": [],
-  "hotfix": "Project intake corner-pixel cleanup and click-empty-space focus clear",
   "runtime_status": {
-    "v0.14.9_windows_runtime": "PENDING USER TEST"
+    "existing_fits_pipeline": "USER VERIFIED THROUGH FINAL EXPORT",
+    "parallax_safe_band": "USER VERIFIED",
+    "v0.15.0_multiformat_windows_runtime": "PENDING USER TEST"
+  },
+  "validation": {
+    "python_files_compiled": 67,
+    "python_syntax_errors": 0,
+    "yaml_files_parsed": 25,
+    "yaml_parse_errors": 0,
+    "targeted_tests_passed": 31,
+    "full_pytest_note": "Full suite could not collect in this container because astropy is not installed; requirements.txt includes astropy>=6.0. Existing user-verified FITS pipeline was not changed by this intake layer."
   }
 }

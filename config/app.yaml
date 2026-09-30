@@ -1,5 +1,5 @@
 app:
-  version: 0.14.9
+  version: 0.15.0
   project_root: D:\AstroProjects_Auto
   copy_input_into_project: true
 siril:
@@ -103,4 +103,25 @@ syqon:
   full_safe_banding: true
   safe_bridge_payload_mib: 32
   safe_band_overlap: 192
-version: 0.14.9
+version: 0.15.0
+input_formats:
+  supported:
+  - FITS
+  - CR2
+  - CR3
+  - NEF
+  - ARW
+  - DNG
+  - RAF
+  - ORF
+  - RW2
+  - PEF
+  - TIFF
+  - PNG
+  - JPEG
+  preserve_original: true
+  working_format: FITS
+  working_precision: 32-bit float
+  raw_debayer: true
+  jpeg_policy: NONLINEAR
+  png_tiff_policy: CONFIRM_LINEARITY
