@@ -1,3 +1,31 @@
+# AstroSirilAssistant v0.14.8 — Project Intake UX + Metadata
+
+이번 버전은 단일 이미지 프로젝트 시작 화면과 입력 흐름을 정리한 UX 업데이트입니다.
+
+- `입력 FITS` → `이미지`로 문구 정리
+- 이미지/저장 위치 경로는 읽기 전용으로 변경
+- FITS 헤더의 `OBJECT`, `DATE-OBS`/`DATE`를 이용해 대상명/촬영일 자동 입력
+- 알려진 대상은 `known_targets.yaml`을 기준으로 대상 종류 자동 분류
+- 알 수 없는 대상은 `기타 / 직접입력`으로 표시
+- 대상명이 없을 때 `천체 명칭을 입력해주세요.` placeholder 표시
+- 프로젝트 시작 순서를 `이미지 분석 → 프로젝트 생성`으로 분리
+- 이미지 분석이 완료되어야 프로젝트 생성 버튼 활성화
+- 프로젝트 입력 카드에 해상도/비트 깊이/카메라/노출/Gain/필터 요약 표시
+- 선택 입력 `저작권` 추가: project.yaml 보관 + Final FITS `COPYRGHT` 헤더 기록
+- Siril 연결 확인 결과를 팝업으로 안내
+- 버튼 순서: Siril 연결 확인 → SyQon 설치 확인 → 이미지 분석 → 프로젝트 생성
+- 상태 영역을 `상태` 라벨과 상태값 두 줄 구조로 변경
+- 프로그레스 시간은 `경과` 문구 없이 `MM:SS`만 표시
+- Entry의 하얀 corner/focus pixel 제거를 위한 borderless layout 적용
+- 세로/가로 스크롤바의 화살표를 제거하고 얇은 thumb 중심 스타일로 변경
+- 일반 도움말은 UI 정책 대신 용어/입력값/버튼 동작 중심의 사용 도움말로 교체
+
+기존 Parallax Safe-Band, Before/After 비교, Prism, GHS, StarNet, Recombine, Final Export 처리 흐름은 유지합니다.
+
+> 저작권 입력은 워터마크가 아닙니다. 현재 Working/Final FITS 헤더에 기록하며 TIFF/PNG 메타데이터에는 강제로 삽입하지 않습니다.
+
+---
+
 # AstroSirilAssistant v0.14.7 — Astro Cozy Dark UI
 
 이번 버전은 v0.14.6의 처리 로직을 유지하면서 시각 톤만 부드럽게 다듬은 UI Polish 릴리스입니다.

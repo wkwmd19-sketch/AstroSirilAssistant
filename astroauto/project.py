@@ -72,7 +72,8 @@ def next_available_project_dir(root: Path, target: str, capture_date: str) -> Pa
 
 def create_project(root: Path, target: str, capture_date: str, category: str,
                    input_file: Path, copy_input: bool = True,
-                   project_dir: Path | None = None):
+                   project_dir: Path | None = None,
+                   copyright_text: str = ""):
     input_file = Path(input_file)
     if not input_file.exists():
         raise FileNotFoundError(input_file)
@@ -223,6 +224,10 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
             "runtime": {
                 "siril_version": None,
                 "siril_executable": None,
+            },
+
+            "metadata": {
+                "copyright": str(copyright_text or "").strip(),
             },
 
             "next_task": None,

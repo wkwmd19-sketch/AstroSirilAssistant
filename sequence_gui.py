@@ -35,7 +35,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.7 · Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.14.8 · Deep Sky Sequence")
         apply_screen_aware_geometry(self)
         self.palette = apply_astro_theme(self)
 
@@ -210,19 +210,19 @@ class SequenceApp(tk.Tk):
         ).pack(side="left", padx=6)
 
 
-        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(16,11))
+        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(16,12))
         status_card.grid(row=4, column=0, sticky="ew", pady=(0,12))
-        ttk.Label(status_card, text="상태", style="Subtitle.TLabel").pack(side="left")
-        ttk.Label(status_card, textvariable=self.status, style="Subtitle.TLabel").pack(
-            side="left", padx=(10,0)
+        ttk.Label(status_card, text="상태", style="StatusKey.TLabel").pack(anchor="w")
+        ttk.Label(status_card, textvariable=self.status, style="StatusValue.TLabel").pack(
+            anchor="w", pady=(4,0)
         )
 
         op = ttk.Frame(f, style="Surface.TFrame", padding=(14, 10))
         op.grid(row=5, column=0, sticky="ew", pady=(2,8))
-        ttk.Label(op, textvariable=self.operation_var).pack(side="left")
+        ttk.Label(op, textvariable=self.operation_var, style="SurfaceText.TLabel").pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12,8), fill="x", expand=True)
-        ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+        ttk.Label(op, textvariable=self.elapsed_var, width=8, style="SurfaceText.TLabel").pack(side="left")
         self.cancel_btn = ttk.Button(op, text="중단", command=self.request_cancel, style="Danger.TButton")
         self.cancel_btn.pack(side="left", padx=(8,0))
         self.cancel_btn.state(["disabled"])
@@ -444,7 +444,7 @@ class SequenceApp(tk.Tk):
         if not self._busy or self._busy_started is None:
             return
         sec = int(time.monotonic() - self._busy_started)
-        self.elapsed_var.set(f"경과 {sec//60:02d}:{sec%60:02d}")
+        self.elapsed_var.set(f"{sec//60:02d}:{sec%60:02d}")
         self._busy_timer_id = self.after(500, self._tick_elapsed)
 
     def _begin_busy(self, label):
@@ -455,7 +455,7 @@ class SequenceApp(tk.Tk):
         self._current_operation = label
         self._cancel_requested = False
         self.operation_var.set(f"● 실행 중: {label}")
-        self.elapsed_var.set("경과 00:00")
+        self.elapsed_var.set("00:00")
         self.progress.start(12)
         self._set_controls_disabled(True)
         self.cancel_btn.state(["!disabled"])

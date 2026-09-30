@@ -11,10 +11,16 @@ from astroauto.config import load_app_config
 from astroauto.ui_theme import apply_astro_theme, apply_screen_aware_geometry, style_text_widget, style_canvas
 from astroauto.syqon import detect_syqon
 from astroauto.project import (
-    create_project, load_project, project_name, next_available_project_dir,
+    create_project, load_project, save_project, project_name, next_available_project_dir,
     find_existing_project_dir,
 )
-from astroauto.analyzer import analyze_project, confirm_linearity
+from astroauto.analyzer import (
+    analyze_project, analyze_input_file, apply_analysis_to_project, confirm_linearity,
+)
+from astroauto.intake import (
+    inspect_input_header, target_from_header, capture_date_from_header,
+    infer_category_from_target, format_image_info,
+)
 from astroauto.siril import get_siril_info
 from astroauto.execution import TaskControl, ExecutionCancelled, execution_context
 from astroauto.workflow import format_task
@@ -88,14 +94,14 @@ CATEGORIES = [
     ("혜성/소행성", "COMET"),
     ("달/행성", "PLANETARY_LUNAR"),
     ("모자이크", "MOSAIC"),
-    ("모름/자동판단 대기", "UNKNOWN"),
+    ("기타 / 직접입력", "UNKNOWN"),
 ]
 LABEL_TO_ID = dict(CATEGORIES)
 ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 
 STAGE_FLOW_INFO = {
     "CONFIRM_INPUT_STAGE": (
-        "입력 FITS가 스택 결과인지 개별 Light인지 확인해 안전한 처리 시작점을 정하는 단계입니다.",
+        "입력 이미지가 스택 결과인지 개별 Light인지 확인해 안전한 처리 시작점을 정하는 단계입니다.",
         "Linearity 확인",
     ),
     "CONFIRM_LINEARITY": (
@@ -163,7 +169,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.7")
+        self.title("AstroSirilAssistant v0.14.8")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -172,13 +178,21 @@ class App(tk.Tk):
         self.project_dir: Path | None = None
 
         self.input_var = tk.StringVar()
-        self.target_var = tk.StringVar(value="M31")
-        self.date_var = tk.StringVar(value=date.today().isoformat())
-        self.category_var = tk.StringVar(value="은하")
+        self.target_var = tk.StringVar(value="")
+        self.date_var = tk.StringVar(value="")
+        self.category_var = tk.StringVar(value="기타 / 직접입력")
+        self.copyright_var = tk.StringVar(value="")
         self.root_var = tk.StringVar(value=self.cfg["app"]["project_root"])
         self.status_var = tk.StringVar(value="대기 중")
-        self.current_stage_var = tk.StringVar(value="현재 단계 : 프로젝트를 생성하거나 열어주세요.")
-        self.next_stage_var = tk.StringVar(value="다음 작업 : —")
+        self.image_info_var = tk.StringVar(value="이미지를 선택하면 FITS 헤더의 촬영 정보를 표시합니다.")
+        self.current_stage_var = tk.StringVar(value="현재 단계 : 이미지를 선택하고 분석을 시작하세요.")
+        self.next_stage_var = tk.StringVar(value="다음 작업 : 이미지 분석")
+        self._intake_analysis_report = None
+        self._intake_analysis_diagnostics = None
+        self._intake_analysis_signature = None
+        self._category_auto = True
+        self._target_placeholder = None
+        self._date_placeholder = None
 
         gd = self.ui_defaults.get("gradient", {})
         self.gradient_samples = tk.StringVar(value=str(gd.get("samples", 20)))
@@ -472,58 +486,98 @@ class App(tk.Tk):
         ).pack(anchor="w", pady=(2,0))
         ttk.Label(header, text="단일 이미지", style="Badge.TLabel").pack(side="right")
 
-        # Input / project card.
-        input_card = ttk.LabelFrame(frm, text="프로젝트 입력", style="Card.TLabelframe")
+        # Project intake card: soft card layout with explicit analysis -> create flow.
+        input_card = ttk.Frame(frm, style="Card.TFrame", padding=(22, 20))
         input_card.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0,14))
 
-        ttk.Label(input_card, text="입력 FITS").grid(row=0, column=0, sticky="w", pady=7)
-        ttk.Entry(input_card, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew", padx=(10,0), pady=3)
-        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=0, column=2, padx=(10,0), pady=3)
+        ttk.Label(input_card, text="프로젝트 입력", style="CardTitle.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
+        )
+        ttk.Label(
+            input_card,
+            text="이미지를 등록하면 기본 촬영 정보를 불러옵니다. 이미지 분석을 완료한 뒤 프로젝트를 생성하세요.",
+            style="CardMuted.TLabel", wraplength=1040,
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 15))
 
-        ttk.Label(input_card, text="대상명").grid(row=1, column=0, sticky="w", pady=7)
-        ttk.Entry(input_card, textvariable=self.target_var).grid(row=1, column=1, sticky="ew", padx=(10,0), pady=3)
+        ttk.Label(input_card, text="이미지", style="FieldLabel.TLabel").grid(row=2, column=0, sticky="w", pady=7)
+        self.input_entry = ttk.Entry(input_card, textvariable=self.input_var, state="readonly")
+        self.input_entry.grid(row=2, column=1, sticky="ew", padx=(14,0), pady=4)
+        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=2, column=2, padx=(10,0), pady=4)
 
-        ttk.Label(input_card, text="촬영일").grid(row=2, column=0, sticky="w", pady=7)
-        ttk.Entry(input_card, textvariable=self.date_var).grid(row=2, column=1, sticky="ew", padx=(10,0), pady=3)
+        ttk.Label(input_card, text="대상명", style="FieldLabel.TLabel").grid(row=3, column=0, sticky="w", pady=7)
+        self.target_entry = ttk.Entry(input_card, textvariable=self.target_var)
+        self.target_entry.grid(row=3, column=1, sticky="ew", padx=(14,0), pady=4)
+        self._target_placeholder = self._attach_placeholder(
+            self.target_entry, self.target_var, "천체 명칭을 입력해주세요."
+        )
+        self.target_entry.bind("<FocusOut>", self._on_target_focus_out, add="+")
 
-        ttk.Label(input_card, text="대상 종류").grid(row=3, column=0, sticky="w", pady=7)
-        combo = ttk.Combobox(
-            input_card, textvariable=self.category_var, state="readonly",
+        ttk.Label(input_card, text="촬영일", style="FieldLabel.TLabel").grid(row=4, column=0, sticky="w", pady=7)
+        self.date_entry = ttk.Entry(input_card, textvariable=self.date_var)
+        self.date_entry.grid(row=4, column=1, sticky="ew", padx=(14,0), pady=4)
+        self._date_placeholder = self._attach_placeholder(
+            self.date_entry, self.date_var, "YYYY-MM-DD"
+        )
+
+        ttk.Label(input_card, text="대상 종류", style="FieldLabel.TLabel").grid(row=5, column=0, sticky="w", pady=7)
+        self.category_combo = ttk.Combobox(
+            input_card, textvariable=self.category_var, state="readonly", height=10,
             values=[x[0] for x in CATEGORIES]
         )
-        combo.grid(row=3, column=1, sticky="ew", padx=(10,0), pady=3)
+        self.category_combo.grid(row=5, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.category_combo.bind("<<ComboboxSelected>>", self._on_category_selected, add="+")
 
-        ttk.Label(input_card, text="저장 위치").grid(row=4, column=0, sticky="w", pady=7)
-        ttk.Entry(input_card, textvariable=self.root_var).grid(row=4, column=1, sticky="ew", padx=(10,0), pady=3)
-        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=4, column=2, padx=(10,0), pady=3)
+        copyright_label = ttk.Label(input_card, text="저작권 (선택)", style="FieldLabel.TLabel")
+        copyright_label.grid(row=6, column=0, sticky="w", pady=7)
+        self.help.tooltip(copyright_label, "project.copyright")
+        self.copyright_entry = ttk.Entry(input_card, textvariable=self.copyright_var)
+        self.copyright_entry.grid(row=6, column=1, sticky="ew", padx=(14,0), pady=4)
+        self._attach_placeholder(self.copyright_entry, self.copyright_var, "예: © 2026 Photographer")
+        self.copyright_entry.bind("<FocusOut>", lambda _e: self._persist_project_metadata(), add="+")
+
+        ttk.Label(input_card, text="저장 위치", style="FieldLabel.TLabel").grid(row=7, column=0, sticky="w", pady=7)
+        self.root_entry = ttk.Entry(input_card, textvariable=self.root_var, state="readonly")
+        self.root_entry.grid(row=7, column=1, sticky="ew", padx=(14,0), pady=4)
+        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=7, column=2, padx=(10,0), pady=4)
+
+        info_strip = ttk.Frame(input_card, style="Card.TFrame")
+        info_strip.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(14, 0))
+        ttk.Label(info_strip, text="이미지 정보", style="FieldLabel.TLabel").pack(anchor="w", pady=(0,5))
+        ttk.Label(
+            info_strip, textvariable=self.image_info_var, style="Meta.TLabel",
+            wraplength=1050, anchor="w", justify="left",
+        ).pack(fill="x")
         input_card.columnconfigure(1, weight=1)
 
         btns = ttk.Frame(frm)
         btns.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0,14))
         ttk.Button(btns, text="Siril 연결 확인", command=self.doctor).pack(side="left", padx=(0,6))
         ttk.Button(
-            btns, text="프로젝트 생성 + 분석",
-            command=self.create_and_analyze, style="Accent.TButton"
-        ).pack(side="left", padx=6)
-        ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=6)
-        ttk.Button(
             btns, text="SyQon 설치 확인", command=self.check_syqon_installation
         ).pack(side="left", padx=6)
+        self.analyze_btn = ttk.Button(
+            btns, text="이미지 분석", command=self.analyze_input, style="Accent.TButton"
+        )
+        self.analyze_btn.pack(side="left", padx=6)
+        self.analyze_btn.state(["disabled"])
+        self.create_project_btn = ttk.Button(
+            btns, text="프로젝트 생성", command=self.create_project_from_analysis, style="Success.TButton"
+        )
+        self.create_project_btn.pack(side="left", padx=6)
+        self.create_project_btn.state(["disabled"])
+        ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=6)
         ttk.Button(
-            btns,
-            text="도움말",
-            command=lambda: self.help.show_detail("ui.dynamic"),
+            btns, text="도움말",
+            command=lambda: self.help.show_detail("ui.guide"),
             style="Quiet.TButton",
         ).pack(side="right", padx=(6,0))
 
-        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16,11))
+        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16,12))
         status_card.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,12))
+        ttk.Label(status_card, text="상태", style="StatusKey.TLabel").pack(anchor="w")
         ttk.Label(
-            status_card, text="상태", style="Subtitle.TLabel"
-        ).pack(side="left")
-        ttk.Label(
-            status_card, textvariable=self.status_var, style="Subtitle.TLabel"
-        ).pack(side="left", padx=(10,0))
+            status_card, textvariable=self.status_var, style="StatusValue.TLabel", wraplength=1120
+        ).pack(anchor="w", pady=(4,0))
 
         flow_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16, 12))
         flow_card.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0,14))
@@ -543,10 +597,10 @@ class App(tk.Tk):
 
         op = ttk.Frame(frm, style="Surface.TFrame", padding=(14, 10))
         op.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(2, 8))
-        ttk.Label(op, textvariable=self.operation_var).pack(side="left")
+        ttk.Label(op, textvariable=self.operation_var, style="SurfaceText.TLabel").pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12, 8), fill="x", expand=True)
-        ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+        ttk.Label(op, textvariable=self.elapsed_var, width=8, style="SurfaceText.TLabel").pack(side="left")
         self.cancel_btn = ttk.Button(
             op, text="중단", command=self.request_cancel, style="Danger.TButton"
         )
@@ -732,18 +786,122 @@ class App(tk.Tk):
         except Exception:
             pass
 
+    def _attach_placeholder(self, entry, variable: tk.StringVar, text: str):
+        label = tk.Label(
+            entry.master,
+            text=text,
+            background=self.palette["input_bg"],
+            foreground=self.palette["muted"],
+            font=("Segoe UI", 9),
+            bd=0,
+            padx=0,
+            pady=0,
+            cursor="xterm",
+        )
+
+        def show_if_needed(*_):
+            try:
+                if variable.get().strip() or self.focus_get() == entry:
+                    label.place_forget()
+                else:
+                    label.place(in_=entry, x=12, rely=0.5, anchor="w")
+                    label.lift()
+            except Exception:
+                pass
+
+        def focus_entry(_event=None):
+            entry.focus_set()
+
+        label.bind("<Button-1>", focus_entry, add="+")
+        entry.bind("<FocusIn>", lambda _e: label.place_forget(), add="+")
+        entry.bind("<FocusOut>", show_if_needed, add="+")
+        variable.trace_add("write", show_if_needed)
+        self.after_idle(show_if_needed)
+        return label
+
+    def _intake_signature(self, path: Path | str | None = None):
+        raw = str(path or self.input_var.get()).strip()
+        if not raw:
+            return None
+        p = Path(raw)
+        try:
+            st = p.stat()
+            return (str(p.resolve()), int(st.st_size), int(st.st_mtime_ns))
+        except Exception:
+            return (str(p), None, None)
+
+    def _invalidate_intake_analysis(self):
+        self._intake_analysis_report = None
+        self._intake_analysis_diagnostics = None
+        self._intake_analysis_signature = None
+        if hasattr(self, "create_project_btn"):
+            self.create_project_btn.state(["disabled"])
+        if self.input_var.get().strip():
+            self.current_stage_var.set("현재 단계 : 이미지가 등록되었습니다. 분석을 실행해 처리 시작점을 확인하세요.")
+            self.next_stage_var.set("다음 작업 : 이미지 분석")
+
+    def _set_category_from_target(self, target: str, *, force: bool = False):
+        if not force and not self._category_auto:
+            return
+        category_id = infer_category_from_target(target)
+        self.category_var.set(ID_TO_LABEL.get(category_id, "기타 / 직접입력"))
+
+    def _on_category_selected(self, _event=None):
+        self._category_auto = False
+
+    def _on_target_focus_out(self, _event=None):
+        self._set_category_from_target(self.target_var.get())
+
+    def _load_header_hints(self, path: Path):
+        try:
+            inspection = inspect_input_header(path)
+            header = inspection.get("header") or {}
+        except Exception as exc:
+            self.image_info_var.set(f"FITS 헤더를 읽지 못했습니다: {exc}")
+            self.target_var.set("")
+            self.date_var.set("")
+            self.category_var.set("기타 / 직접입력")
+            return
+
+        target = target_from_header(header)
+        capture_date = capture_date_from_header(header)
+        self.target_var.set(target)
+        self.date_var.set(capture_date)
+        self._category_auto = True
+        self._set_category_from_target(target, force=True)
+        self.image_info_var.set(format_image_info(header))
+
     def pick_input(self):
         path = filedialog.askopenfilename(
-            title="FITS 선택",
+            title="이미지 선택",
             filetypes=[("FITS", "*.fits *.fit *.fts"), ("All files", "*.*")]
         )
-        if path:
-            self.input_var.set(path)
+        if not path:
+            return
+        self.input_var.set(path)
+        self.project_dir = None
+        self._invalidate_intake_analysis()
+        self._load_header_hints(Path(path))
+        if hasattr(self, "analyze_btn"):
+            self.analyze_btn.state(["!disabled"])
+        self.status_var.set("이미지 등록 완료 · 분석을 실행하세요.")
 
     def pick_root(self):
         path = filedialog.askdirectory(title="저장 위치 선택")
         if path:
             self.root_var.set(path)
+
+    def _persist_project_metadata(self):
+        if not self.project_dir:
+            return
+        try:
+            project = load_project(self.project_dir)
+            p = project["project"]
+            p.setdefault("metadata", {})["copyright"] = self.copyright_var.get().strip()
+            save_project(self.project_dir, project)
+        except Exception:
+            # Metadata editing must never interrupt an image-processing action.
+            pass
 
     def write(self, text, clear=False):
         if clear:
@@ -857,7 +1015,7 @@ class App(tk.Tk):
         if not self._busy or self._busy_started is None:
             return
         sec = int(time.monotonic() - self._busy_started)
-        self.elapsed_var.set(f"경과 {sec//60:02d}:{sec%60:02d}")
+        self.elapsed_var.set(f"{sec//60:02d}:{sec%60:02d}")
         if sec >= 300 and not self._long_running_notice_sent:
             self._long_running_notice_sent = True
             self.write(
@@ -875,7 +1033,7 @@ class App(tk.Tk):
         self._cancel_requested = False
         self._long_running_notice_sent = False
         self.operation_var.set(f"● 실행 중: {label}")
-        self.elapsed_var.set("경과 00:00")
+        self.elapsed_var.set("00:00")
         self.progress.start(12)
         self._set_processing_controls_disabled(True)
         self.cancel_btn.state(["!disabled"])
@@ -995,14 +1153,74 @@ class App(tk.Tk):
         messagebox.showinfo("처리 완료", msg)
 
     def doctor(self):
-        self.status_var.set("Siril 확인 중...")
         def work():
-            info = get_siril_info(self.cfg)
-            self.after(0, lambda: self.write(
-                f"Siril 연결 OK\n경로: {info.executable}\n버전: {info.version}\n"
-            ))
-            self.after(0, lambda: self.status_var.set("Siril 연결 OK"))
-        self.run_bg(work, operation="Siril 연결 확인")
+            return get_siril_info(self.cfg)
+
+        def done(info):
+            self.write(
+                f"Siril 연결 확인 완료\n경로: {info.executable}\n버전: {info.version}\n"
+            )
+            messagebox.showinfo(
+                "Siril 연결 확인",
+                f"Siril에 정상적으로 연결되었습니다.\n\n버전: {info.version}\n경로: {info.executable}",
+            )
+
+        self.run_bg(work, operation="Siril 연결 확인", on_success=done)
+
+    def analyze_input(self):
+        input_path = self.input_var.get().strip()
+        if not input_path:
+            messagebox.showwarning("확인", "먼저 이미지를 선택하세요.")
+            return
+        path = Path(input_path)
+        signature = self._intake_signature(path)
+        self.status_var.set("이미지 분석 중...")
+
+        def work():
+            return analyze_input_file(path, self.cfg)
+
+        def done(result):
+            report, diagnostics = result
+            self._intake_analysis_report = report
+            self._intake_analysis_diagnostics = diagnostics
+            self._intake_analysis_signature = signature
+
+            header = report.get("header") or {}
+            header_target = target_from_header(header)
+            header_date = capture_date_from_header(header)
+            if header_target:
+                self.target_var.set(header_target)
+                self._category_auto = True
+                self._set_category_from_target(header_target, force=True)
+            elif not self.target_var.get().strip():
+                self.target_var.set("")
+                self.category_var.set("기타 / 직접입력")
+            if header_date:
+                self.date_var.set(header_date)
+
+            info = format_image_info(header)
+            linearity = report.get("linearity_assessment") or {}
+            linearity_status = linearity.get("status", "UNKNOWN")
+            self.image_info_var.set(f"{info} · Linear 판정 {linearity_status}")
+
+            stats = report.get("pixel_statistics") or {}
+            self.write(
+                "이미지 분석 완료\n"
+                f"파일: {path}\n"
+                f"Siril: {report.get('siril', {}).get('version', 'UNKNOWN')}\n"
+                f"이미지 shape: {stats.get('shape')}\n"
+                f"Linear 판정: {linearity_status}\n"
+                f"판정 이유: {linearity.get('reason', '')}\n",
+                clear=True,
+            )
+            self.status_var.set("이미지 분석 완료 · 프로젝트를 생성할 수 있습니다.")
+            self.current_stage_var.set(
+                "현재 단계 : 이미지 분석이 완료되었습니다. 대상명과 촬영 정보를 확인하세요."
+            )
+            self.next_stage_var.set("다음 작업 : 프로젝트 생성")
+            self.create_project_btn.state(["!disabled"])
+
+        self.run_bg(work, operation="이미지 분석", on_success=done)
 
     def _project_collision_dialog(self, existing: Path, fresh: Path):
         result = {"value": None}
@@ -1017,16 +1235,17 @@ class App(tk.Tk):
         ttk.Label(
             outer,
             text="같은 대상명과 촬영일의 프로젝트가 이미 있습니다.",
+            style="StatusValue.TLabel",
             font=("Segoe UI Semibold", 11),
         ).pack(anchor="w")
-        ttk.Label(outer, text="기존 프로젝트:", style="Muted.TLabel").pack(anchor="w", pady=(14,3))
-        ttk.Label(outer, text=str(existing), wraplength=650).pack(anchor="w")
-        ttk.Label(outer, text="새 프로젝트:", style="Muted.TLabel").pack(anchor="w", pady=(10,3))
-        ttk.Label(outer, text=str(fresh), wraplength=650).pack(anchor="w")
+        ttk.Label(outer, text="기존 프로젝트:", style="SurfaceMuted.TLabel").pack(anchor="w", pady=(14,3))
+        ttk.Label(outer, text=str(existing), wraplength=650, style="SurfaceText.TLabel").pack(anchor="w")
+        ttk.Label(outer, text="새 프로젝트:", style="SurfaceMuted.TLabel").pack(anchor="w", pady=(10,3))
+        ttk.Label(outer, text=str(fresh), wraplength=650, style="SurfaceText.TLabel").pack(anchor="w")
         ttk.Label(
             outer,
             text="기존 프로젝트는 변경하지 않습니다. 원하는 작업을 선택하세요.",
-            wraplength=650,
+            wraplength=650, style="SurfaceText.TLabel",
         ).pack(anchor="w", pady=(14,14))
 
         row = ttk.Frame(outer, style="Surface.TFrame")
@@ -1051,15 +1270,46 @@ class App(tk.Tk):
         self.wait_window(win)
         return result["value"]
 
-    def create_and_analyze(self):
+    def create_project_from_analysis(self):
         input_path = self.input_var.get().strip()
         target = self.target_var.get().strip()
         capture_date = self.date_var.get().strip()
-        if not input_path or not target or not capture_date:
-            messagebox.showwarning("확인", "FITS, 대상명, 촬영일을 입력하세요.")
+
+        if not input_path:
+            messagebox.showwarning("확인", "먼저 이미지를 선택하세요.")
+            return
+        if not self._intake_analysis_report or self._intake_analysis_signature != self._intake_signature(input_path):
+            self.create_project_btn.state(["disabled"])
+            messagebox.showwarning("이미지 분석 필요", "현재 이미지를 먼저 분석하세요.")
+            return
+        if not target:
+            messagebox.showwarning("대상명 확인", "대상명을 입력하세요.")
+            try:
+                self.target_entry.focus_set()
+            except Exception:
+                pass
+            return
+        if not capture_date:
+            messagebox.showwarning("촬영일 확인", "촬영일을 YYYY-MM-DD 형식으로 입력하세요.")
+            try:
+                self.date_entry.focus_set()
+            except Exception:
+                pass
+            return
+        try:
+            date.fromisoformat(capture_date)
+        except ValueError:
+            messagebox.showwarning("촬영일 확인", "촬영일 형식을 확인하세요. 예: 2026-09-30")
+            try:
+                self.date_entry.focus_set()
+            except Exception:
+                pass
             return
 
-        category = LABEL_TO_ID[self.category_var.get()]
+        try:
+            category = LABEL_TO_ID[self.category_var.get()]
+        except KeyError:
+            category = "UNKNOWN"
         root = Path(self.root_var.get().strip())
         existing_pdir = find_existing_project_dir(root, target, capture_date)
         requested_pdir = None
@@ -1075,8 +1325,7 @@ class App(tk.Tk):
                 return
             requested_pdir = fresh_pdir
 
-        self.status_var.set("프로젝트 생성 및 분석 중...")
-        self.output.delete("1.0", "end")
+        self.status_var.set("프로젝트 생성 중...")
 
         def work():
             pdir = create_project(
@@ -1087,25 +1336,33 @@ class App(tk.Tk):
                 input_file=Path(input_path),
                 copy_input=True,
                 project_dir=requested_pdir,
+                copyright_text=self.copyright_var.get().strip(),
             )
-            project, report, task = analyze_project(pdir, self.cfg)
+            project, report, task = apply_analysis_to_project(
+                pdir,
+                self._intake_analysis_report,
+                self._intake_analysis_diagnostics,
+            )
+            return pdir, project, report, task
+
+        def done(result):
+            pdir, project, report, task = result
             self.project_dir = pdir
-
-            text = (
-                f"프로젝트 생성 완료\n{pdir}\n"
-                f"캘리브레이션 폴더: {pdir / 'calibration'}\n\n"
-                f"Siril: {report['siril']['version']}\n"
-                f"이미지 shape: {report['pixel_statistics']['shape']}\n"
-                f"Linear 판정: {report['linearity_assessment']['status']}\n"
-                f"판정 이유: {report['linearity_assessment']['reason']}\n\n"
+            self.write(
+                f"프로젝트 생성 완료\n{pdir}\n\n"
+                f"Siril: {report.get('siril', {}).get('version', 'UNKNOWN')}\n"
+                f"이미지 shape: {report.get('pixel_statistics', {}).get('shape')}\n"
+                f"Linear 판정: {report.get('linearity_assessment', {}).get('status', 'UNKNOWN')}\n\n"
                 + format_task(task)
-                + f"\n\n상세 분석 로그:\n{pdir / 'logs' / 'analysis_report.json'}"
+                + f"\n\n상세 분석 로그:\n{pdir / 'logs' / 'analysis_report.json'}",
+                clear=True,
             )
-            self.after(0, lambda: self.write(text, clear=True))
-            self.after(0, lambda: self.render_task(task))
-            self.after(0, lambda: self.status_var.set("분석 완료"))
+            self.render_task(task)
+            self.status_var.set("프로젝트 생성 완료")
+            self.create_project_btn.state(["disabled"])
+            self.analyze_btn.state(["disabled"])
 
-        self.run_bg(work, operation="프로젝트 생성 + 분석")
+        self.run_bg(work, operation="프로젝트 생성", on_success=done)
 
     def _load_project_from_path(self, pdir: Path):
         pdir = Path(pdir)
@@ -1129,13 +1386,34 @@ class App(tk.Tk):
 
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
-            p.get("target", {}).get("category", "UNKNOWN"), "모름/자동판단 대기"
+            p.get("target", {}).get("category", "UNKNOWN"), "기타 / 직접입력"
         ))
+        self._category_auto = False
         self.date_var.set(p.get("capture", {}).get("date", self.date_var.get()))
+        self.copyright_var.set(str((p.get("metadata") or {}).get("copyright") or ""))
         self.root_var.set(str(pdir.parent))
         current = p.get("current_file")
         if current:
             self.input_var.set(str(current))
+            try:
+                self._load_header_hints(Path(current))
+                # Project metadata is authoritative after loading; header hints must not overwrite it.
+                self.target_var.set(p.get("target_name", ""))
+                self.category_var.set(ID_TO_LABEL.get(
+                    p.get("target", {}).get("category", "UNKNOWN"), "기타 / 직접입력"
+                ))
+                self.date_var.set(p.get("capture", {}).get("date", ""))
+                self.copyright_var.set(str((p.get("metadata") or {}).get("copyright") or ""))
+                self._category_auto = False
+            except Exception:
+                pass
+        self._intake_analysis_report = None
+        self._intake_analysis_diagnostics = None
+        self._intake_analysis_signature = None
+        if hasattr(self, "create_project_btn"):
+            self.create_project_btn.state(["disabled"])
+        if hasattr(self, "analyze_btn"):
+            self.analyze_btn.state(["disabled"])
 
         task = p.get("next_task")
         text = (
@@ -3192,7 +3470,7 @@ class App(tk.Tk):
         cat_frame.pack(fill="x", pady=(0,8))
         ttk.Label(cat_frame, text="대상 종류", width=15).pack(side="left")
         category_var = tk.StringVar(
-            value=ID_TO_LABEL.get(current_category, "모름/자동판단 대기")
+            value=ID_TO_LABEL.get(current_category, "기타 / 직접입력")
         )
         ttk.Combobox(
             cat_frame,
@@ -4115,6 +4393,7 @@ class App(tk.Tk):
     def final_export_preview(self):
         if not self._require_project():
             return
+        self._persist_project_metadata()
 
         try:
             quality = int(self.final_preview_quality.get())
@@ -4167,6 +4446,7 @@ class App(tk.Tk):
     def final_export_apply(self):
         if not self._require_project():
             return
+        self._persist_project_metadata()
 
         try:
             options = self._final_export_options()
@@ -4202,12 +4482,15 @@ class App(tk.Tk):
             messagebox.showerror("오류", "FITS / TIFF / PNG 중 하나 이상을 선택하세요.")
             return
 
+        copyright_text = str((project["project"].get("metadata") or {}).get("copyright") or "").strip()
+        copyright_line = f"저작권: {copyright_text}\n" if copyright_text else ""
         ok = messagebox.askyesno(
             "Finalize + Export",
             "현재 Recombined 결과를 최종본으로 확정합니다.\n\n"
             f"생성 형식: {', '.join(selected)}\n"
             f"FITS Checksum: {options['fits_checksum']}\n"
             f"TIFF Deflate: {options['tiff_deflate']}\n"
+            f"{copyright_line}"
             f"Base Name: {final_basename(project['project']['target_name'])}\n\n"
             "진행할까요?"
         )

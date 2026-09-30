@@ -1,5 +1,5 @@
 app:
-  version: 0.14.7
+  version: 0.14.8
   project_root: D:\AstroProjects_Auto
   copy_input_into_project: true
 siril:
@@ -103,4 +103,4 @@ syqon:
   full_safe_banding: true
   safe_bridge_payload_mib: 32
   safe_band_overlap: 192
-version: 0.14.7
+version: 0.14.8

@@ -106,8 +106,8 @@ def read_header_summary(path: Path):
         hdu = next((h for h in hdul if getattr(h, "data", None) is not None), hdul[0])
         header = hdu.header
         wanted = [
-            "OBJECT", "DATE-OBS", "EXPTIME", "EXPOSURE", "GAIN", "FILTER",
-            "INSTRUME", "TELESCOP", "BAYERPAT", "BITPIX", "NAXIS",
+            "OBJECT", "DATE-OBS", "DATE", "EXPTIME", "EXPOSURE", "GAIN", "FILTER",
+            "INSTRUME", "TELESCOP", "BAYERPAT", "COPYRGHT", "COPYRIGHT", "BITPIX", "NAXIS",
             "NAXIS1", "NAXIS2", "NAXIS3"
         ]
         summary = {k: header.get(k) for k in wanted if header.get(k) is not None}

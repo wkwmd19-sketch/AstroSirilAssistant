@@ -1,22 +1,28 @@
 {
-  "package": "AstroSirilAssistant_v0.14.7",
-  "version": "0.14.7",
-  "update": "Astro Cozy Dark UI polish; processing logic unchanged from v0.14.6",
+  "package": "AstroSirilAssistant_v0.14.8",
+  "version": "0.14.8",
+  "update": "Project intake split, FITS metadata autofill, copyright metadata, and cozy UI cleanup",
   "validation": {
-    "python_compile": "PASS: 62 Python files / 0 syntax errors",
+    "python_compile": "PASS: 64 Python files / 0 syntax errors",
     "yaml_parse": "PASS: 25 YAML files / 0 errors",
-    "targeted_regression_tests": "PASS: 29 tests",
+    "targeted_ui_tests": "PASS: 13 tests",
+    "broad_regression_without_real_astropy": "PASS: 77 tests using import stub; safe-band FITS I/O tests excluded",
     "main_gui_smoke": "PASS under Xvfb with import-only astropy stub",
     "sequence_gui_smoke": "PASS under Xvfb with import-only astropy stub",
-    "full_test_suite": "NOT RUN: container lacks astropy; collection fails for astropy-dependent tests",
+    "full_real_astropy_suite": "NOT RUN: container does not have astropy installed",
     "baseline_windows_siril_syqon_runtime": "v0.14.5 USER CONFIRMED through Final export",
-    "v0.14.7_windows_runtime": "PENDING USER TEST"
+    "v0.14.8_windows_runtime": "PENDING USER TEST"
   },
-  "theme": {
-    "name": "Astro Cozy Dark",
-    "toolkit": "Tk/ttk (unchanged)",
-    "intent": "softer palette, borderless cards, larger spacing and softer controls",
-    "processing_logic_changed": false
+  "features": {
+    "analysis_before_project_create": true,
+    "header_object_date_autofill": true,
+    "known_target_category_autofill": true,
+    "unknown_target_label": "기타 / 직접입력",
+    "copyright_project_metadata": true,
+    "copyright_final_fits_header": "COPYRGHT",
+    "readonly_path_fields": true,
+    "slim_arrowless_scrollbars": true,
+    "elapsed_format": "MM:SS"
   },
   "bat_checks": {
     "run_gui.bat": {

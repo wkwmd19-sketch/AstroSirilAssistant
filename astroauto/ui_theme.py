@@ -82,6 +82,34 @@ def apply_astro_theme(root: tk.Misc):
         "CardMuted.TLabel", background=p["card"], foreground=p["muted"], font=small_font
     )
     style.configure(
+        "CardTitle.TLabel", background=p["card"], foreground=p["text"],
+        font=("Segoe UI Semibold", 12),
+    )
+    style.configure(
+        "FieldLabel.TLabel", background=p["card"], foreground=p["muted"],
+        font=("Segoe UI Semibold", 9),
+    )
+    style.configure(
+        "StatusKey.TLabel", background=p["surface"], foreground=p["accent"],
+        font=("Segoe UI Semibold", 9),
+    )
+    style.configure(
+        "StatusValue.TLabel", background=p["surface"], foreground=p["text"],
+        font=("Segoe UI", 10),
+    )
+    style.configure(
+        "SurfaceText.TLabel", background=p["surface"], foreground=p["text"],
+        font=("Segoe UI", 10),
+    )
+    style.configure(
+        "SurfaceMuted.TLabel", background=p["surface"], foreground=p["muted"],
+        font=small_font,
+    )
+    style.configure(
+        "Meta.TLabel", background=p["card_alt"], foreground=p["muted"],
+        font=("Segoe UI", 9), padding=(12, 8),
+    )
+    style.configure(
         "Title.TLabel", background=p["surface"], foreground=p["text"], font=title_font
     )
     style.configure(
@@ -201,25 +229,43 @@ def apply_astro_theme(root: tk.Misc):
         foreground=[("active", p["text"])],
     )
 
+    # Remove clam's tiny corner/focus pixels by using a borderless entry layout.
+    try:
+        style.layout(
+            "TEntry",
+            [("Entry.field", {
+                "sticky": "nswe", "border": "0",
+                "children": [("Entry.padding", {
+                    "sticky": "nswe",
+                    "children": [("Entry.textarea", {"sticky": "nswe"})],
+                })],
+            })],
+        )
+    except Exception:
+        pass
     style.configure(
         "TEntry",
         fieldbackground=p["input_bg"], foreground=p["text"],
-        bordercolor=p["border_soft"], lightcolor=p["input_bg"], darkcolor=p["input_bg"],
-        insertcolor=p["text"], relief="flat", borderwidth=0, padding=(10, 8),
+        bordercolor=p["input_bg"], lightcolor=p["input_bg"], darkcolor=p["input_bg"],
+        insertcolor=p["text"], relief="flat", borderwidth=0, padding=(12, 9),
+        focuscolor=p["input_bg"], focusthickness=0,
     )
     style.map(
         "TEntry",
-        bordercolor=[("focus", p["accent"])],
-        lightcolor=[("focus", p["accent"])],
-        darkcolor=[("focus", p["accent"])],
+        fieldbackground=[("readonly", p["input_bg"]), ("disabled", p["input_bg"])],
+        foreground=[("readonly", p["muted"]), ("disabled", "#687687")],
+        bordercolor=[("focus", p["input_bg"])],
+        lightcolor=[("focus", p["input_bg"])],
+        darkcolor=[("focus", p["input_bg"])],
     )
 
     style.configure(
         "TCombobox",
         fieldbackground=p["input_bg"], background=p["card_alt"], foreground=p["text"],
-        arrowcolor=p["muted"], bordercolor=p["border_soft"],
+        arrowcolor=p["muted"], bordercolor=p["input_bg"],
         lightcolor=p["input_bg"], darkcolor=p["input_bg"],
-        relief="flat", borderwidth=0, padding=(9, 7), arrowsize=14,
+        relief="flat", borderwidth=0, padding=(10, 8), arrowsize=14,
+        focuscolor=p["input_bg"], focusthickness=0,
     )
     style.map(
         "TCombobox",
@@ -257,13 +303,39 @@ def apply_astro_theme(root: tk.Misc):
         relief="flat", borderwidth=0, thickness=8,
     )
 
+    # Slim scrollbars with no Windows-style arrow buttons.
+    try:
+        style.layout(
+            "Vertical.TScrollbar",
+            [("Vertical.Scrollbar.trough", {
+                "sticky": "ns",
+                "children": [("Vertical.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})],
+            })],
+        )
+        style.layout(
+            "Horizontal.TScrollbar",
+            [("Horizontal.Scrollbar.trough", {
+                "sticky": "we",
+                "children": [("Horizontal.Scrollbar.thumb", {"expand": "1", "sticky": "nswe"})],
+            })],
+        )
+    except Exception:
+        pass
     style.configure(
-        "Vertical.TScrollbar", background=p["card_alt"], troughcolor=p["bg"],
-        bordercolor=p["bg"], arrowcolor=p["muted"], relief="flat", borderwidth=0,
+        "Vertical.TScrollbar", background=p["scroll"], troughcolor=p["input_bg"],
+        bordercolor=p["input_bg"], arrowcolor=p["input_bg"], relief="flat", borderwidth=0,
+        width=10, arrowsize=0,
+    )
+    style.map(
+        "Vertical.TScrollbar", background=[("active", p["accent"]), ("pressed", p["accent_pressed"])],
     )
     style.configure(
-        "Horizontal.TScrollbar", background=p["card_alt"], troughcolor=p["bg"],
-        bordercolor=p["bg"], arrowcolor=p["muted"], relief="flat", borderwidth=0,
+        "Horizontal.TScrollbar", background=p["scroll"], troughcolor=p["input_bg"],
+        bordercolor=p["input_bg"], arrowcolor=p["input_bg"], relief="flat", borderwidth=0,
+        width=10, arrowsize=0,
+    )
+    style.map(
+        "Horizontal.TScrollbar", background=[("active", p["accent"]), ("pressed", p["accent_pressed"])],
     )
 
     style.configure("TPanedwindow", background=p["border_soft"], sashwidth=5)
@@ -274,6 +346,8 @@ def apply_astro_theme(root: tk.Misc):
         root.option_add("*TCombobox*Listbox.foreground", p["text"])
         root.option_add("*TCombobox*Listbox.selectBackground", p["select_bg"])
         root.option_add("*TCombobox*Listbox.selectForeground", p["text"])
+        root.option_add("*TCombobox*Listbox.relief", "flat")
+        root.option_add("*TCombobox*Listbox.borderWidth", 0)
         root.option_add("*Font", default_font)
     except Exception:
         pass

@@ -23,7 +23,7 @@ class V0146UIPolishTests(unittest.TestCase):
         self.assertIn('text="상태"', gui)
         self.assertIn('text="처리 설정"', gui)
         self.assertIn('text="단일 이미지"', gui)
-        self.assertIn('text="입력 FITS"', gui)
+        self.assertIn('text="이미지"', gui)
         self.assertIn('text="저장 위치"', gui)
         self.assertNotIn('Manual-inspired semi-auto processing', gui)
         self.assertNotIn('로그 Pane 경계선을 드래그', gui)

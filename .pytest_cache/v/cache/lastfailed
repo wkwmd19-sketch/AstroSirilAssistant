@@ -1,0 +1,4 @@
+{
+  "tests/test_v0145_safe_banding.py::V0145SafeBandTests::test_band_stitch_reconstructs_original_geometry": true,
+  "tests/test_v0145_safe_banding.py::V0145SafeBandTests::test_large_rgb_image_is_split_under_payload_limit": true
+}
