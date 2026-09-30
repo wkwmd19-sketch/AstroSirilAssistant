@@ -28,10 +28,13 @@ class V014StructureTests(unittest.TestCase):
         gui = (ROOT / "run_gui.bat").read_text(encoding="utf-8")
         seq = (ROOT / "run_sequence_gui.bat").read_text(encoding="utf-8")
         self.assertIn('.venv\\Scripts\\python.exe', common)
-        self.assertIn('py -3', common)
-        self.assertIn('run_common.bat', gui)
+        self.assertTrue('py.exe -3' in common or 'py -3' in common)
+        # v0.14.1+ launchers intentionally inline the Windows-safe policy
+        # instead of nesting CALL run_common.bat.
+        for launcher in (gui, seq):
+            self.assertIn('.venv\\Scripts\\python.exe', launcher)
+            self.assertTrue('py.exe -3' in launcher or 'py -3' in launcher)
         self.assertIn('gui.py', gui)
-        self.assertIn('run_common.bat', seq)
         self.assertIn('sequence_gui.py', seq)
 
     def test_both_guis_use_shared_theme_and_dynamic_log(self):

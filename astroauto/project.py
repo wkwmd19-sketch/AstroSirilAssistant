@@ -37,7 +37,7 @@ PROJECT_DIRS = [
 ]
 
 def project_name(target: str, capture_date: str) -> str:
-    """Current v0.14.3 project directory convention."""
+    """Current v0.14.4 project directory convention."""
     return f"Auto_{safe_target_name(target)}_{capture_date}"
 
 def legacy_project_name(target: str, capture_date: str) -> str:
@@ -102,7 +102,7 @@ def create_project(root: Path, target: str, capture_date: str, category: str,
         input_source_mode = "EXTERNAL_REFERENCE"
 
     project = {
-        "schema_version": "0.14.3",
+        "schema_version": "0.14.0",
         "project": {
             "id": pdir.name,
             "target_name": target_clean,

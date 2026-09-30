@@ -21,6 +21,10 @@ class SirilInfo:
 class SirilError(RuntimeError):
     pass
 
+class SirilStartupTimeout(SirilError):
+    """Raised when a pyscript process never reaches its actual processing stage."""
+    pass
+
 def _parse_version(text: str) -> str:
     matches = re.findall(r"(?<!\d)(\d+\.\d+(?:\.\d+)?)(?!\d)", text)
     return matches[-1] if matches else "UNKNOWN"
@@ -60,7 +64,7 @@ def get_siril_info(config: dict) -> SirilInfo:
         raise SirilError(f"Siril 버전 확인 실패: {combined.strip()}")
     return SirilInfo(executable=exe, version=_parse_version(combined))
 
-def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, timeout: int):
+def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, timeout: int, startup_watchdog: dict | None = None):
     control = current_control()
     proc = subprocess.Popen(
         [str(x) for x in args],
@@ -101,6 +105,13 @@ def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, ti
         deadline = time.monotonic() + max(1, int(timeout))
         reader_done = False
 
+        wd = startup_watchdog or {}
+        wd_timeout = max(1, int(wd.get("timeout_sec", 0) or 0))
+        wd_arm = tuple(str(x).lower() for x in wd.get("arm_markers", ()))
+        wd_ready = tuple(str(x).lower() for x in wd.get("ready_markers", ()))
+        wd_armed_at = None
+        wd_started = False
+
         while True:
             while True:
                 try:
@@ -111,7 +122,32 @@ def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, ti
                     reader_done = True
                     continue
                 lines.append(item)
-                emit_log(item.rstrip('\r\n'))
+                clean_line = item.rstrip('\r\n')
+                emit_log(clean_line)
+                low_line = clean_line.lower()
+                if wd_timeout and not wd_started:
+                    if wd_ready and any(marker in low_line for marker in wd_ready):
+                        wd_started = True
+                    elif wd_armed_at is None and wd_arm and any(marker in low_line for marker in wd_arm):
+                        wd_armed_at = time.monotonic()
+
+            if wd_timeout and wd_armed_at is not None and not wd_started:
+                if time.monotonic() - wd_armed_at > wd_timeout:
+                    if control:
+                        control._terminate_process_tree(proc)
+                    else:
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                    try:
+                        proc.wait(timeout=5)
+                    except Exception:
+                        pass
+                    message = wd.get("message") or (
+                        f"Siril Python 작업이 {wd_timeout}초 안에 실제 처리 단계로 진입하지 못했습니다."
+                    )
+                    raise SirilStartupTimeout(message)
 
             if control and control.cancelled:
                 control._terminate_process_tree(proc)
@@ -129,6 +165,10 @@ def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, ti
                         proc.kill()
                     except Exception:
                         pass
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    pass
                 raise subprocess.TimeoutExpired(args, timeout)
 
             if proc.poll() is not None and reader_done and q.empty():
@@ -162,8 +202,8 @@ def _run_streaming_process(args, *, input_text: str | None, cwd: Path | None, ti
             pass
 
 
-def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeout_sec: int | None = None) -> subprocess.CompletedProcess:
-    """Run commands through `siril-cli -s -` with live log streaming and cancellation."""
+def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeout_sec: int | None = None, startup_watchdog: dict | None = None) -> subprocess.CompletedProcess:
+    """Run commands through `siril-cli -s -` with live log streaming, cancellation and optional startup watchdog."""
     info = get_siril_info(config)
     timeout = int(timeout_sec if timeout_sec is not None else config.get("siril", {}).get("command_timeout_sec", 180))
     minimum = str(config.get("siril", {}).get("minimum_supported", "1.4.0"))
@@ -179,6 +219,7 @@ def run_script(config: dict, commands: list[str], cwd: Path | None = None, timeo
         input_text=script,
         cwd=cwd,
         timeout=timeout,
+        startup_watchdog=startup_watchdog,
     )
 
 def write_jsonmetadata(config: dict, fits_path: Path, output_json: Path):

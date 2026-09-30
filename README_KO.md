@@ -1,3 +1,15 @@
+# AstroSirilAssistant v0.14.4 — Restoration Full-Run Reliability
+
+이번 패치는 실제 Parallax 테스트 로그를 바탕으로 전체 처리 흐름을 수정합니다.
+
+- `현재 단계 : 한 줄 설명` / `다음 작업 : 단계명` 고정 표시
+- Parallax `전체 처리 + 결과 확인` 결과를 그대로 `결과 승인`하여 재계산 제거
+- FULL SyQon 시작 watchdog 기본 90초
+- 홀수 이미지 크기용 even-geometry guard + 결과 원본 크기 복원
+- 기존 빠른 미리보기 / 실시간 로그 / 중단 버튼 유지
+
+---
+
 # AstroSirilAssistant v0.14.3 — Fast Preview / Cancel / Project UX
 
 이번 업데이트:

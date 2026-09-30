@@ -1,5 +1,5 @@
 app:
-  version: 0.14.3
+  version: 0.14.4
   project_root: D:\AstroProjects_Auto
   copy_input_into_project: true
 siril:
@@ -98,4 +98,6 @@ syqon:
   command_timeout_sec: 3600
   quick_preview_size: 1536
   quick_preview_timeout_sec: 900
-version: 0.14.3
+  startup_watchdog_sec: 90
+  even_geometry_guard: true
+version: 0.14.4

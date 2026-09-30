@@ -36,7 +36,7 @@ from astroauto.denoise import (
 )
 from astroauto.deblur import (
     make_deblur_task, migrate_post_denoise_task,
-    preview_deblur, apply_deblur, skip_deblur,
+    preview_deblur, apply_deblur, promote_deblur_preview, skip_deblur,
 )
 from astroauto.ghs import (
     migrate_ready_for_ghs,
@@ -93,10 +93,77 @@ CATEGORIES = [
 LABEL_TO_ID = dict(CATEGORIES)
 ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 
+STAGE_FLOW_INFO = {
+    "CONFIRM_INPUT_STAGE": (
+        "입력 FITS가 스택 결과인지 개별 Light인지 확인해 안전한 처리 시작점을 정하는 단계입니다.",
+        "Linearity 확인",
+    ),
+    "CONFIRM_LINEARITY": (
+        "이미지가 아직 Linear 상태인지 확인해 중복 Stretch 같은 잘못된 처리를 방지하는 단계입니다.",
+        "Calibration 상태 확인",
+    ),
+    "CONFIRM_CALIBRATION_STATUS": (
+        "입력 이미지의 캘리브레이션 여부를 확인해 필요한 전처리 경로를 결정하는 단계입니다.",
+        "Background / Gradient Correction",
+    ),
+    "CONFIRM_STAR_TRAIL_MODE": (
+        "별 일주사진의 하늘 중심 또는 지상 풍경 포함 처리 경로를 선택하는 단계입니다.",
+        "Star Trail Workflow",
+    ),
+    "GRADIENT_CORRECTION": (
+        "배경의 밝기와 색 불균형을 정리해 이후 보정이 안정적으로 진행되도록 준비하는 단계입니다.",
+        "SPCC Color Calibration",
+    ),
+    "COLOR_CALIBRATION_SPCC": (
+        "별과 천체 정보를 기준으로 전체 이미지의 색 균형을 맞추는 단계입니다.",
+        "Restoration / Deblur",
+    ),
+    "DEBLUR": (
+        "별 형태와 수차를 보정하고 미세 구조를 복원해 디테일을 살리는 단계입니다.",
+        "Prism Noise Reduction",
+    ),
+    "DENOISE": (
+        "미세 구조를 최대한 유지하면서 배경과 색 노이즈를 줄이는 단계입니다.",
+        "GHS Stretch",
+    ),
+    "GHS_STRETCH": (
+        "희미한 천체 신호를 보존하면서 Linear 이미지를 눈에 보이는 밝기로 펼치는 단계입니다.",
+        "StarNet",
+    ),
+    "GHS_REVIEW": (
+        "Stretch 결과를 확인하고 필요하면 작은 추가 Stretch를 적용하는 단계입니다.",
+        "StarNet",
+    ),
+    "STAR_SEPARATION": (
+        "별과 천체 본체를 분리해 각각 독립적으로 보정할 수 있도록 만드는 단계입니다.",
+        "Starless Processing",
+    ),
+    "STARLESS_PROCESS": (
+        "별이 제거된 천체 본체의 구조와 대비, 색을 다듬는 단계입니다.",
+        "Stars Processing",
+    ),
+    "STARS_PROCESS": (
+        "별의 밝기와 색을 조절해 천체 본체와 자연스럽게 어울리도록 만드는 단계입니다.",
+        "Pixel Math Recombine",
+    ),
+    "PIXEL_MATH_RECOMBINE": (
+        "보정한 천체 본체와 별 레이어를 다시 합쳐 최종 이미지의 균형을 맞추는 단계입니다.",
+        "Final / Export",
+    ),
+    "FINALIZE_EXPORT": (
+        "최종 이미지를 확인하고 FITS, TIFF, PNG 결과물로 안전하게 저장하는 단계입니다.",
+        "기본 파이프라인 완료",
+    ),
+    "PIPELINE_COMPLETE": (
+        "한 장의 스택 천체사진에 대한 반자동 보정과 최종 출력이 완료되었습니다.",
+        "완료",
+    ),
+}
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.3")
+        self.title("AstroSirilAssistant v0.14.4")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -110,6 +177,8 @@ class App(tk.Tk):
         self.category_var = tk.StringVar(value="은하")
         self.root_var = tk.StringVar(value=self.cfg["app"]["project_root"])
         self.status_var = tk.StringVar(value="대기 중")
+        self.current_stage_var = tk.StringVar(value="현재 단계 : 프로젝트를 생성하거나 열어주세요.")
+        self.next_stage_var = tk.StringVar(value="다음 작업 : —")
 
         gd = self.ui_defaults.get("gradient", {})
         self.gradient_samples = tk.StringVar(value=str(gd.get("samples", 20)))
@@ -202,6 +271,8 @@ class App(tk.Tk):
         self.deblur_multiplicative = tk.BooleanVar(value=bool(bn.get("multiplicative", False)))
         self.deblur_preview_signature = None
         self.deblur_preview_mode = None
+        self.deblur_full_candidate = None
+        self.deblur_full_preview_meta = None
 
         for var in (
             self.deblur_engine,
@@ -453,15 +524,24 @@ class App(tk.Tk):
             status_card, textvariable=self.status_var, style="Subtitle.TLabel"
         ).pack(side="left", padx=(10,0))
 
+        flow_card = ttk.Frame(frm, style="Surface.TFrame", padding=(12, 9))
+        flow_card.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        ttk.Label(
+            flow_card, textvariable=self.current_stage_var, wraplength=1120, style="FlowCurrent.TLabel",
+        ).pack(anchor="w")
+        ttk.Label(
+            flow_card, textvariable=self.next_stage_var, style="FlowNext.TLabel",
+        ).pack(anchor="w", pady=(4,0))
+
         self.action_box = ttk.LabelFrame(
-            frm, text="다음 작업", style="Card.TLabelframe"
+            frm, text="현재 단계 설정", style="Card.TLabelframe"
         )
         self.action_box.grid(
-            row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8)
+            row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8)
         )
 
         op = ttk.Frame(frm)
-        op.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 4))
+        op.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 4))
         ttk.Label(op, textvariable=self.operation_var).pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12, 8), fill="x", expand=True)
@@ -473,7 +553,7 @@ class App(tk.Tk):
         self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(frm)
-        log_toolbar.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 10))
+        log_toolbar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 10))
         self.log_toggle_btn = ttk.Button(
             log_toolbar,
             text="▼ 상세 로그 보기",
@@ -1086,7 +1166,23 @@ class App(tk.Tk):
         for child in self.action_box.winfo_children():
             child.destroy()
 
+    def _update_stage_summary(self, task):
+        if not task:
+            self.current_stage_var.set("현재 단계 : 다음 처리 단계 정보가 없습니다.")
+            self.next_stage_var.set("다음 작업 : —")
+            return
+        task_id = str(task.get("task_id", ""))
+        desc, next_name = STAGE_FLOW_INFO.get(
+            task_id,
+            (task.get("summary", "현재 처리 단계를 확인하는 중입니다."), "—"),
+        )
+        if task_id == "DEBLUR" and "LEGACY_ORDER" in str(task.get("current_status", "")):
+            next_name = "GHS Stretch"
+        self.current_stage_var.set(f"현재 단계 : {desc}")
+        self.next_stage_var.set(f"다음 작업 : {next_name}")
+
     def render_task(self, task):
+        self._update_stage_summary(task)
         self._clear_actions()
         if not task:
             ttk.Label(self.action_box, text="다음 작업 정보가 없습니다.").pack(anchor="w", padx=8, pady=8)
@@ -1986,10 +2082,10 @@ class App(tk.Tk):
             style="Accent.TButton"
         ).pack(side="left", padx=(0,6))
         ttk.Button(
-            buttons, text="전체 미리보기", command=self.deblur_preview_full
+            buttons, text="전체 처리 + 결과 확인", command=self.deblur_preview_full
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="승인 후 적용", command=self.deblur_apply,
+            buttons, text="결과 승인", command=self.deblur_apply,
             style="Success.TButton"
         ).pack(side="left", padx=6)
         ttk.Button(
@@ -2042,6 +2138,8 @@ class App(tk.Tk):
     def _invalidate_deblur_preview(self, *args):
         self.deblur_preview_signature = None
         self.deblur_preview_mode = None
+        self.deblur_full_candidate = None
+        self.deblur_full_preview_meta = None
 
     def _deblur_params(self):
         engine = self.deblur_engine.get().strip().upper()
@@ -2090,7 +2188,7 @@ class App(tk.Tk):
 
         signature = self._deblur_signature()
         mode = str(mode).upper()
-        label = "빠른 미리보기" if mode == "QUICK" else "전체 미리보기"
+        label = "빠른 미리보기" if mode == "QUICK" else "전체 처리 + 결과 확인"
 
         def work():
             return preview_deblur(
@@ -2101,12 +2199,23 @@ class App(tk.Tk):
             jpg, linear_preview, meta = result
             self.deblur_preview_signature = signature
             self.deblur_preview_mode = mode
+            if mode == "FULL":
+                self.deblur_full_candidate = Path(linear_preview)
+                self.deblur_full_preview_meta = meta
             crop = meta.get("crop") or {}
+            geometry = meta.get("geometry_guard") or {}
             crop_text = ""
             if mode == "QUICK":
                 crop_text = (
                     f"빠른 미리보기 영역: {crop.get('crop_width')}×{crop.get('crop_height')} "
                     f"/ 원본 {crop.get('source_width')}×{crop.get('source_height')}\n"
+                )
+            elif geometry.get("padded"):
+                crop_text = (
+                    "SyQon geometry guard: "
+                    f"{geometry.get('source_width')}×{geometry.get('source_height')} → "
+                    f"{geometry.get('prepared_width')}×{geometry.get('prepared_height')} 처리 후 "
+                    "원본 크기로 복원\n"
                 )
             self.write(
                 f"\nRestoration {label} 완료\n"
@@ -2119,9 +2228,9 @@ class App(tk.Tk):
                 f"PSF: {meta.get('psf_file')}\n"
             )
             if mode == "QUICK":
-                self.status_var.set("빠른 미리보기 완료 · 적용 전 전체 미리보기를 확인하세요")
+                self.status_var.set("빠른 미리보기 완료 · 값 확정 후 전체 처리를 실행하세요")
             else:
-                self.status_var.set(f"전체 미리보기 완료 · {meta['engine']}")
+                self.status_var.set(f"전체 처리 완료 · 결과 확인 후 [결과 승인]하세요 · {meta['engine']}")
             self._open_preview(jpg)
 
         self.run_bg(
@@ -2142,33 +2251,43 @@ class App(tk.Tk):
         if (
             self.deblur_preview_signature != self._deblur_signature()
             or self.deblur_preview_mode != "FULL"
+            or not self.deblur_full_candidate
+            or not self.deblur_full_preview_meta
         ):
             messagebox.showwarning(
-                "전체 미리보기 필요",
+                "전체 처리 결과 필요",
                 "빠른 미리보기는 값 비교용입니다.\n"
-                "현재 설정과 동일한 값으로 [전체 미리보기]를 확인한 뒤 적용하세요."
+                "현재 설정과 동일한 값으로 [전체 처리 + 결과 확인]을 완료한 뒤 승인하세요."
             )
             return
 
         ok = messagebox.askyesno(
-            "Restoration 실제 적용",
-            "미리보기와 동일한 설정으로 실제 Linear FITS에 Restoration을 적용합니다.\n\n"
+            "Restoration 결과 승인",
+            "확인한 전체 처리 결과를 정식 Linear FITS로 승격합니다.\n"
+            "Parallax AI를 다시 실행하지 않습니다.\n\n"
             f"Engine: {params['engine']}\n"
             f"Parameters: {params}\n\n"
-            "진행할까요?"
+            "이 결과를 승인할까요?"
         )
         if not ok:
             return
 
+        candidate = Path(self.deblur_full_candidate)
+        candidate_meta = dict(self.deblur_full_preview_meta)
+
         def work():
-            return apply_deblur(
-                self.project_dir, self.cfg, confirmed=True, **params
+            return promote_deblur_preview(
+                self.project_dir, self.cfg,
+                preview_file=candidate, preview_meta=candidate_meta,
+                confirmed=True, **params
             )
 
         def done(result):
             project, output, log = result
             self.deblur_preview_signature = None
             self.deblur_preview_mode = None
+            self.deblur_full_candidate = None
+            self.deblur_full_preview_meta = None
             self._show_project_task(
                 project,
                 f"Restoration 완료\nEngine: {log.get('engine')}\n출력: {output}"
@@ -2183,7 +2302,7 @@ class App(tk.Tk):
 
         self.run_bg(
             work,
-            operation="Restoration / Deblur 실제 적용",
+            operation="Restoration / Deblur 결과 승인",
             on_success=done,
         )
 

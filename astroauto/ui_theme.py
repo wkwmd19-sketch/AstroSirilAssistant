@@ -97,6 +97,18 @@ def apply_astro_theme(root: tk.Misc):
         font=("Segoe UI", 9),
     )
     style.configure(
+        "FlowCurrent.TLabel",
+        background=p["surface"],
+        foreground=p["text"],
+        font=("Segoe UI", 10),
+    )
+    style.configure(
+        "FlowNext.TLabel",
+        background=p["surface"],
+        foreground=p["accent"],
+        font=("Segoe UI Semibold", 10),
+    )
+    style.configure(
         "Badge.TLabel",
         background=p["accent"],
         foreground="#06111E",
