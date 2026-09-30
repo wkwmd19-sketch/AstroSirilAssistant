@@ -35,7 +35,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.5 · Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.14.6 · Deep Sky Sequence")
         apply_screen_aware_geometry(self)
         self.palette = apply_astro_theme(self)
 
@@ -120,10 +120,10 @@ class SequenceApp(tk.Tk):
         ).pack(anchor="w")
         ttk.Label(
             title_col,
-            text="Deep-sky sequence · Calibration → Registration → Stack",
+            text="딥스카이 시퀀스 전처리 · Calibration → Registration → Stack",
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2,0))
-        ttk.Label(header, text="SEQUENCE", style="Badge.TLabel").pack(side="right")
+        ttk.Label(header, text="시퀀스", style="Badge.TLabel").pack(side="right")
 
         # Source folders
         source = ttk.LabelFrame(f, text="촬영 프레임", style="Card.TLabelframe")
@@ -167,13 +167,13 @@ class SequenceApp(tk.Tk):
             values=["AUTO", "OSC", "MONO"]
         ).grid(row=3, column=1, sticky="ew", padx=(8,0), pady=4)
 
-        ttk.Label(project, text="입력 Calibration", width=18).grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="입력 상태", width=18).grid(row=4, column=0, sticky="w", pady=4)
         ttk.Combobox(
             project, textvariable=self.input_status, state="readonly",
             values=["RAW_UNCALIBRATED", "PRECALIBRATED"]
         ).grid(row=4, column=1, sticky="ew", padx=(8,0), pady=4)
 
-        ttk.Label(project, text="프로젝트 루트", width=18).grid(row=5, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="저장 위치", width=18).grid(row=5, column=0, sticky="w", pady=4)
         ttk.Entry(project, textvariable=self.project_root).grid(
             row=5, column=1, sticky="ew", padx=(8,0), pady=4
         )
@@ -205,23 +205,14 @@ class SequenceApp(tk.Tk):
             buttons, text="2 · 실행 계획 보기", command=self.show_plan
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="3 · 승인 후 실제 실행", command=self.run_real,
+            buttons, text="3 · 승인 후 실행", command=self.run_real,
             style="Success.TButton"
         ).pack(side="left", padx=6)
 
-        ttk.Label(
-            actions,
-            text=(
-                "run_gui와 동일하게: 실행 상태/경과시간 표시 · 처리 중 버튼 잠금 · "
-                "오류 시 로그 자동 열기 · 로그 접기/복사 · 반응형 스크롤"
-            ),
-            style="Muted.TLabel",
-            wraplength=980,
-        ).pack(anchor="w", pady=(10,0))
 
         status_card = ttk.Frame(f, style="Surface.TFrame", padding=(12,8))
         status_card.grid(row=4, column=0, sticky="ew", pady=(0,8))
-        ttk.Label(status_card, text="STATUS", style="Subtitle.TLabel").pack(side="left")
+        ttk.Label(status_card, text="상태", style="Subtitle.TLabel").pack(side="left")
         ttk.Label(status_card, textvariable=self.status, style="Subtitle.TLabel").pack(
             side="left", padx=(10,0)
         )
@@ -246,11 +237,6 @@ class SequenceApp(tk.Tk):
             log_toolbar, text="로그 복사", command=self.copy_logs
         )
         self.copy_log_btn.pack(side="left", padx=(6,0))
-        ttk.Label(
-            log_toolbar,
-            text="로그 Pane 경계선을 드래그해 높이를 조절할 수 있습니다.",
-            style="Muted.TLabel",
-        ).pack(side="left", padx=(12,0))
 
         f.columnconfigure(0, weight=1)
 

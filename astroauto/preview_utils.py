@@ -55,6 +55,117 @@ def make_center_crop_fits(source: Path, destination: Path, max_size: int = 1536)
 
 
 
+def make_linked_comparison_ppm(
+    before_fits: Path,
+    after_fits: Path,
+    before_ppm: Path,
+    after_ppm: Path,
+    *,
+    target_background: float = 0.25,
+) -> dict:
+    """Create 8-bit PPM Before/After previews with one shared display stretch.
+
+    The transform is derived only from the Before crop and then applied unchanged
+    to both images. This is display-only: the FITS files are never modified.
+    PPM is used so Tk can show the comparison without an extra imaging package.
+    """
+    before_fits = Path(before_fits)
+    after_fits = Path(after_fits)
+    before_ppm = Path(before_ppm)
+    after_ppm = Path(after_ppm)
+    before_ppm.parent.mkdir(parents=True, exist_ok=True)
+    after_ppm.parent.mkdir(parents=True, exist_ok=True)
+
+    def _read_hwc(path: Path) -> np.ndarray:
+        with fits.open(path, memmap=True) as hdul:
+            hdu = next((h for h in hdul if getattr(h, 'data', None) is not None and h.data.ndim >= 2), None)
+            if hdu is None:
+                raise ValueError(f'비교 미리보기용 FITS 이미지 데이터를 찾지 못했습니다: {path}')
+            arr = np.asarray(hdu.data, dtype=np.float32)
+
+        if arr.ndim == 2:
+            arr = np.repeat(arr[..., None], 3, axis=2)
+        elif arr.ndim == 3:
+            if arr.shape[0] in (1, 3, 4):
+                arr = np.moveaxis(arr[:3], 0, -1)
+            elif arr.shape[-1] in (1, 3, 4):
+                arr = arr[..., :3]
+            else:
+                raise ValueError(f'지원하지 않는 비교 미리보기 FITS shape입니다: {arr.shape}')
+            if arr.shape[-1] == 1:
+                arr = np.repeat(arr, 3, axis=2)
+        else:
+            raise ValueError(f'지원하지 않는 비교 미리보기 FITS 차원입니다: {arr.shape}')
+        return np.asarray(arr, dtype=np.float32)
+
+    before = _read_hwc(before_fits)
+    after = _read_hwc(after_fits)
+    if before.shape != after.shape:
+        raise ValueError(
+            f'Before/After 비교 이미지 크기가 다릅니다: {before.shape} / {after.shape}'
+        )
+
+    # Linked luminance-like reference. A single scalar transform is then applied
+    # to every RGB channel so color differences are not independently normalized.
+    lum = np.mean(before, axis=2, dtype=np.float32)
+    finite = lum[np.isfinite(lum)]
+    if finite.size == 0:
+        raise ValueError('Before 비교 이미지에 유효한 픽셀이 없습니다.')
+
+    # Sampling keeps percentile/MAD work bounded for larger quick-preview sizes.
+    if finite.size > 750_000:
+        stride = max(1, finite.size // 750_000)
+        finite = finite[::stride]
+
+    median = float(np.median(finite))
+    mad = float(np.median(np.abs(finite - median)))
+    robust_sigma = max(1e-12, 1.4826 * mad)
+    low_percentile = float(np.percentile(finite, 0.02))
+    black = max(low_percentile, median - 2.8 * robust_sigma)
+    white = float(np.percentile(finite, 99.99))
+    if not np.isfinite(white) or white <= black + 1e-12:
+        white = float(np.max(finite))
+    if white <= black + 1e-12:
+        white = black + 1.0
+
+    median_norm = (median - black) / (white - black)
+    median_norm = float(np.clip(median_norm, 1e-4, 0.9999))
+    target_background = float(np.clip(target_background, 0.05, 0.45))
+    gamma = float(np.log(target_background) / np.log(median_norm))
+    gamma = float(np.clip(gamma, 0.15, 5.0))
+
+    def _to_u8(arr: np.ndarray) -> np.ndarray:
+        clean = np.nan_to_num(arr, nan=black, posinf=white, neginf=black)
+        x = np.clip((clean - black) / (white - black), 0.0, 1.0)
+        x = np.power(x, gamma).astype(np.float32, copy=False)
+        return np.clip(np.rint(x * 255.0), 0, 255).astype(np.uint8)
+
+    before_u8 = _to_u8(before)
+    after_u8 = _to_u8(after)
+
+    def _write_ppm(path: Path, rgb: np.ndarray) -> None:
+        h, w, _ = rgb.shape
+        with path.open('wb') as f:
+            f.write(f'P6\n{w} {h}\n255\n'.encode('ascii'))
+            f.write(np.ascontiguousarray(rgb).tobytes())
+
+    _write_ppm(before_ppm, before_u8)
+    _write_ppm(after_ppm, after_u8)
+
+    return {
+        'before_ppm': str(before_ppm),
+        'after_ppm': str(after_ppm),
+        'width': int(before.shape[1]),
+        'height': int(before.shape[0]),
+        'black': black,
+        'white': white,
+        'gamma': gamma,
+        'target_background': target_background,
+        'stretch_source': 'BEFORE_ONLY',
+        'linear_fits_unchanged': True,
+    }
+
+
 def make_even_geometry_fits(source: Path, destination: Path) -> dict:
     """Create an even-width/even-height FITS copy when required by AI tiling.
 

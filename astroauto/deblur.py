@@ -14,7 +14,7 @@ from .execution import ExecutionCancelled
 from .preview_utils import (
     make_center_crop_fits, make_even_geometry_fits, restore_original_geometry_fits,
     plan_safe_horizontal_bands, write_horizontal_band_fits,
-    stitch_horizontal_bands_fits,
+    stitch_horizontal_bands_fits, make_linked_comparison_ppm,
 )
 from .ghs import make_ghs_task
 from .syqon import (
@@ -268,6 +268,7 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
         engine_command = None
         script_path = None
         proc_display = None
+        compare_meta = None
 
         safe_band_meta = None
         if engine == "SYQON_PARALLAX":
@@ -427,6 +428,16 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
         else:
             raise ValueError("Restoration Engine은 SYQON_PARALLAX / SIRIL_RL 중 하나여야 합니다.")
 
+        # Quick preview comparison: derive one display stretch from the exact
+        # Before crop and apply it unchanged to Before + After. This makes
+        # restoration differences easier to judge without modifying Linear FITS.
+        if preview_mode == "QUICK" and linear_preview and Path(linear_preview).exists():
+            before_ppm = preview_dir / f"{target}_restore_quick_before_{run_token}.ppm"
+            after_ppm = preview_dir / f"{target}_restore_quick_after_{run_token}.ppm"
+            compare_meta = make_linked_comparison_ppm(
+                preview_input, Path(linear_preview), before_ppm, after_ppm
+            )
+
         jpg = jpg_stem.with_suffix(".jpg")
         if not linear_preview or not Path(linear_preview).exists() or not jpg.exists():
             raise SirilError(
@@ -449,6 +460,9 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
             "geometry_guard": geometry_meta,
             "safe_banding": safe_band_meta,
             "display_preview": str(jpg),
+            "comparison_preview": compare_meta,
+            "before_preview": (compare_meta or {}).get("before_ppm"),
+            "after_preview": (compare_meta or {}).get("after_ppm"),
             "linear_preview": str(linear_preview),
             "promotable_candidate": preview_mode == "FULL",
             "psf_file": str(psf_file) if psf_file else None,
@@ -466,12 +480,16 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
         return jpg, Path(linear_preview), meta
     except ExecutionCancelled:
         shutil.rmtree(run_dir, ignore_errors=True)
-        try:
-            candidate = jpg_stem.with_suffix(".jpg") if 'jpg_stem' in locals() else None
-            if candidate and candidate.exists():
-                candidate.unlink()
-        except Exception:
-            pass
+        for candidate in (
+            jpg_stem.with_suffix(".jpg") if 'jpg_stem' in locals() else None,
+            Path(compare_meta["before_ppm"]) if 'compare_meta' in locals() and compare_meta else None,
+            Path(compare_meta["after_ppm"]) if 'compare_meta' in locals() and compare_meta else None,
+        ):
+            try:
+                if candidate and candidate.exists():
+                    candidate.unlink()
+            except Exception:
+                pass
         raise
     except Exception:
         shutil.rmtree(run_dir, ignore_errors=True)

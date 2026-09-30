@@ -1,3 +1,20 @@
+# AstroSirilAssistant v0.14.6 — Preview Compare + UI Copy Polish
+
+이번 버전은 v0.14.5의 실제 Windows/Siril/SyQon 전체 파이프라인 성공 확인을 기준으로,
+처리 로직을 크게 바꾸지 않고 미리보기 비교와 화면 문구를 정리한 UX 업데이트입니다.
+
+- Parallax 빠른 미리보기: `Before · SPCC` / `After · Parallax` 좌우 동시 비교
+- Before에서 계산한 하나의 표시 Stretch를 Before/After 양쪽에 동일 적용
+- 비교용 Stretch는 표시 전용이며 Linear FITS는 변경하지 않음
+- 상단 `현재 단계 : 한 줄 설명` / `다음 작업 : 단계명`을 중심으로 중복 설명 제거
+- 헤더, 프로젝트 입력, 상태, 처리 설정, 완료/Export 문구 간결화
+- 고정 구현 정보와 반복 안내 문구는 화면에서 제거하고 도움말/상세 로그에 유지
+- Main GUI와 Sequence GUI의 공통 문구 스타일 정리
+
+v0.14.5의 Safe-Band Parallax 전체 처리, 중단 버튼, 실시간 로그, Candidate 승인 방식은 그대로 유지합니다.
+
+---
+
 # AstroSirilAssistant v0.14.5 — SyQon Full Safe-Band Hotfix
 
 Parallax 빠른 미리보기는 정상인데 큰 전체 RGB32 이미지에서 `Python module is up-to-date`

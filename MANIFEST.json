@@ -1,15 +1,25 @@
 {
-  "package": "AstroSirilAssistant_v0.14.5",
-  "version": "0.14.5",
-  "hotfix": "SyQon full-image safe-band compatibility path",
+  "package": "AstroSirilAssistant_v0.14.6",
+  "version": "0.14.6",
+  "update": "Before/After quick-preview comparison and UI copy polish",
   "validation": {
-    "python_compile": "PASS",
-    "yaml_parse": "PASS",
-    "targeted_tests": "14 PASS",
+    "python_compile": "PASS: 61 Python files / 0 syntax errors",
+    "yaml_parse": "PASS: 25 YAML files / 0 errors",
+    "targeted_regression_tests": "PASS: 21 tests",
     "gui_smoke": "PASS with import-only astropy stub; process remained alive for 5 seconds",
     "sequence_gui_smoke": "PASS with import-only astropy stub; process remained alive for 5 seconds",
-    "full_test_suite": "NOT RUN: container lacks astropy and has no package-network access",
-    "windows_siril_syqon_runtime": "PENDING USER TEST"
+    "before_after_popup_smoke": "PASS under Xvfb with synthetic PPM images",
+    "linked_comparison_transform": "PASS with synthetic FITS-like NumPy arrays",
+    "full_test_suite": "NOT RUN: container lacks astropy and package-network access",
+    "baseline_windows_siril_syqon_runtime": "v0.14.5 USER CONFIRMED through Final export",
+    "v0.14.6_windows_runtime": "PENDING USER TEST"
+  },
+  "preview_compare": {
+    "mode": "side-by-side Before/After",
+    "before": "SPCC quick-preview crop",
+    "after": "Parallax quick-preview result",
+    "display_stretch": "single stretch derived from Before and applied identically to both",
+    "linear_fits_modified": false
   },
   "safe_banding_defaults": {
     "full_safe_banding": true,
