@@ -1,35 +1,20 @@
 {
-  "package": "AstroSirilAssistant_v0.14.4",
-  "version": "0.14.4",
-  "focus": "Restoration full-run reliability + stage flow summary",
-  "python_errors": [],
-  "yaml_errors": [],
-  "core_checks": {
-    "flow_summary_current_and_next": true,
-    "restoration_full_candidate_promotion": true,
-    "no_second_ai_run_after_approval": true,
-    "syqon_startup_watchdog_90s": true,
-    "even_geometry_guard": true,
-    "original_geometry_restored": true,
-    "quick_preview_preserved": true,
-    "cancel_preserved": true,
-    "live_log_preserved": true,
-    "auto_prefix_project_naming_preserved": true,
-    "legacy_project_discovery_preserved": true,
-    "windows_bat_ascii_crlf_preserved": true
+  "package": "AstroSirilAssistant_v0.14.5",
+  "version": "0.14.5",
+  "hotfix": "SyQon full-image safe-band compatibility path",
+  "validation": {
+    "python_compile": "PASS",
+    "yaml_parse": "PASS",
+    "targeted_tests": "14 PASS",
+    "gui_smoke": "PASS with import-only astropy stub; process remained alive for 5 seconds",
+    "sequence_gui_smoke": "PASS with import-only astropy stub; process remained alive for 5 seconds",
+    "full_test_suite": "NOT RUN: container lacks astropy and has no package-network access",
+    "windows_siril_syqon_runtime": "PENDING USER TEST"
   },
-  "python_files_checked": 59,
-  "yaml_files_checked": 25,
-  "unit_tests": {
-    "count": 64,
-    "result": "PASS",
-    "note": "Build-container test discovery used a minimal astropy import stub; no real FITS I/O."
-  },
-  "gui_smoke": {
-    "main_xvfb": "PASS",
-    "sequence_xvfb": "PASS",
-    "restoration_button_labels": "PASS",
-    "stage_summary_deblur": "PASS"
-  },
-  "runtime_boundary": "Actual Windows + Siril 1.4.4 + installed SyQon Parallax/Prism FULL execution was not run in the build container and still requires user runtime confirmation."
+  "safe_banding_defaults": {
+    "full_safe_banding": true,
+    "safe_bridge_payload_mib": 32,
+    "safe_band_overlap": 192,
+    "startup_watchdog_sec": 30
+  }
 }

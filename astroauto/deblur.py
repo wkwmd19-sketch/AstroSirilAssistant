@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import shutil
 import uuid
+import subprocess
 
 from .project import load_project, save_project
 from .siril import run_script, SirilError
@@ -12,6 +13,8 @@ from .logging_utils import append_jsonl
 from .execution import ExecutionCancelled
 from .preview_utils import (
     make_center_crop_fits, make_even_geometry_fits, restore_original_geometry_fits,
+    plan_safe_horizontal_bands, write_horizontal_band_fits,
+    stitch_horizontal_bands_fits,
 )
 from .ghs import make_ghs_task
 from .syqon import (
@@ -266,25 +269,18 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
         script_path = None
         proc_display = None
 
+        safe_band_meta = None
         if engine == "SYQON_PARALLAX":
             script_path, engine_command = _parallax_command(config, params)
-            commands = [
-                "set32bits",
-                "setext fits",
-                f'load "{normalize_siril_path(preview_input)}"',
-                engine_command,
-                f'save "{normalize_siril_path(working_linear_stem)}"',
-                "close",
-            ]
             timeout = int(
                 config.get("syqon", {}).get(
                     "quick_preview_timeout_sec" if preview_mode == "QUICK" else "command_timeout_sec",
                     900 if preview_mode == "QUICK" else 3600,
                 )
             )
+            wd_sec = int(config.get("syqon", {}).get("startup_watchdog_sec", 30))
             watchdog = None
             if preview_mode == "FULL":
-                wd_sec = int(config.get("syqon", {}).get("startup_watchdog_sec", 90))
                 watchdog = {
                     "timeout_sec": wd_sec,
                     "arm_markers": ["python module is up-to-date"],
@@ -295,23 +291,92 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
                     ],
                     "message": (
                         f"SyQon Parallax가 Python 환경 확인 후 {wd_sec}초 안에 AI 처리 단계로 "
-                        "진입하지 못했습니다. 작업을 자동 중단했습니다.\n\n"
-                        "[빠른 미리보기]는 정상인데 전체 처리만 이 지점에서 멈춘 경우, "
-                        "다시 시도하거나 Engine을 SIRIL_RL로 전환해 확인하세요."
+                        "진입하지 못했습니다. 작업을 자동 중단했습니다."
                     ),
                 }
-            proc = run_script(
-                config, commands, cwd=preview_input.parent,
-                timeout_sec=timeout, startup_watchdog=watchdog,
-            )
-            assert_syqon_process_success(proc, "SyQon Parallax")
 
-            raw_linear = _find_saved(working_linear_stem)
-            if not raw_linear:
-                raise SirilError(
-                    "Restoration AI 처리 후 Linear FITS를 찾지 못했습니다.\n"
-                    f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+            use_safe_banding = False
+            if preview_mode == "FULL" and bool(config.get("syqon", {}).get("full_safe_banding", True)):
+                safe_band_meta = plan_safe_horizontal_bands(
+                    preview_input,
+                    max_payload_mib=float(config.get("syqon", {}).get("safe_bridge_payload_mib", 32)),
+                    overlap=int(config.get("syqon", {}).get("safe_band_overlap", 192)),
                 )
+                use_safe_banding = bool(safe_band_meta.get("chunked"))
+
+            if use_safe_banding:
+                emit_log(
+                    "safe-band: 대형 RGB32 전체 이미지의 SyQon/Siril Python 연결 정지를 피하기 위해 "
+                    f"{safe_band_meta['band_count']}개 겹침 band로 안전 분할 처리합니다. "
+                    f"(estimated payload={safe_band_meta['payload_mib']:.1f} MiB, "
+                    f"limit={safe_band_meta['max_payload_mib']:.1f} MiB, overlap={safe_band_meta['overlap']}px)"
+                )
+                band_dir = run_dir / "safe_bands"
+                band_dir.mkdir(parents=True, exist_ok=True)
+                processed = []
+                stdout_parts = []
+                stderr_parts = []
+                total = safe_band_meta['band_count']
+                for band in safe_band_meta['bands']:
+                    idx = int(band['index'])
+                    y0, y1 = int(band['y0']), int(band['y1'])
+                    band_input = band_dir / f"band_{idx:02d}_input.fits"
+                    band_out_stem = band_dir / f"band_{idx:02d}_parallax"
+                    write_horizontal_band_fits(preview_input, band_input, y0, y1)
+                    emit_log(
+                        f"safe-band: [{idx}/{total}] y={y0}:{y1} "
+                        f"({safe_band_meta['width']}×{y1-y0}) Parallax 시작"
+                    )
+                    commands = [
+                        "set32bits",
+                        "setext fits",
+                        f'load "{normalize_siril_path(band_input)}"',
+                        engine_command,
+                        f'save "{normalize_siril_path(band_out_stem)}"',
+                        "close",
+                    ]
+                    band_proc = run_script(
+                        config, commands, cwd=band_input.parent,
+                        timeout_sec=timeout, startup_watchdog=watchdog,
+                    )
+                    assert_syqon_process_success(band_proc, f"SyQon Parallax band {idx}/{total}")
+                    band_output = _find_saved(band_out_stem)
+                    if not band_output:
+                        raise SirilError(f"SyQon 안전 band {idx}/{total} 결과 FITS를 찾지 못했습니다.")
+                    processed.append({**band, 'path': str(band_output)})
+                    stdout_parts.append(f"--- SAFE BAND {idx}/{total} ---\n{band_proc.stdout or ''}")
+                    stderr_parts.append(band_proc.stderr or '')
+                    emit_log(f"safe-band: [{idx}/{total}] 완료")
+
+                safe_band_meta['processed_bands'] = processed
+                stitched = working_linear_stem.with_suffix(".fits")
+                stitch_horizontal_bands_fits(preview_input, processed, stitched)
+                emit_log("safe-band: 겹침 영역 feather 결합 완료")
+                raw_linear = stitched
+                proc = subprocess.CompletedProcess(
+                    args=['SyQon-safe-banded'], returncode=0,
+                    stdout='\n'.join(stdout_parts), stderr='\n'.join(stderr_parts),
+                )
+            else:
+                commands = [
+                    "set32bits",
+                    "setext fits",
+                    f'load "{normalize_siril_path(preview_input)}"',
+                    engine_command,
+                    f'save "{normalize_siril_path(working_linear_stem)}"',
+                    "close",
+                ]
+                proc = run_script(
+                    config, commands, cwd=preview_input.parent,
+                    timeout_sec=timeout, startup_watchdog=watchdog,
+                )
+                assert_syqon_process_success(proc, "SyQon Parallax")
+                raw_linear = _find_saved(working_linear_stem)
+                if not raw_linear:
+                    raise SirilError(
+                        "Restoration AI 처리 후 Linear FITS를 찾지 못했습니다.\n"
+                        f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+                    )
 
             if geometry_meta and geometry_meta.get("padded"):
                 linear_preview = final_linear_stem.with_suffix(".fits")
@@ -382,6 +447,7 @@ def preview_deblur(project_dir: Path, config: dict, *, preview_mode: str = "FULL
             "preview_input_file": str(preview_input),
             "crop": crop_meta,
             "geometry_guard": geometry_meta,
+            "safe_banding": safe_band_meta,
             "display_preview": str(jpg),
             "linear_preview": str(linear_preview),
             "promotable_candidate": preview_mode == "FULL",
@@ -498,6 +564,7 @@ def promote_deblur_preview(project_dir: Path, config: dict, *, preview_file: Pat
         "reused_full_preview": True,
         "source_preview_file": str(preview_file),
         "geometry_guard": preview_meta.get("geometry_guard"),
+        "safe_banding": preview_meta.get("safe_banding"),
     }
     _advance_after_deblur(project, input_state)
     save_project(pdir, project)
@@ -515,6 +582,7 @@ def promote_deblur_preview(project_dir: Path, config: dict, *, preview_file: Pat
         "engine_command": preview_meta.get("engine_command"),
         "parameters": params,
         "geometry_guard": preview_meta.get("geometry_guard"),
+        "safe_banding": preview_meta.get("safe_banding"),
         "analysis_before": before,
         "analysis_after": after,
     }

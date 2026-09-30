@@ -1,5 +1,5 @@
 app:
-  version: 0.14.4
+  version: 0.14.5
   project_root: D:\AstroProjects_Auto
   copy_input_into_project: true
 siril:
@@ -98,6 +98,9 @@ syqon:
   command_timeout_sec: 3600
   quick_preview_size: 1536
   quick_preview_timeout_sec: 900
-  startup_watchdog_sec: 90
+  startup_watchdog_sec: 30
   even_geometry_guard: true
-version: 0.14.4
+  full_safe_banding: true
+  safe_bridge_payload_mib: 32
+  safe_band_overlap: 192
+version: 0.14.5

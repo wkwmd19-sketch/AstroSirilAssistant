@@ -163,7 +163,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.4")
+        self.title("AstroSirilAssistant v0.14.5")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -2204,6 +2204,7 @@ class App(tk.Tk):
                 self.deblur_full_preview_meta = meta
             crop = meta.get("crop") or {}
             geometry = meta.get("geometry_guard") or {}
+            safe_banding = meta.get("safe_banding") or {}
             crop_text = ""
             if mode == "QUICK":
                 crop_text = (
@@ -2216,6 +2217,13 @@ class App(tk.Tk):
                     f"{geometry.get('source_width')}×{geometry.get('source_height')} → "
                     f"{geometry.get('prepared_width')}×{geometry.get('prepared_height')} 처리 후 "
                     "원본 크기로 복원\n"
+                )
+            if mode == "FULL" and safe_banding.get("chunked"):
+                crop_text += (
+                    "SyQon Safe-Band: "
+                    f"{safe_banding.get('band_count')}개 band / "
+                    f"overlap {safe_banding.get('overlap')}px / "
+                    f"bridge 목표 ≤ {safe_banding.get('max_payload_mib'):.0f} MiB\n"
                 )
             self.write(
                 f"\nRestoration {label} 완료\n"
@@ -2230,7 +2238,12 @@ class App(tk.Tk):
             if mode == "QUICK":
                 self.status_var.set("빠른 미리보기 완료 · 값 확정 후 전체 처리를 실행하세요")
             else:
-                self.status_var.set(f"전체 처리 완료 · 결과 확인 후 [결과 승인]하세요 · {meta['engine']}")
+                if safe_banding.get("chunked"):
+                    self.status_var.set(
+                        f"전체 처리 완료 · Safe-Band {safe_banding.get('band_count')}개 결합 · 결과 승인 가능"
+                    )
+                else:
+                    self.status_var.set(f"전체 처리 완료 · 결과 확인 후 [결과 승인]하세요 · {meta['engine']}")
             self._open_preview(jpg)
 
         self.run_bg(

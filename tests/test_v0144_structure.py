@@ -24,7 +24,7 @@ class V0144StructureTests(unittest.TestCase):
 
     def test_syqon_full_run_safety_config(self):
         cfg = yaml.safe_load((ROOT / 'config' / 'app.yaml').read_text(encoding='utf-8'))
-        self.assertEqual(cfg['syqon']['startup_watchdog_sec'], 90)
+        self.assertEqual(cfg['syqon']['startup_watchdog_sec'], 30)
         self.assertTrue(cfg['syqon']['even_geometry_guard'])
         siril = (ROOT / 'astroauto' / 'siril.py').read_text(encoding='utf-8')
         preview = (ROOT / 'astroauto' / 'preview_utils.py').read_text(encoding='utf-8')

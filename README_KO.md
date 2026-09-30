@@ -1,4 +1,17 @@
-# AstroSirilAssistant v0.14.4 — Restoration Full-Run Reliability
+# AstroSirilAssistant v0.14.5 — SyQon Full Safe-Band Hotfix
+
+Parallax 빠른 미리보기는 정상인데 큰 전체 RGB32 이미지에서 `Python module is up-to-date`
+이후 진행되지 않는 Windows/Siril Python bridge 패턴을 우회합니다.
+
+전체 이미지가 안전 임계값을 넘으면 자동으로 원본 픽셀 스케일의 겹침 band로 나누어
+동일한 Parallax 설정을 적용하고, overlap을 feather 결합한 뒤 원본 크기의 Linear FITS로
+복원합니다. 사용자는 기존과 동일하게 `전체 처리 + 결과 확인` 후 `결과 승인`하면 됩니다.
+
+기본값: 32 MiB 안전 payload / 192px overlap / startup watchdog 30초.
+
+---
+
+# AstroSirilAssistant v0.14.5 — Restoration Full-Run Reliability
 
 이번 패치는 실제 Parallax 테스트 로그를 바탕으로 전체 처리 흐름을 수정합니다.
 
