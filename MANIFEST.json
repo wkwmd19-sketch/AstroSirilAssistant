@@ -1,30 +1,45 @@
 {
-  "package": "AstroSirilAssistant_v0.14.6",
-  "version": "0.14.6",
-  "update": "Before/After quick-preview comparison and UI copy polish",
+  "package": "AstroSirilAssistant_v0.14.7",
+  "version": "0.14.7",
+  "update": "Astro Cozy Dark UI polish; processing logic unchanged from v0.14.6",
   "validation": {
-    "python_compile": "PASS: 61 Python files / 0 syntax errors",
+    "python_compile": "PASS: 62 Python files / 0 syntax errors",
     "yaml_parse": "PASS: 25 YAML files / 0 errors",
-    "targeted_regression_tests": "PASS: 21 tests",
-    "gui_smoke": "PASS with import-only astropy stub; process remained alive for 5 seconds",
-    "sequence_gui_smoke": "PASS with import-only astropy stub; process remained alive for 5 seconds",
-    "before_after_popup_smoke": "PASS under Xvfb with synthetic PPM images",
-    "linked_comparison_transform": "PASS with synthetic FITS-like NumPy arrays",
-    "full_test_suite": "NOT RUN: container lacks astropy and package-network access",
+    "targeted_regression_tests": "PASS: 29 tests",
+    "main_gui_smoke": "PASS under Xvfb with import-only astropy stub",
+    "sequence_gui_smoke": "PASS under Xvfb with import-only astropy stub",
+    "full_test_suite": "NOT RUN: container lacks astropy; collection fails for astropy-dependent tests",
     "baseline_windows_siril_syqon_runtime": "v0.14.5 USER CONFIRMED through Final export",
-    "v0.14.6_windows_runtime": "PENDING USER TEST"
+    "v0.14.7_windows_runtime": "PENDING USER TEST"
   },
-  "preview_compare": {
-    "mode": "side-by-side Before/After",
-    "before": "SPCC quick-preview crop",
-    "after": "Parallax quick-preview result",
-    "display_stretch": "single stretch derived from Before and applied identically to both",
-    "linear_fits_modified": false
+  "theme": {
+    "name": "Astro Cozy Dark",
+    "toolkit": "Tk/ttk (unchanged)",
+    "intent": "softer palette, borderless cards, larger spacing and softer controls",
+    "processing_logic_changed": false
   },
-  "safe_banding_defaults": {
-    "full_safe_banding": true,
-    "safe_bridge_payload_mib": 32,
-    "safe_band_overlap": 192,
-    "startup_watchdog_sec": 30
-  }
+  "bat_checks": {
+    "run_gui.bat": {
+      "ascii": true,
+      "crlf": true
+    },
+    "run_sequence_gui.bat": {
+      "ascii": true,
+      "crlf": true
+    },
+    "run_common.bat": {
+      "ascii": true,
+      "crlf": true
+    },
+    "install_windows.bat": {
+      "ascii": true,
+      "crlf": true
+    },
+    "run_cli.bat": {
+      "ascii": true,
+      "crlf": true
+    }
+  },
+  "python_errors": [],
+  "yaml_errors": []
 }

@@ -35,7 +35,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.6 · Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.14.7 · Deep Sky Sequence")
         apply_screen_aware_geometry(self)
         self.palette = apply_astro_theme(self)
 
@@ -100,7 +100,7 @@ class SequenceApp(tk.Tk):
         self.canvas.grid(row=0, column=0, sticky="nsew")
         self.scroll.grid(row=0, column=1, sticky="ns")
 
-        f = ttk.Frame(self.canvas, padding=16)
+        f = ttk.Frame(self.canvas, padding=20)
         self.workspace_inner = f
         self.workspace_window_id = self.canvas.create_window((0,0), window=f, anchor="nw")
         f.bind("<Configure>", self._on_inner_configure)
@@ -111,8 +111,8 @@ class SequenceApp(tk.Tk):
         self.bind_all("<Button-5>", self._on_linux_wheel, add="+")
 
         # Header
-        header = ttk.Frame(f, style="Surface.TFrame", padding=(16,13))
-        header.grid(row=0, column=0, sticky="ew", pady=(0,12))
+        header = ttk.Frame(f, style="Surface.TFrame", padding=(22,18))
+        header.grid(row=0, column=0, sticky="ew", pady=(0,16))
         title_col = ttk.Frame(header, style="Surface.TFrame")
         title_col.pack(side="left", fill="x", expand=True)
         ttk.Label(
@@ -127,7 +127,7 @@ class SequenceApp(tk.Tk):
 
         # Source folders
         source = ttk.LabelFrame(f, text="촬영 프레임", style="Card.TLabelframe")
-        source.grid(row=1, column=0, sticky="ew", pady=(0,10))
+        source.grid(row=1, column=0, sticky="ew", pady=(0,14))
         rows = [
             ("Lights 폴더", "lights"),
             ("Dark 폴더", "darks"),
@@ -136,7 +136,7 @@ class SequenceApp(tk.Tk):
             ("Dark-flat 폴더", "dark_flats"),
         ]
         for i, (label, key) in enumerate(rows):
-            ttk.Label(source, text=label, width=18).grid(row=i, column=0, sticky="w", pady=4)
+            ttk.Label(source, text=label, width=18).grid(row=i, column=0, sticky="w", pady=6)
             ttk.Entry(source, textvariable=self.paths[key]).grid(
                 row=i, column=1, sticky="ew", padx=(8,0), pady=4
             )
@@ -147,33 +147,33 @@ class SequenceApp(tk.Tk):
 
         # Project / camera
         project = ttk.LabelFrame(f, text="프로젝트 / 촬영 정보", style="Card.TLabelframe")
-        project.grid(row=2, column=0, sticky="ew", pady=(0,10))
+        project.grid(row=2, column=0, sticky="ew", pady=(0,14))
 
-        ttk.Label(project, text="대상명", width=18).grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Entry(project, textvariable=self.target).grid(row=0, column=1, sticky="ew", padx=(8,0), pady=4)
+        ttk.Label(project, text="대상명", width=18).grid(row=0, column=0, sticky="w", pady=6)
+        ttk.Entry(project, textvariable=self.target).grid(row=0, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="촬영일", width=18).grid(row=1, column=0, sticky="w", pady=4)
-        ttk.Entry(project, textvariable=self.capture_date).grid(row=1, column=1, sticky="ew", padx=(8,0), pady=4)
+        ttk.Label(project, text="촬영일", width=18).grid(row=1, column=0, sticky="w", pady=6)
+        ttk.Entry(project, textvariable=self.capture_date).grid(row=1, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="대상 종류", width=18).grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="대상 종류", width=18).grid(row=2, column=0, sticky="w", pady=6)
         ttk.Combobox(
             project, textvariable=self.category, state="readonly",
             values=[x[0] for x in CATEGORIES]
-        ).grid(row=2, column=1, sticky="ew", padx=(8,0), pady=4)
+        ).grid(row=2, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="카메라", width=18).grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="카메라", width=18).grid(row=3, column=0, sticky="w", pady=6)
         ttk.Combobox(
             project, textvariable=self.camera_mode, state="readonly",
             values=["AUTO", "OSC", "MONO"]
-        ).grid(row=3, column=1, sticky="ew", padx=(8,0), pady=4)
+        ).grid(row=3, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="입력 상태", width=18).grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="입력 상태", width=18).grid(row=4, column=0, sticky="w", pady=6)
         ttk.Combobox(
             project, textvariable=self.input_status, state="readonly",
             values=["RAW_UNCALIBRATED", "PRECALIBRATED"]
-        ).grid(row=4, column=1, sticky="ew", padx=(8,0), pady=4)
+        ).grid(row=4, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="저장 위치", width=18).grid(row=5, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="저장 위치", width=18).grid(row=5, column=0, sticky="w", pady=6)
         ttk.Entry(project, textvariable=self.project_root).grid(
             row=5, column=1, sticky="ew", padx=(8,0), pady=4
         )
@@ -190,7 +190,7 @@ class SequenceApp(tk.Tk):
 
         # Workflow actions
         actions = ttk.LabelFrame(f, text="반자동 실행", style="Card.TLabelframe")
-        actions.grid(row=3, column=0, sticky="ew", pady=(0,10))
+        actions.grid(row=3, column=0, sticky="ew", pady=(0,14))
 
         buttons = ttk.Frame(actions)
         buttons.pack(fill="x")
@@ -210,25 +210,25 @@ class SequenceApp(tk.Tk):
         ).pack(side="left", padx=6)
 
 
-        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(12,8))
-        status_card.grid(row=4, column=0, sticky="ew", pady=(0,8))
+        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(16,11))
+        status_card.grid(row=4, column=0, sticky="ew", pady=(0,12))
         ttk.Label(status_card, text="상태", style="Subtitle.TLabel").pack(side="left")
         ttk.Label(status_card, textvariable=self.status, style="Subtitle.TLabel").pack(
             side="left", padx=(10,0)
         )
 
-        op = ttk.Frame(f)
-        op.grid(row=5, column=0, sticky="ew", pady=(3,4))
+        op = ttk.Frame(f, style="Surface.TFrame", padding=(14, 10))
+        op.grid(row=5, column=0, sticky="ew", pady=(2,8))
         ttk.Label(op, textvariable=self.operation_var).pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12,8), fill="x", expand=True)
         ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
-        self.cancel_btn = ttk.Button(op, text="중단", command=self.request_cancel)
+        self.cancel_btn = ttk.Button(op, text="중단", command=self.request_cancel, style="Danger.TButton")
         self.cancel_btn.pack(side="left", padx=(8,0))
         self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(f)
-        log_toolbar.grid(row=6, column=0, sticky="ew", pady=(4,10))
+        log_toolbar.grid(row=6, column=0, sticky="ew", pady=(4,14))
         self.log_toggle_btn = ttk.Button(
             log_toolbar, text="▼ 상세 로그 보기", command=self.toggle_logs
         )

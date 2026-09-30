@@ -163,7 +163,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.6")
+        self.title("AstroSirilAssistant v0.14.7")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -444,7 +444,7 @@ class App(tk.Tk):
         self.workspace_canvas.grid(row=0, column=0, sticky="nsew")
         self.workspace_scrollbar.grid(row=0, column=1, sticky="ns")
 
-        frm = ttk.Frame(self.workspace_canvas, padding=16)
+        frm = ttk.Frame(self.workspace_canvas, padding=20)
         self.workspace_inner = frm
         self.workspace_window_id = self.workspace_canvas.create_window(
             (0, 0), window=frm, anchor="nw"
@@ -458,8 +458,8 @@ class App(tk.Tk):
         self.bind_all("<Button-5>", self._on_workspace_linux_wheel, add="+")
 
         # Modern application header.
-        header = ttk.Frame(frm, style="Surface.TFrame", padding=(16, 13))
-        header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 12))
+        header = ttk.Frame(frm, style="Surface.TFrame", padding=(22, 18))
+        header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 16))
         title_col = ttk.Frame(header, style="Surface.TFrame")
         title_col.pack(side="left", fill="x", expand=True)
         ttk.Label(
@@ -474,32 +474,32 @@ class App(tk.Tk):
 
         # Input / project card.
         input_card = ttk.LabelFrame(frm, text="프로젝트 입력", style="Card.TLabelframe")
-        input_card.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        input_card.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0,14))
 
-        ttk.Label(input_card, text="입력 FITS").grid(row=0, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew", padx=(8,0))
-        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=0, column=2, padx=(8,0))
+        ttk.Label(input_card, text="입력 FITS").grid(row=0, column=0, sticky="w", pady=7)
+        ttk.Entry(input_card, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew", padx=(10,0), pady=3)
+        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=0, column=2, padx=(10,0), pady=3)
 
-        ttk.Label(input_card, text="대상명").grid(row=1, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.target_var).grid(row=1, column=1, sticky="ew", padx=(8,0))
+        ttk.Label(input_card, text="대상명").grid(row=1, column=0, sticky="w", pady=7)
+        ttk.Entry(input_card, textvariable=self.target_var).grid(row=1, column=1, sticky="ew", padx=(10,0), pady=3)
 
-        ttk.Label(input_card, text="촬영일").grid(row=2, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.date_var).grid(row=2, column=1, sticky="ew", padx=(8,0))
+        ttk.Label(input_card, text="촬영일").grid(row=2, column=0, sticky="w", pady=7)
+        ttk.Entry(input_card, textvariable=self.date_var).grid(row=2, column=1, sticky="ew", padx=(10,0), pady=3)
 
-        ttk.Label(input_card, text="대상 종류").grid(row=3, column=0, sticky="w", pady=5)
+        ttk.Label(input_card, text="대상 종류").grid(row=3, column=0, sticky="w", pady=7)
         combo = ttk.Combobox(
             input_card, textvariable=self.category_var, state="readonly",
             values=[x[0] for x in CATEGORIES]
         )
-        combo.grid(row=3, column=1, sticky="ew", padx=(8,0))
+        combo.grid(row=3, column=1, sticky="ew", padx=(10,0), pady=3)
 
-        ttk.Label(input_card, text="저장 위치").grid(row=4, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.root_var).grid(row=4, column=1, sticky="ew", padx=(8,0))
-        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=4, column=2, padx=(8,0))
+        ttk.Label(input_card, text="저장 위치").grid(row=4, column=0, sticky="w", pady=7)
+        ttk.Entry(input_card, textvariable=self.root_var).grid(row=4, column=1, sticky="ew", padx=(10,0), pady=3)
+        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=4, column=2, padx=(10,0), pady=3)
         input_card.columnconfigure(1, weight=1)
 
         btns = ttk.Frame(frm)
-        btns.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        btns.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0,14))
         ttk.Button(btns, text="Siril 연결 확인", command=self.doctor).pack(side="left", padx=(0,6))
         ttk.Button(
             btns, text="프로젝트 생성 + 분석",
@@ -513,10 +513,11 @@ class App(tk.Tk):
             btns,
             text="도움말",
             command=lambda: self.help.show_detail("ui.dynamic"),
+            style="Quiet.TButton",
         ).pack(side="right", padx=(6,0))
 
-        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(12,8))
-        status_card.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16,11))
+        status_card.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,12))
         ttk.Label(
             status_card, text="상태", style="Subtitle.TLabel"
         ).pack(side="left")
@@ -524,8 +525,8 @@ class App(tk.Tk):
             status_card, textvariable=self.status_var, style="Subtitle.TLabel"
         ).pack(side="left", padx=(10,0))
 
-        flow_card = ttk.Frame(frm, style="Surface.TFrame", padding=(12, 9))
-        flow_card.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        flow_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16, 12))
+        flow_card.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0,14))
         ttk.Label(
             flow_card, textvariable=self.current_stage_var, wraplength=1120, style="FlowCurrent.TLabel",
         ).pack(anchor="w")
@@ -537,23 +538,23 @@ class App(tk.Tk):
             frm, text="처리 설정", style="Card.TLabelframe"
         )
         self.action_box.grid(
-            row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8)
+            row=5, column=0, columnspan=3, sticky="ew", pady=(0, 12)
         )
 
-        op = ttk.Frame(frm)
-        op.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 4))
+        op = ttk.Frame(frm, style="Surface.TFrame", padding=(14, 10))
+        op.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(2, 8))
         ttk.Label(op, textvariable=self.operation_var).pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12, 8), fill="x", expand=True)
         ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
         self.cancel_btn = ttk.Button(
-            op, text="중단", command=self.request_cancel
+            op, text="중단", command=self.request_cancel, style="Danger.TButton"
         )
         self.cancel_btn.pack(side="left", padx=(8,0))
         self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(frm)
-        log_toolbar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 10))
+        log_toolbar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 14))
         self.log_toggle_btn = ttk.Button(
             log_toolbar,
             text="▼ 상세 로그 보기",
@@ -1011,7 +1012,7 @@ class App(tk.Tk):
         win.resizable(False, False)
         win.grab_set()
 
-        outer = ttk.Frame(win, padding=18)
+        outer = ttk.Frame(win, style="Surface.TFrame", padding=22)
         outer.pack(fill="both", expand=True)
         ttk.Label(
             outer,
@@ -1028,7 +1029,7 @@ class App(tk.Tk):
             wraplength=650,
         ).pack(anchor="w", pady=(14,14))
 
-        row = ttk.Frame(outer)
+        row = ttk.Frame(outer, style="Surface.TFrame")
         row.pack(fill="x")
         def choose(value):
             result["value"] = value

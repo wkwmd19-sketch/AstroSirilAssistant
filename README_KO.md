@@ -1,3 +1,21 @@
+# AstroSirilAssistant v0.14.7 — Astro Cozy Dark UI
+
+이번 버전은 v0.14.6의 처리 로직을 유지하면서 시각 톤만 부드럽게 다듬은 UI Polish 릴리스입니다.
+
+- 따뜻한 Navy/Charcoal 기반 `Astro Cozy Dark` 팔레트
+- 강한 테두리를 제거한 카드형 섹션
+- 여백과 행간 확대
+- 버튼/입력창 높이와 패딩 확대
+- 낮은 채도의 Blue / Green / Red 액센트
+- 얇은 프로그레스바와 부드러운 상태 영역
+- 실행 중 `중단` 버튼은 muted-red 스타일
+- Main GUI와 Sequence GUI에 같은 테마 적용
+- Parallax Safe-Band, Before/After, Final Export 등 처리 로직은 변경하지 않음
+
+> Tk/ttk 기반 구조는 그대로 유지합니다. 안정성을 위해 GUI 프레임워크를 교체하지 않고, borderless card + spacing + soft palette 방식으로 둥글고 편안한 인상을 만들었습니다.
+
+---
+
 # AstroSirilAssistant v0.14.6 — Preview Compare + UI Copy Polish
 
 이번 버전은 v0.14.5의 실제 Windows/Siril/SyQon 전체 파이프라인 성공 확인을 기준으로,
