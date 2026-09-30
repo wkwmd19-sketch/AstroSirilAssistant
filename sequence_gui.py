@@ -10,6 +10,7 @@ from astroauto.config import load_app_config
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 from astroauto.siril import get_siril_info
+from astroauto.execution import TaskControl, ExecutionCancelled, execution_context
 from astroauto.ui_theme import (
     apply_astro_theme,
     apply_screen_aware_geometry,
@@ -34,7 +35,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.1 · Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.15.1 · Deep Sky Sequence")
         apply_screen_aware_geometry(self)
         self.palette = apply_astro_theme(self)
 
@@ -66,6 +67,9 @@ class SequenceApp(tk.Tk):
         self._busy_started = None
         self._busy_timer_id = None
         self._busy_disabled_widgets = []
+        self._current_control = None
+        self._current_operation = None
+        self._cancel_requested = False
 
         self._build()
 
@@ -96,7 +100,7 @@ class SequenceApp(tk.Tk):
         self.canvas.grid(row=0, column=0, sticky="nsew")
         self.scroll.grid(row=0, column=1, sticky="ns")
 
-        f = ttk.Frame(self.canvas, padding=16)
+        f = ttk.Frame(self.canvas, padding=20)
         self.workspace_inner = f
         self.workspace_window_id = self.canvas.create_window((0,0), window=f, anchor="nw")
         f.bind("<Configure>", self._on_inner_configure)
@@ -107,8 +111,8 @@ class SequenceApp(tk.Tk):
         self.bind_all("<Button-5>", self._on_linux_wheel, add="+")
 
         # Header
-        header = ttk.Frame(f, style="Surface.TFrame", padding=(16,13))
-        header.grid(row=0, column=0, sticky="ew", pady=(0,12))
+        header = ttk.Frame(f, style="Surface.TFrame", padding=(22,18))
+        header.grid(row=0, column=0, sticky="ew", pady=(0,16))
         title_col = ttk.Frame(header, style="Surface.TFrame")
         title_col.pack(side="left", fill="x", expand=True)
         ttk.Label(
@@ -116,14 +120,14 @@ class SequenceApp(tk.Tk):
         ).pack(anchor="w")
         ttk.Label(
             title_col,
-            text="Deep-sky sequence · Calibration → Registration → Stack",
+            text="딥스카이 시퀀스 전처리 · Calibration → Registration → Stack",
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2,0))
-        ttk.Label(header, text="SEQUENCE", style="Badge.TLabel").pack(side="right")
+        ttk.Label(header, text="시퀀스", style="Badge.TLabel").pack(side="right")
 
         # Source folders
         source = ttk.LabelFrame(f, text="촬영 프레임", style="Card.TLabelframe")
-        source.grid(row=1, column=0, sticky="ew", pady=(0,10))
+        source.grid(row=1, column=0, sticky="ew", pady=(0,14))
         rows = [
             ("Lights 폴더", "lights"),
             ("Dark 폴더", "darks"),
@@ -132,7 +136,7 @@ class SequenceApp(tk.Tk):
             ("Dark-flat 폴더", "dark_flats"),
         ]
         for i, (label, key) in enumerate(rows):
-            ttk.Label(source, text=label, width=18).grid(row=i, column=0, sticky="w", pady=4)
+            ttk.Label(source, text=label, width=18).grid(row=i, column=0, sticky="w", pady=6)
             ttk.Entry(source, textvariable=self.paths[key]).grid(
                 row=i, column=1, sticky="ew", padx=(8,0), pady=4
             )
@@ -143,33 +147,33 @@ class SequenceApp(tk.Tk):
 
         # Project / camera
         project = ttk.LabelFrame(f, text="프로젝트 / 촬영 정보", style="Card.TLabelframe")
-        project.grid(row=2, column=0, sticky="ew", pady=(0,10))
+        project.grid(row=2, column=0, sticky="ew", pady=(0,14))
 
-        ttk.Label(project, text="대상명", width=18).grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Entry(project, textvariable=self.target).grid(row=0, column=1, sticky="ew", padx=(8,0), pady=4)
+        ttk.Label(project, text="대상명", width=18).grid(row=0, column=0, sticky="w", pady=6)
+        ttk.Entry(project, textvariable=self.target).grid(row=0, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="촬영일", width=18).grid(row=1, column=0, sticky="w", pady=4)
-        ttk.Entry(project, textvariable=self.capture_date).grid(row=1, column=1, sticky="ew", padx=(8,0), pady=4)
+        ttk.Label(project, text="촬영일", width=18).grid(row=1, column=0, sticky="w", pady=6)
+        ttk.Entry(project, textvariable=self.capture_date).grid(row=1, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="대상 종류", width=18).grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="대상 종류", width=18).grid(row=2, column=0, sticky="w", pady=6)
         ttk.Combobox(
             project, textvariable=self.category, state="readonly",
             values=[x[0] for x in CATEGORIES]
-        ).grid(row=2, column=1, sticky="ew", padx=(8,0), pady=4)
+        ).grid(row=2, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="카메라", width=18).grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="카메라", width=18).grid(row=3, column=0, sticky="w", pady=6)
         ttk.Combobox(
             project, textvariable=self.camera_mode, state="readonly",
             values=["AUTO", "OSC", "MONO"]
-        ).grid(row=3, column=1, sticky="ew", padx=(8,0), pady=4)
+        ).grid(row=3, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="입력 Calibration", width=18).grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="입력 상태", width=18).grid(row=4, column=0, sticky="w", pady=6)
         ttk.Combobox(
             project, textvariable=self.input_status, state="readonly",
             values=["RAW_UNCALIBRATED", "PRECALIBRATED"]
-        ).grid(row=4, column=1, sticky="ew", padx=(8,0), pady=4)
+        ).grid(row=4, column=1, sticky="ew", padx=(8,0), pady=6)
 
-        ttk.Label(project, text="프로젝트 루트", width=18).grid(row=5, column=0, sticky="w", pady=4)
+        ttk.Label(project, text="저장 위치", width=18).grid(row=5, column=0, sticky="w", pady=6)
         ttk.Entry(project, textvariable=self.project_root).grid(
             row=5, column=1, sticky="ew", padx=(8,0), pady=4
         )
@@ -186,7 +190,7 @@ class SequenceApp(tk.Tk):
 
         # Workflow actions
         actions = ttk.LabelFrame(f, text="반자동 실행", style="Card.TLabelframe")
-        actions.grid(row=3, column=0, sticky="ew", pady=(0,10))
+        actions.grid(row=3, column=0, sticky="ew", pady=(0,14))
 
         buttons = ttk.Frame(actions)
         buttons.pack(fill="x")
@@ -201,36 +205,30 @@ class SequenceApp(tk.Tk):
             buttons, text="2 · 실행 계획 보기", command=self.show_plan
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="3 · 승인 후 실제 실행", command=self.run_real,
+            buttons, text="3 · 승인 후 실행", command=self.run_real,
             style="Success.TButton"
         ).pack(side="left", padx=6)
 
-        ttk.Label(
-            actions,
-            text=(
-                "run_gui와 동일하게: 실행 상태/경과시간 표시 · 처리 중 버튼 잠금 · "
-                "오류 시 로그 자동 열기 · 로그 접기/복사 · 반응형 스크롤"
-            ),
-            style="Muted.TLabel",
-            wraplength=980,
-        ).pack(anchor="w", pady=(10,0))
 
-        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(12,8))
-        status_card.grid(row=4, column=0, sticky="ew", pady=(0,8))
-        ttk.Label(status_card, text="STATUS", style="Subtitle.TLabel").pack(side="left")
-        ttk.Label(status_card, textvariable=self.status, style="Subtitle.TLabel").pack(
-            side="left", padx=(10,0)
+        status_card = ttk.Frame(f, style="Surface.TFrame", padding=(16,12))
+        status_card.grid(row=4, column=0, sticky="ew", pady=(0,12))
+        ttk.Label(status_card, text="상태", style="StatusKey.TLabel").pack(anchor="w")
+        ttk.Label(status_card, textvariable=self.status, style="StatusValue.TLabel").pack(
+            anchor="w", pady=(4,0)
         )
 
-        op = ttk.Frame(f)
-        op.grid(row=5, column=0, sticky="ew", pady=(3,4))
-        ttk.Label(op, textvariable=self.operation_var).pack(side="left")
+        op = ttk.Frame(f, style="Surface.TFrame", padding=(14, 10))
+        op.grid(row=5, column=0, sticky="ew", pady=(2,8))
+        ttk.Label(op, textvariable=self.operation_var, style="SurfaceText.TLabel").pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12,8), fill="x", expand=True)
-        ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+        ttk.Label(op, textvariable=self.elapsed_var, width=8, style="SurfaceText.TLabel").pack(side="left")
+        self.cancel_btn = ttk.Button(op, text="중단", command=self.request_cancel, style="Danger.TButton")
+        self.cancel_btn.pack(side="left", padx=(8,0))
+        self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(f)
-        log_toolbar.grid(row=6, column=0, sticky="ew", pady=(4,10))
+        log_toolbar.grid(row=6, column=0, sticky="ew", pady=(4,14))
         self.log_toggle_btn = ttk.Button(
             log_toolbar, text="▼ 상세 로그 보기", command=self.toggle_logs
         )
@@ -239,11 +237,6 @@ class SequenceApp(tk.Tk):
             log_toolbar, text="로그 복사", command=self.copy_logs
         )
         self.copy_log_btn.pack(side="left", padx=(6,0))
-        ttk.Label(
-            log_toolbar,
-            text="로그 Pane 경계선을 드래그해 높이를 조절할 수 있습니다.",
-            style="Muted.TLabel",
-        ).pack(side="left", padx=(12,0))
 
         f.columnconfigure(0, weight=1)
 
@@ -429,6 +422,8 @@ class SequenceApp(tk.Tk):
                 for w in children:
                     if w in (getattr(self, "log_toggle_btn", None), getattr(self, "copy_log_btn", None)):
                         continue
+                    if w is getattr(self, "cancel_btn", None):
+                        continue
                     if isinstance(w, (ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton)):
                         try:
                             if "disabled" not in w.state():
@@ -449,7 +444,7 @@ class SequenceApp(tk.Tk):
         if not self._busy or self._busy_started is None:
             return
         sec = int(time.monotonic() - self._busy_started)
-        self.elapsed_var.set(f"경과 {sec//60:02d}:{sec%60:02d}")
+        self.elapsed_var.set(f"{sec//60:02d}:{sec%60:02d}")
         self._busy_timer_id = self.after(500, self._tick_elapsed)
 
     def _begin_busy(self, label):
@@ -457,40 +452,78 @@ class SequenceApp(tk.Tk):
             raise RuntimeError("다른 작업이 실행 중입니다.")
         self._busy = True
         self._busy_started = time.monotonic()
+        self._current_operation = label
+        self._cancel_requested = False
         self.operation_var.set(f"● 실행 중: {label}")
-        self.elapsed_var.set("경과 00:00")
+        self.elapsed_var.set("00:00")
         self.progress.start(12)
         self._set_controls_disabled(True)
+        self.cancel_btn.state(["!disabled"])
         self.write(f"\n▶ 실행 시작: {label}")
         self._tick_elapsed()
 
-    def _end_busy(self, label, success):
+    def _end_busy(self, label, success=False, cancelled=False):
         if self._busy_timer_id:
-            try:
-                self.after_cancel(self._busy_timer_id)
-            except Exception:
-                pass
+            try: self.after_cancel(self._busy_timer_id)
+            except Exception: pass
             self._busy_timer_id = None
         self.progress.stop()
+        self.cancel_btn.state(["disabled"])
         self._set_controls_disabled(False)
         self._busy = False
-        self.operation_var.set(
-            f"{'✓ 완료' if success else '✕ 오류'}: {label}"
-        )
+        self._current_control = None
+        self._current_operation = None
+        if cancelled:
+            self.operation_var.set(f"■ 중단됨: {label}")
+        else:
+            self.operation_var.set(f"{'✓ 완료' if success else '✕ 오류'}: {label}")
+
+    def _execution_log_line(self, line):
+        line = str(line).rstrip()
+        if line:
+            self.after(0, lambda s=line: self.write(f"│ {s}"))
+
+    def request_cancel(self):
+        if not self._busy or not self._current_control or self._cancel_requested:
+            return
+        operation = self._current_operation or "현재 작업"
+        if not messagebox.askyesno(
+            "작업 중단",
+            f"{operation}을(를) 중단할까요?\n\n완료되지 않은 출력은 정상 결과로 채택하지 않습니다."
+        ):
+            return
+        self._cancel_requested = True
+        self.cancel_btn.state(["disabled"])
+        self.operation_var.set(f"■ 중단 요청 중: {operation}")
+        self.status.set("중단 요청 중...")
+        self.write("■ 사용자 중단 요청 — 실행 중인 Siril 프로세스를 종료합니다.")
+        self._current_control.cancel()
 
     def run_bg(self, fn, operation, on_success=None):
+        control = TaskControl()
         try:
             self._begin_busy(operation)
+            self._current_control = control
         except Exception as e:
             messagebox.showwarning("실행 중", str(e))
             return
 
         def worker():
             try:
-                result = fn()
+                with execution_context(control, log_callback=self._execution_log_line):
+                    result = fn()
+                    if control.cancelled:
+                        raise ExecutionCancelled("사용자가 작업을 중단했습니다.")
+            except ExecutionCancelled as e:
+                def cancelled():
+                    self._end_busy(operation, cancelled=True)
+                    self.status.set("작업 중단됨")
+                    self.write(f"■ 작업 중단 완료: {e}")
+                self.after(0, cancelled)
+                return
             except Exception as e:
                 def fail():
-                    self._end_busy(operation, False)
+                    self._end_busy(operation, success=False)
                     self.status.set("오류")
                     self.write(f"\n✕ 오류: {operation}\n{e}")
                     self.show_logs()
@@ -499,11 +532,9 @@ class SequenceApp(tk.Tk):
                 return
 
             def done():
-                self._end_busy(operation, True)
-                if on_success:
-                    on_success(result)
+                self._end_busy(operation, success=True)
+                if on_success: on_success(result)
             self.after(0, done)
-
         threading.Thread(target=worker, daemon=True).start()
 
     # ------------------------------------------------------------------

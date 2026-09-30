@@ -86,7 +86,7 @@ def _stats(x: np.ndarray, bins: int, clip_fraction: float):
     }
 
 def analyze_pixels(path: Path, max_samples: int = 1500000, bins: int = 2048, clip_fraction: float = 0.0001):
-    with fits.open(path, memmap=True, do_not_scale_image_data=False) as hdul:
+    with fits.open(path, memmap=False, do_not_scale_image_data=False) as hdul:
         hdu = next((h for h in hdul if getattr(h, "data", None) is not None), None)
         if hdu is None:
             raise ValueError("FITS에서 이미지 데이터를 찾지 못했습니다.")
@@ -102,13 +102,14 @@ def analyze_pixels(path: Path, max_samples: int = 1500000, bins: int = 2048, cli
         return result
 
 def read_header_summary(path: Path):
-    with fits.open(path, memmap=True) as hdul:
+    with fits.open(path, memmap=False) as hdul:
         hdu = next((h for h in hdul if getattr(h, "data", None) is not None), hdul[0])
         header = hdu.header
         wanted = [
-            "OBJECT", "DATE-OBS", "EXPTIME", "EXPOSURE", "GAIN", "FILTER",
-            "INSTRUME", "TELESCOP", "BAYERPAT", "BITPIX", "NAXIS",
-            "NAXIS1", "NAXIS2", "NAXIS3"
+            "OBJECT", "DATE-OBS", "DATE", "EXPTIME", "EXPOSURE", "GAIN", "OFFSET", "FILTER",
+            "INSTRUME", "TELESCOP", "BAYERPAT", "COPYRGHT", "COPYRIGHT", "BITPIX", "NAXIS",
+            "NAXIS1", "NAXIS2", "NAXIS3", "ISOSPEED", "FOCALLEN", "APERTURE", "IMAGETYP",
+            "XBINNING", "YBINNING", "XPIXSZ", "YPIXSZ", "ROWORDER", "OBSERVER"
         ]
         summary = {k: header.get(k) for k in wanted if header.get(k) is not None}
 

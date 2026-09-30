@@ -90,7 +90,7 @@ def create_sequence_project(
 
     target_clean = safe_target_name(target)
     project = {
-        "schema_version": "0.4.0",
+        "schema_version": "0.14.3",
         "project": {
             "id": pdir.name,
             "target_name": target_clean,

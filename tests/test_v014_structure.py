@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class V014StructureTests(unittest.TestCase):
     def test_new_project_pipeline_order(self):
         text = (ROOT / "astroauto" / "project.py").read_text(encoding="utf-8")
-        self.assertIn('"schema_version": "0.14.0"', text)
+        self.assertIn('"schema_version": "0.15.0"', text)
         self.assertIn('"processing_preset": "MANUAL_INSPIRED_SYQON"', text)
         self.assertIn('["GRADIENT", "SPCC", "DEBLUR", "DENOISE", "GHS"]', text)
         self.assertIn('"working/05_restore"', text)
@@ -28,10 +28,13 @@ class V014StructureTests(unittest.TestCase):
         gui = (ROOT / "run_gui.bat").read_text(encoding="utf-8")
         seq = (ROOT / "run_sequence_gui.bat").read_text(encoding="utf-8")
         self.assertIn('.venv\\Scripts\\python.exe', common)
-        self.assertIn('py -3', common)
-        self.assertIn('run_common.bat', gui)
+        self.assertTrue('py.exe -3' in common or 'py -3' in common)
+        # v0.14.1+ launchers intentionally inline the Windows-safe policy
+        # instead of nesting CALL run_common.bat.
+        for launcher in (gui, seq):
+            self.assertIn('.venv\\Scripts\\python.exe', launcher)
+            self.assertTrue('py.exe -3' in launcher or 'py -3' in launcher)
         self.assertIn('gui.py', gui)
-        self.assertIn('run_common.bat', seq)
         self.assertIn('sequence_gui.py', seq)
 
     def test_both_guis_use_shared_theme_and_dynamic_log(self):

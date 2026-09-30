@@ -7,7 +7,7 @@ import json
 from astroauto.config import load_app_config
 from astroauto.siril import get_siril_info
 from astroauto.project import create_project, load_project, save_project
-from astroauto.analyzer import analyze_project, confirm_linearity
+from astroauto.analyzer import analyze_project, analyze_input_file, apply_analysis_to_project, confirm_linearity
 from astroauto.calibration import scan_project_calibration
 from astroauto.workflow import format_task, next_task_after_analysis
 from astroauto.logging_utils import append_jsonl
@@ -25,6 +25,7 @@ from astroauto.recombine import preview_recombine, apply_recombine, recommend_re
 from astroauto.final_export import preview_final_export, apply_final_export
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
+from astroauto.input_formats import describe_input, cleanup_analysis_cache
 
 CATEGORIES = [
     "GALAXY", "EMISSION_NEBULA", "REFLECTION_NEBULA", "DARK_NEBULA",
@@ -43,7 +44,7 @@ STAR_TRAIL_MODES = ["STAR_TRAIL_SKY", "STAR_TRAIL_LANDSCAPE", "UNKNOWN"]
 
 def cmd_doctor(args):
     cfg = load_app_config()
-    print("AstroSirilAssistant v0.14.0")
+    print("AstroSirilAssistant v0.15.1")
     print(f"Project root: {cfg['app']['project_root']}")
     try:
         info = get_siril_info(cfg)
@@ -58,15 +59,24 @@ def cmd_doctor(args):
 def cmd_new(args):
     cfg = load_app_config()
     root = Path(args.root or cfg["app"]["project_root"])
+    source = Path(args.input)
+    descriptor = describe_input(source)
+    report = diagnostics = None
+    if args.analyze or not descriptor.fits:
+        report, diagnostics = analyze_input_file(source, cfg)
+
     pdir = create_project(
         root=root, target=args.target, capture_date=args.date,
-        category=args.category, input_file=Path(args.input),
+        category=args.category, input_file=source,
         copy_input=not args.no_copy,
+        analysis_report=report,
     )
     print(f"프로젝트 생성: {pdir}")
-    print(f"캘리브레이션 폴더: {pdir / 'calibration'}")
-    if args.analyze:
-        project, report, task = analyze_project(pdir, cfg)
+    print(f"원본 보존: {pdir / 'input' / 'original'}")
+    print(f"작업용 FITS: {pdir / 'input' / 'normalized'}")
+    if report is not None:
+        project, saved_report, task = apply_analysis_to_project(pdir, report, diagnostics)
+        cleanup_analysis_cache(report)
         print("\n" + format_task(task))
     return 0
 
@@ -580,7 +590,7 @@ def cmd_final_preview(args):
     return 0
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.14.0")
+    parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.15.1")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("doctor")

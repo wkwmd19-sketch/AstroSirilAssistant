@@ -1,4 +1,4 @@
-schema_version: 0.14.0
+schema_version: 0.14.3
 command_mapping:
   target_siril: 1.4.4
   SEQUENCE_CONVERT:
@@ -119,6 +119,11 @@ DEBLUR:
     require_linear: true
     require_preview_same_parameters_before_gui_apply: true
     preserve_native_fallback: true
+  preview:
+    quick: center crop, same pixel scale, default 1536x1536
+    full: full image, required before apply
+    cancellable: true
+    live_logs: true
 GHS_STRETCH:
   executor: SIRIL_NATIVE
   implementation_status: IMPLEMENTED_V0.8.0
@@ -232,3 +237,8 @@ PROCESSING_PRESET:
   - DENOISE
   - GHS_STRETCH
   premise: Reuse previous manual Parallax/Prism workflow where possible
+PROJECT_NAMING:
+  current: Auto_{TARGET}_{DATE}
+  duplicate: Auto_{TARGET}_{DATE}_{NN}
+  legacy_supported: '{TARGET}_{DATE}_Auto'
+  final_output_unchanged: '{TARGET}_final_Auto'

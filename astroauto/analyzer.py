@@ -1,35 +1,64 @@
 from __future__ import annotations
 from pathlib import Path
+import copy
 import json
+import tempfile
 
 from .project import load_project, save_project, find_project_fits
 from .siril import get_siril_info, write_jsonmetadata
 from .fits_analysis import analyze_pixels, read_header_summary, infer_linearity, load_siril_metadata
+from .input_formats import (
+    describe_input, normalize_to_fits, build_source_metadata, linearity_for_source,
+)
 from .workflow import next_task_after_analysis
 from .logging_utils import append_jsonl
 
-def analyze_project(project_dir: Path, config: dict):
-    project_dir = Path(project_dir)
-    project = load_project(project_dir)
-    fits_path = find_project_fits(project_dir)
+
+def analyze_input_file(input_path: Path, config: dict):
+    """Analyze any supported single-image input before a project exists.
+
+    FITS is analyzed directly. Camera RAW / TIFF / PNG / JPEG are first
+    normalized to a cached 32-bit working FITS through Siril. The original
+    source is never modified.
+    """
+    input_path = Path(input_path)
+    if not input_path.exists():
+        raise FileNotFoundError(input_path)
+
+    descriptor = describe_input(input_path)
+    if not descriptor.supported:
+        raise ValueError(
+            f"지원하지 않는 이미지 형식입니다: {input_path.suffix or input_path.name}\n"
+            "지원 형식: FITS, CR2/CR3/NEF/ARW/DNG/RAF/ORF/RW2/PEF, TIFF, PNG, JPG/JPEG"
+        )
 
     info = get_siril_info(config)
-    metadata_path = project_dir / "logs" / "siril_metadata.json"
-    proc = write_jsonmetadata(config, fits_path, metadata_path)
+    normalization = normalize_to_fits(input_path, config)
+    analysis_path = Path(normalization["analysis_file"])
+
+    with tempfile.TemporaryDirectory(prefix="astroauto_analysis_") as tmp:
+        metadata_path = Path(tmp) / "siril_metadata.json"
+        proc = write_jsonmetadata(config, analysis_path, metadata_path)
+        siril_meta = load_siril_metadata(metadata_path)
 
     analysis_cfg = config.get("analysis", {})
     pixel_stats = analyze_pixels(
-        fits_path,
+        analysis_path,
         max_samples=int(analysis_cfg.get("max_samples_per_channel", 1500000)),
         bins=int(analysis_cfg.get("histogram_bins", 2048)),
         clip_fraction=float(analysis_cfg.get("clip_fraction", 0.0001)),
     )
-    header_summary, history = read_header_summary(fits_path)
-    linearity = infer_linearity(history)
-    siril_meta = load_siril_metadata(metadata_path)
+    header_summary, history = read_header_summary(analysis_path)
+    inferred = infer_linearity(history)
+    linearity = linearity_for_source(descriptor, inferred)
+    source_metadata = build_source_metadata(input_path, descriptor, header_summary, siril_meta)
 
     report = {
-        "input_file": str(fits_path),
+        "input_file": str(input_path.resolve()),
+        "analysis_file": str(analysis_path.resolve()),
+        "source": descriptor.to_dict(),
+        "normalization": normalization,
+        "source_metadata": source_metadata,
         "siril": {
             "version": info.version,
             "executable": str(info.executable),
@@ -40,15 +69,16 @@ def analyze_project(project_dir: Path, config: dict):
         "pixel_statistics": pixel_stats,
         "siril_metadata": siril_meta,
     }
-    report_path = project_dir / "logs" / "analysis_report.json"
-    with report_path.open("w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, indent=2, default=str)
+    diagnostics = {
+        "siril_stdout": proc.stdout,
+        "siril_stderr": proc.stderr,
+        "siril_returncode": proc.returncode,
+        "normalization_method": normalization.get("method"),
+    }
+    return report, diagnostics
 
-    p = project["project"]
-    p["runtime"]["siril_version"] = info.version
-    p["runtime"]["siril_executable"] = str(info.executable)
-    p["current_state"] = "INPUT_ANALYZED"
-    # v0.3.1 migration safety: older projects may not yet have these fields.
+
+def _ensure_project_structures(p: dict):
     p.setdefault("input_stage", {"source_stage": "UNKNOWN", "user_confirmed": False})
     p.setdefault("calibration", {
         "input_status": "UNKNOWN",
@@ -91,16 +121,50 @@ def analyze_project(project_dir: Path, config: dict):
         "classified": False,
         "events": [],
     })
-    p["image_state"]["linearity"] = linearity["status"]
-    p["image_state"]["linearity_confidence"] = linearity["confidence"]
+    p.setdefault("metadata", {"copyright": ""})
+
+
+def apply_analysis_to_project(
+    project_dir: Path,
+    report: dict,
+    diagnostics: dict | None = None,
+):
+    """Attach a previously completed intake analysis to a newly created project."""
+    project_dir = Path(project_dir)
+    project = load_project(project_dir)
+    p = project["project"]
+    _ensure_project_structures(p)
+
+    report_copy = copy.deepcopy(report)
+    project_input = str(find_project_fits(project_dir))
+    report_copy["project_input_file"] = project_input
+    if isinstance(report_copy.get("normalization"), dict):
+        report_copy["normalization"]["analysis_file"] = project_input
+        report_copy["normalization"]["project_file"] = project_input
+    report_path = project_dir / "logs" / "analysis_report.json"
+    report_path.write_text(
+        json.dumps(report_copy, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+
+    p["runtime"]["siril_version"] = report.get("siril", {}).get("version")
+    p["runtime"]["siril_executable"] = report.get("siril", {}).get("executable")
+    p["current_state"] = "INPUT_ANALYZED"
+
+    linearity = report.get("linearity_assessment") or {
+        "status": "UNKNOWN", "confidence": 0.0
+    }
+    status = linearity.get("status", "UNKNOWN")
+    p["image_state"]["linearity"] = status
+    p["image_state"]["linearity_confidence"] = float(linearity.get("confidence", 0.0) or 0.0)
     p["image_state"]["stretched"] = (
-        True if linearity["status"] == "NONLINEAR"
-        else False if linearity["status"] == "LINEAR"
+        True if status == "NONLINEAR"
+        else False if status == "LINEAR"
         else None
     )
 
-    # Fill capture hints when available, but never overwrite confirmed user data blindly.
-    hdr = header_summary
+    # Capture hints from FITS metadata. User-entered project identity fields stay authoritative.
+    hdr = report.get("header") or {}
     if hdr.get("INSTRUME") and p["capture"].get("sensor", "UNKNOWN") == "UNKNOWN":
         p["capture"]["sensor"] = str(hdr["INSTRUME"])
     if hdr.get("FILTER") and p["capture"]["filter"].get("name", "UNKNOWN") == "UNKNOWN":
@@ -109,22 +173,62 @@ def analyze_project(project_dir: Path, config: dict):
         p["capture"].setdefault("exposure", {})["single_sec"] = hdr["EXPTIME"]
     elif hdr.get("EXPOSURE") is not None:
         p["capture"].setdefault("exposure", {})["single_sec"] = hdr["EXPOSURE"]
+    if hdr.get("GAIN") is not None:
+        p["capture"]["gain"] = hdr["GAIN"]
+    if hdr.get("ISOSPEED") is not None:
+        p["capture"]["iso"] = hdr["ISOSPEED"]
+    if hdr.get("FOCALLEN") is not None:
+        p["capture"]["focal_length_mm"] = hdr["FOCALLEN"]
+    if hdr.get("APERTURE") is not None:
+        p["capture"]["aperture"] = hdr["APERTURE"]
+    if hdr.get("TELESCOP"):
+        p["capture"]["telescope"] = str(hdr["TELESCOP"])
+
+    source = report.get("source") or {}
+    if source:
+        p.setdefault("input", {}).update({
+            "source_format": source.get("format", "UNKNOWN"),
+            "source_family": source.get("family", "UNKNOWN"),
+            "lossy_source": bool(source.get("lossy", False)),
+            "raw_source": bool(source.get("raw", False)),
+        })
+    normalization = report.get("normalization") or {}
+    if normalization:
+        p.setdefault("input", {}).setdefault("normalization", {}).update({
+            "required": bool(normalization.get("required", False)),
+            "working_format": normalization.get("working_format", "FITS"),
+            "precision": normalization.get("precision", "UNKNOWN"),
+            "method": normalization.get("method", "UNKNOWN"),
+            "debayered": bool(normalization.get("debayered", False)),
+            "project_file": project_input,
+        })
 
     task = next_task_after_analysis(project)
     p["next_task"] = task
     save_project(project_dir, project)
 
+    diagnostics = diagnostics or {}
     append_jsonl(project_dir, {
         "event": "ANALYZE_INPUT",
         "status": "SUCCESS",
-        "input_file": str(fits_path),
-        "siril_version": info.version,
+        "input_file": report.get("input_file"),
+        "project_input_file": report_copy.get("project_input_file"),
+        "siril_version": report.get("siril", {}).get("version"),
         "linearity": linearity,
         "analysis_report": str(report_path),
-        "siril_stdout": proc.stdout,
-        "siril_stderr": proc.stderr,
+        "siril_stdout": diagnostics.get("siril_stdout", ""),
+        "siril_stderr": diagnostics.get("siril_stderr", ""),
     })
-    return project, report, task
+    return project, report_copy, task
+
+
+def analyze_project(project_dir: Path, config: dict):
+    """Backward-compatible project-first analysis path used by CLI/older flows."""
+    project_dir = Path(project_dir)
+    fits_path = find_project_fits(project_dir)
+    report, diagnostics = analyze_input_file(fits_path, config)
+    return apply_analysis_to_project(project_dir, report, diagnostics)
+
 
 def confirm_linearity(project_dir: Path, value: str):
     value = value.upper()

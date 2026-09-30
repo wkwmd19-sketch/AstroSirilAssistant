@@ -1,34 +1,49 @@
 {
-  "package": "AstroSirilAssistant_v0.14.1",
-  "version": "0.14.1",
-  "hotfix": "Windows CMD-safe BAT launchers",
-  "python_errors": [],
-  "yaml_errors": [],
-  "bat_checks": {
-    "run_gui.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 713
-    },
-    "run_sequence_gui.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 722
-    },
-    "run_common.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 696
-    },
-    "install_windows.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 349
-    },
-    "run_cli.bat": {
-      "ascii_only": true,
-      "crlf_only": true,
-      "size": 137
-    }
-  }
+  "package": "AstroSirilAssistant_v0.15.1",
+  "version": "0.15.1",
+  "update": "CR3/RAW Siril internal working directory hotfix",
+  "features": {
+    "formats": [
+      "FITS",
+      "CR2",
+      "CR3",
+      "NEF",
+      "ARW",
+      "DNG",
+      "RAF",
+      "ORF",
+      "RW2",
+      "PEF",
+      "TIFF",
+      "PNG",
+      "JPEG"
+    ],
+    "preserve_original": true,
+    "working_format": "FITS",
+    "working_precision": "32-bit float for normalized non-FITS input",
+    "raw_decoder": "Siril convertraw / LibRaw with -debayer",
+    "jpeg_policy": "NONLINEAR",
+    "png_tiff_policy": "CONFIRM_LINEARITY",
+    "source_metadata_json": true,
+    "legacy_projects_supported": true
+  },
+  "runtime_status": {
+    "existing_fits_pipeline": "USER VERIFIED THROUGH FINAL EXPORT",
+    "parallax_safe_band": "USER VERIFIED",
+    "v0.15.0_multiformat_windows_runtime": "RAW conversion failed: Siril scanned saved Pictures directory",
+    "v0.15.1_cr3_windows_runtime": "PENDING USER TEST"
+  },
+  "validation": {
+    "python_files_compiled": 68,
+    "python_syntax_errors": 0,
+    "yaml_files_parsed": 25,
+    "yaml_parse_errors": 0,
+    "selected_regression_tests_passed": 21,
+    "selected_regression_tests_deselected": 1,
+    "note": "Actual Windows Siril/CR3 runtime still pending; full suite could not collect without astropy."
+  },
+  "fixes": [
+    "Explicit Siril cd to single RAW staging folder before convertraw",
+    "Regression tests verify source preservation, staged path, and failure behavior"
+  ]
 }

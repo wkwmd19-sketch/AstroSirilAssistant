@@ -10,9 +10,22 @@ import time
 from astroauto.config import load_app_config
 from astroauto.ui_theme import apply_astro_theme, apply_screen_aware_geometry, style_text_widget, style_canvas
 from astroauto.syqon import detect_syqon
-from astroauto.project import create_project, load_project
-from astroauto.analyzer import analyze_project, confirm_linearity
+from astroauto.project import (
+    create_project, load_project, save_project, project_name, next_available_project_dir,
+    find_existing_project_dir,
+)
+from astroauto.analyzer import (
+    analyze_project, analyze_input_file, apply_analysis_to_project, confirm_linearity,
+)
+from astroauto.intake import (
+    inspect_input_header, target_from_header, capture_date_from_header,
+    infer_category_from_target, format_image_info, format_analysis_info,
+)
+from astroauto.input_formats import (
+    describe_input, supported_dialog_patterns, cleanup_analysis_cache,
+)
 from astroauto.siril import get_siril_info
+from astroauto.execution import TaskControl, ExecutionCancelled, execution_context
 from astroauto.workflow import format_task
 from astroauto.state_actions import (
     confirm_input_stage,
@@ -32,7 +45,7 @@ from astroauto.denoise import (
 )
 from astroauto.deblur import (
     make_deblur_task, migrate_post_denoise_task,
-    preview_deblur, apply_deblur, skip_deblur,
+    preview_deblur, apply_deblur, promote_deblur_preview, skip_deblur,
 )
 from astroauto.ghs import (
     migrate_ready_for_ghs,
@@ -84,15 +97,82 @@ CATEGORIES = [
     ("혜성/소행성", "COMET"),
     ("달/행성", "PLANETARY_LUNAR"),
     ("모자이크", "MOSAIC"),
-    ("모름/자동판단 대기", "UNKNOWN"),
+    ("기타 / 직접입력", "UNKNOWN"),
 ]
 LABEL_TO_ID = dict(CATEGORIES)
 ID_TO_LABEL = {v: k for k, v in CATEGORIES}
 
+STAGE_FLOW_INFO = {
+    "CONFIRM_INPUT_STAGE": (
+        "입력 이미지가 스택 결과인지 개별 Light인지 확인해 안전한 처리 시작점을 정하는 단계입니다.",
+        "Linearity 확인",
+    ),
+    "CONFIRM_LINEARITY": (
+        "이미지가 아직 Linear 상태인지 확인해 중복 Stretch 같은 잘못된 처리를 방지하는 단계입니다.",
+        "Calibration 상태 확인",
+    ),
+    "CONFIRM_CALIBRATION_STATUS": (
+        "입력 이미지의 캘리브레이션 여부를 확인해 필요한 전처리 경로를 결정하는 단계입니다.",
+        "Background / Gradient Correction",
+    ),
+    "CONFIRM_STAR_TRAIL_MODE": (
+        "별 일주사진의 하늘 중심 또는 지상 풍경 포함 처리 경로를 선택하는 단계입니다.",
+        "Star Trail Workflow",
+    ),
+    "GRADIENT_CORRECTION": (
+        "배경의 밝기와 색 불균형을 정리해 이후 보정이 안정적으로 진행되도록 준비하는 단계입니다.",
+        "SPCC Color Calibration",
+    ),
+    "COLOR_CALIBRATION_SPCC": (
+        "별과 천체 정보를 기준으로 전체 이미지의 색 균형을 맞추는 단계입니다.",
+        "Restoration / Deblur",
+    ),
+    "DEBLUR": (
+        "별 형태와 수차를 보정하고 미세 구조를 복원해 디테일을 살리는 단계입니다.",
+        "Prism Noise Reduction",
+    ),
+    "DENOISE": (
+        "미세 구조를 최대한 유지하면서 배경과 색 노이즈를 줄이는 단계입니다.",
+        "GHS Stretch",
+    ),
+    "GHS_STRETCH": (
+        "희미한 천체 신호를 보존하면서 Linear 이미지를 눈에 보이는 밝기로 펼치는 단계입니다.",
+        "StarNet",
+    ),
+    "GHS_REVIEW": (
+        "Stretch 결과를 확인하고 필요하면 작은 추가 Stretch를 적용하는 단계입니다.",
+        "StarNet",
+    ),
+    "STAR_SEPARATION": (
+        "별과 천체 본체를 분리해 각각 독립적으로 보정할 수 있도록 만드는 단계입니다.",
+        "Starless Processing",
+    ),
+    "STARLESS_PROCESS": (
+        "별이 제거된 천체 본체의 구조와 대비, 색을 다듬는 단계입니다.",
+        "Stars Processing",
+    ),
+    "STARS_PROCESS": (
+        "별의 밝기와 색을 조절해 천체 본체와 자연스럽게 어울리도록 만드는 단계입니다.",
+        "Pixel Math Recombine",
+    ),
+    "PIXEL_MATH_RECOMBINE": (
+        "보정한 천체 본체와 별 레이어를 다시 합쳐 최종 이미지의 균형을 맞추는 단계입니다.",
+        "Final / Export",
+    ),
+    "FINALIZE_EXPORT": (
+        "최종 이미지를 확인하고 FITS, TIFF, PNG 결과물로 안전하게 저장하는 단계입니다.",
+        "기본 파이프라인 완료",
+    ),
+    "PIPELINE_COMPLETE": (
+        "한 장의 스택 천체사진에 대한 반자동 보정과 최종 출력이 완료되었습니다.",
+        "완료",
+    ),
+}
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.1")
+        self.title("AstroSirilAssistant v0.15.1")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -101,11 +181,21 @@ class App(tk.Tk):
         self.project_dir: Path | None = None
 
         self.input_var = tk.StringVar()
-        self.target_var = tk.StringVar(value="M31")
-        self.date_var = tk.StringVar(value=date.today().isoformat())
-        self.category_var = tk.StringVar(value="은하")
+        self.target_var = tk.StringVar(value="")
+        self.date_var = tk.StringVar(value="")
+        self.category_var = tk.StringVar(value="기타 / 직접입력")
+        self.copyright_var = tk.StringVar(value="")
         self.root_var = tk.StringVar(value=self.cfg["app"]["project_root"])
         self.status_var = tk.StringVar(value="대기 중")
+        self.image_info_var = tk.StringVar(value="이미지를 선택하면 형식과 촬영 정보를 확인합니다.")
+        self.current_stage_var = tk.StringVar(value="현재 단계 : 이미지를 선택하고 분석을 시작하세요.")
+        self.next_stage_var = tk.StringVar(value="다음 작업 : 이미지 분석")
+        self._intake_analysis_report = None
+        self._intake_analysis_diagnostics = None
+        self._intake_analysis_signature = None
+        self._category_auto = True
+        self._target_placeholder = None
+        self._date_placeholder = None
 
         gd = self.ui_defaults.get("gradient", {})
         self.gradient_samples = tk.StringVar(value=str(gd.get("samples", 20)))
@@ -197,6 +287,9 @@ class App(tk.Tk):
         self.deblur_alpha = tk.StringVar(value=str(bn.get("alpha", 3000)))
         self.deblur_multiplicative = tk.BooleanVar(value=bool(bn.get("multiplicative", False)))
         self.deblur_preview_signature = None
+        self.deblur_preview_mode = None
+        self.deblur_full_candidate = None
+        self.deblur_full_preview_meta = None
 
         for var in (
             self.deblur_engine,
@@ -329,8 +422,13 @@ class App(tk.Tk):
         self._busy_started = None
         self._busy_timer_id = None
         self._busy_disabled_widgets = []
+        self._current_control = None
+        self._current_operation = None
+        self._cancel_requested = False
+        self._long_running_notice_sent = False
 
         self._build()
+        self.bind_all("<Button-1>", self._on_global_left_click, add="+")
 
     def _apply_screen_aware_geometry(self):
         apply_screen_aware_geometry(self)
@@ -364,7 +462,7 @@ class App(tk.Tk):
         self.workspace_canvas.grid(row=0, column=0, sticky="nsew")
         self.workspace_scrollbar.grid(row=0, column=1, sticky="ns")
 
-        frm = ttk.Frame(self.workspace_canvas, padding=16)
+        frm = ttk.Frame(self.workspace_canvas, padding=20)
         self.workspace_inner = frm
         self.workspace_window_id = self.workspace_canvas.create_window(
             (0, 0), window=frm, anchor="nw"
@@ -378,8 +476,8 @@ class App(tk.Tk):
         self.bind_all("<Button-5>", self._on_workspace_linux_wheel, add="+")
 
         # Modern application header.
-        header = ttk.Frame(frm, style="Surface.TFrame", padding=(16, 13))
-        header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 12))
+        header = ttk.Frame(frm, style="Surface.TFrame", padding=(22, 18))
+        header.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 16))
         title_col = ttk.Frame(header, style="Surface.TFrame")
         title_col.pack(side="left", fill="x", expand=True)
         ttk.Label(
@@ -387,79 +485,134 @@ class App(tk.Tk):
         ).pack(anchor="w")
         ttk.Label(
             title_col,
-            text="Manual-inspired semi-auto processing · Siril 1.4.x · SyQon first / Native fallback",
+            text="Siril + SyQon 기반 천체사진 반자동 보정",
             style="Subtitle.TLabel",
         ).pack(anchor="w", pady=(2,0))
-        ttk.Label(header, text="SINGLE IMAGE", style="Badge.TLabel").pack(side="right")
+        ttk.Label(header, text="단일 이미지", style="Badge.TLabel").pack(side="right")
 
-        # Input / project card.
-        input_card = ttk.LabelFrame(frm, text="프로젝트 입력", style="Card.TLabelframe")
-        input_card.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        # Project intake card: soft card layout with explicit analysis -> create flow.
+        input_card = ttk.Frame(frm, style="Card.TFrame", padding=(22, 20))
+        input_card.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0,14))
 
-        ttk.Label(input_card, text="원본/스택 FITS").grid(row=0, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.input_var, width=75).grid(row=0, column=1, sticky="ew", padx=(8,0))
-        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=0, column=2, padx=(8,0))
+        ttk.Label(input_card, text="프로젝트 입력", style="CardTitle.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
+        )
+        ttk.Label(
+            input_card,
+            text="FITS·RAW·TIFF·PNG·JPEG를 등록할 수 있습니다. 이미지 분석 후 안전한 작업용 FITS를 준비하고 프로젝트를 생성합니다.",
+            style="CardMuted.TLabel", wraplength=1040,
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 15))
 
-        ttk.Label(input_card, text="대상명").grid(row=1, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.target_var).grid(row=1, column=1, sticky="ew", padx=(8,0))
+        ttk.Label(input_card, text="이미지", style="FieldLabel.TLabel").grid(row=2, column=0, sticky="w", pady=7)
+        self.input_entry = self._make_intake_entry(input_card, self.input_var, readonly=True)
+        self.input_entry.grid(row=2, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
+        ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=2, column=2, padx=(10,0), pady=4)
 
-        ttk.Label(input_card, text="촬영일").grid(row=2, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.date_var).grid(row=2, column=1, sticky="ew", padx=(8,0))
+        ttk.Label(input_card, text="대상명", style="FieldLabel.TLabel").grid(row=3, column=0, sticky="w", pady=7)
+        self.target_entry = self._make_intake_entry(input_card, self.target_var)
+        self.target_entry.grid(row=3, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
+        self._target_placeholder = self._attach_placeholder(
+            self.target_entry, self.target_var, "천체 명칭을 입력해주세요."
+        )
+        self.target_entry.bind("<FocusOut>", self._on_target_focus_out, add="+")
 
-        ttk.Label(input_card, text="대상 종류").grid(row=3, column=0, sticky="w", pady=5)
-        combo = ttk.Combobox(
-            input_card, textvariable=self.category_var, state="readonly",
+        ttk.Label(input_card, text="촬영일", style="FieldLabel.TLabel").grid(row=4, column=0, sticky="w", pady=7)
+        self.date_entry = self._make_intake_entry(input_card, self.date_var)
+        self.date_entry.grid(row=4, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
+        self._date_placeholder = self._attach_placeholder(
+            self.date_entry, self.date_var, "YYYY-MM-DD"
+        )
+
+        ttk.Label(input_card, text="대상 종류", style="FieldLabel.TLabel").grid(row=5, column=0, sticky="w", pady=7)
+        self.category_combo = ttk.Combobox(
+            input_card, textvariable=self.category_var, state="readonly", height=10,
             values=[x[0] for x in CATEGORIES]
         )
-        combo.grid(row=3, column=1, sticky="ew", padx=(8,0))
+        self.category_combo.grid(row=5, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.category_combo.bind("<<ComboboxSelected>>", self._on_category_selected, add="+")
 
-        ttk.Label(input_card, text="프로젝트 루트").grid(row=4, column=0, sticky="w", pady=5)
-        ttk.Entry(input_card, textvariable=self.root_var).grid(row=4, column=1, sticky="ew", padx=(8,0))
-        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=4, column=2, padx=(8,0))
+        copyright_label = ttk.Label(input_card, text="저작권 (선택)", style="FieldLabel.TLabel")
+        copyright_label.grid(row=6, column=0, sticky="w", pady=7)
+        self.help.tooltip(copyright_label, "project.copyright")
+        self.copyright_entry = self._make_intake_entry(input_card, self.copyright_var)
+        self.copyright_entry.grid(row=6, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
+        self._attach_placeholder(self.copyright_entry, self.copyright_var, "예: © 2026 Photographer")
+        self.copyright_entry.bind("<FocusOut>", lambda _e: self._persist_project_metadata(), add="+")
+
+        ttk.Label(input_card, text="저장 위치", style="FieldLabel.TLabel").grid(row=7, column=0, sticky="w", pady=7)
+        self.root_entry = self._make_intake_entry(input_card, self.root_var, readonly=True)
+        self.root_entry.grid(row=7, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
+        ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=7, column=2, padx=(10,0), pady=4)
+
+        info_strip = ttk.Frame(input_card, style="Card.TFrame")
+        info_strip.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(14, 0))
+        ttk.Label(info_strip, text="이미지 정보", style="FieldLabel.TLabel").pack(anchor="w", pady=(0,5))
+        ttk.Label(
+            info_strip, textvariable=self.image_info_var, style="Meta.TLabel",
+            wraplength=1050, anchor="w", justify="left",
+        ).pack(fill="x")
         input_card.columnconfigure(1, weight=1)
 
         btns = ttk.Frame(frm)
-        btns.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        btns.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0,14))
         ttk.Button(btns, text="Siril 연결 확인", command=self.doctor).pack(side="left", padx=(0,6))
-        ttk.Button(
-            btns, text="프로젝트 생성 + 분석",
-            command=self.create_and_analyze, style="Accent.TButton"
-        ).pack(side="left", padx=6)
-        ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=6)
         ttk.Button(
             btns, text="SyQon 설치 확인", command=self.check_syqon_installation
         ).pack(side="left", padx=6)
+        self.analyze_btn = ttk.Button(
+            btns, text="이미지 분석", command=self.analyze_input, style="Accent.TButton"
+        )
+        self.analyze_btn.pack(side="left", padx=6)
+        self.analyze_btn.state(["disabled"])
+        self.create_project_btn = ttk.Button(
+            btns, text="프로젝트 생성", command=self.create_project_from_analysis, style="Success.TButton"
+        )
+        self.create_project_btn.pack(side="left", padx=6)
+        self.create_project_btn.state(["disabled"])
+        ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=6)
         ttk.Button(
-            btns,
-            text="UI 도움말",
-            command=lambda: self.help.show_detail("ui.dynamic"),
+            btns, text="도움말",
+            command=lambda: self.help.show_detail("ui.guide"),
+            style="Quiet.TButton",
         ).pack(side="right", padx=(6,0))
 
-        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(12,8))
-        status_card.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,10))
+        status_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16,12))
+        status_card.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,12))
+        ttk.Label(status_card, text="상태", style="StatusKey.TLabel").pack(anchor="w")
         ttk.Label(
-            status_card, text="STATUS", style="Subtitle.TLabel"
-        ).pack(side="left")
+            status_card, textvariable=self.status_var, style="StatusValue.TLabel", wraplength=1120
+        ).pack(anchor="w", pady=(4,0))
+
+        flow_card = ttk.Frame(frm, style="Surface.TFrame", padding=(16, 12))
+        flow_card.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0,14))
         ttk.Label(
-            status_card, textvariable=self.status_var, style="Subtitle.TLabel"
-        ).pack(side="left", padx=(10,0))
+            flow_card, textvariable=self.current_stage_var, wraplength=1120, style="FlowCurrent.TLabel",
+        ).pack(anchor="w")
+        ttk.Label(
+            flow_card, textvariable=self.next_stage_var, style="FlowNext.TLabel",
+        ).pack(anchor="w", pady=(4,0))
 
         self.action_box = ttk.LabelFrame(
-            frm, text="다음 작업", style="Card.TLabelframe"
+            frm, text="처리 설정", style="Card.TLabelframe"
         )
         self.action_box.grid(
-            row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8)
+            row=5, column=0, columnspan=3, sticky="ew", pady=(0, 12)
         )
 
-        op = ttk.Frame(frm)
-        op.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 4))
-        ttk.Label(op, textvariable=self.operation_var).pack(side="left")
+        op = ttk.Frame(frm, style="Surface.TFrame", padding=(14, 10))
+        op.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(2, 8))
+        ttk.Label(op, textvariable=self.operation_var, style="SurfaceText.TLabel").pack(side="left")
         self.progress = ttk.Progressbar(op, mode="indeterminate", length=260)
         self.progress.pack(side="left", padx=(12, 8), fill="x", expand=True)
-        ttk.Label(op, textvariable=self.elapsed_var, width=12).pack(side="left")
+        ttk.Label(op, textvariable=self.elapsed_var, width=8, style="SurfaceText.TLabel").pack(side="left")
+        self.cancel_btn = ttk.Button(
+            op, text="중단", command=self.request_cancel, style="Danger.TButton"
+        )
+        self.cancel_btn.pack(side="left", padx=(8,0))
+        self.cancel_btn.state(["disabled"])
 
         log_toolbar = ttk.Frame(frm)
-        log_toolbar.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(4, 10))
+        log_toolbar.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(4, 14))
         self.log_toggle_btn = ttk.Button(
             log_toolbar,
             text="▼ 상세 로그 보기",
@@ -472,11 +625,6 @@ class App(tk.Tk):
             command=self.copy_logs,
         )
         self.copy_log_btn.pack(side="left", padx=(6,0))
-        ttk.Label(
-            log_toolbar,
-            text="로그 Pane 경계선을 드래그해 높이를 조절할 수 있습니다.",
-            style="Muted.TLabel",
-        ).pack(side="left", padx=(12,0))
 
         frm.columnconfigure(0, weight=0)
         frm.columnconfigure(1, weight=1)
@@ -492,6 +640,75 @@ class App(tk.Tk):
         scrollbar = ttk.Scrollbar(self.log_frame, command=self.output.yview)
         scrollbar.pack(side="right", fill="y")
         self.output.configure(yscrollcommand=scrollbar.set)
+
+    def _make_intake_entry(self, parent, variable: tk.StringVar, *, readonly: bool = False):
+        """Borderless native Entry used by the project intake card.
+
+        ttk/clam can render tiny one-pixel corner artifacts on some Windows
+        displays.  A native Tk Entry with every border/highlight disabled avoids
+        those pixels while preserving the same dark input surface.
+        """
+        entry = tk.Entry(
+            parent,
+            textvariable=variable,
+            bd=0,
+            relief="flat",
+            highlightthickness=0,
+            background=self.palette["input_bg"],
+            foreground=self.palette["text"],
+            insertbackground=self.palette["text"],
+            selectbackground=self.palette["select_bg"],
+            selectforeground=self.palette["text"],
+            readonlybackground=self.palette["input_bg"],
+            disabledbackground=self.palette["input_bg"],
+            disabledforeground=self.palette["muted"],
+            font=("Segoe UI", 10),
+        )
+        if readonly:
+            entry.configure(state="readonly")
+        return entry
+
+    def _clear_ui_focus(self):
+        """Drop keyboard focus/selection without changing any field value."""
+        focused = self.focus_get()
+        try:
+            if isinstance(focused, (tk.Entry, ttk.Entry, ttk.Combobox)):
+                focused.selection_clear()
+            elif isinstance(focused, tk.Text):
+                focused.tag_remove("sel", "1.0", "end")
+            elif isinstance(focused, tk.Listbox):
+                focused.selection_clear(0, "end")
+        except Exception:
+            pass
+
+        # The root acts as an invisible focus sink.  FocusOut handlers still run
+        # (placeholders/persistence), but no visible input remains focused.
+        try:
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _on_global_left_click(self, event):
+        """Clicking non-interactive/empty UI space clears the current focus."""
+        widget = getattr(event, "widget", None)
+        if widget is None:
+            return
+
+        interactive = (
+            tk.Entry, ttk.Entry, ttk.Combobox, tk.Text, tk.Listbox,
+            tk.Button, ttk.Button, tk.Checkbutton, ttk.Checkbutton,
+            tk.Radiobutton, ttk.Radiobutton, tk.Scale, ttk.Scale,
+            tk.Scrollbar, ttk.Scrollbar, ttk.Treeview, tk.Menubutton, ttk.Menubutton,
+        )
+        if isinstance(widget, interactive):
+            return
+
+        # Labels, frames, canvases and the window background are treated as
+        # neutral space.  This is intentionally value-preserving: only focus and
+        # visual selection are cleared.
+        neutral = (tk.Frame, ttk.Frame, tk.Label, ttk.Label, tk.Canvas, tk.Tk, tk.Toplevel)
+        if isinstance(widget, neutral):
+            self._clear_ui_focus()
 
     def _workspace_bbox(self):
         try:
@@ -642,18 +859,135 @@ class App(tk.Tk):
         except Exception:
             pass
 
+    def _attach_placeholder(self, entry, variable: tk.StringVar, text: str):
+        label = tk.Label(
+            entry.master,
+            text=text,
+            background=self.palette["input_bg"],
+            foreground=self.palette["muted"],
+            font=("Segoe UI", 9),
+            bd=0,
+            padx=0,
+            pady=0,
+            cursor="xterm",
+        )
+
+        def show_if_needed(*_):
+            try:
+                if variable.get().strip() or self.focus_get() == entry:
+                    label.place_forget()
+                else:
+                    label.place(in_=entry, x=12, rely=0.5, anchor="w")
+                    label.lift()
+            except Exception:
+                pass
+
+        def focus_entry(_event=None):
+            entry.focus_set()
+
+        label.bind("<Button-1>", focus_entry, add="+")
+        entry.bind("<FocusIn>", lambda _e: label.place_forget(), add="+")
+        entry.bind("<FocusOut>", show_if_needed, add="+")
+        variable.trace_add("write", show_if_needed)
+        self.after_idle(show_if_needed)
+        return label
+
+    def _intake_signature(self, path: Path | str | None = None):
+        raw = str(path or self.input_var.get()).strip()
+        if not raw:
+            return None
+        p = Path(raw)
+        try:
+            st = p.stat()
+            return (str(p.resolve()), int(st.st_size), int(st.st_mtime_ns))
+        except Exception:
+            return (str(p), None, None)
+
+    def _invalidate_intake_analysis(self):
+        self._intake_analysis_report = None
+        self._intake_analysis_diagnostics = None
+        self._intake_analysis_signature = None
+        if hasattr(self, "create_project_btn"):
+            self.create_project_btn.state(["disabled"])
+        if self.input_var.get().strip():
+            self.current_stage_var.set("현재 단계 : 이미지가 등록되었습니다. 분석을 실행해 처리 시작점을 확인하세요.")
+            self.next_stage_var.set("다음 작업 : 이미지 분석")
+
+    def _set_category_from_target(self, target: str, *, force: bool = False):
+        if not force and not self._category_auto:
+            return
+        category_id = infer_category_from_target(target)
+        self.category_var.set(ID_TO_LABEL.get(category_id, "기타 / 직접입력"))
+
+    def _on_category_selected(self, _event=None):
+        self._category_auto = False
+
+    def _on_target_focus_out(self, _event=None):
+        self._set_category_from_target(self.target_var.get())
+
+    def _load_header_hints(self, path: Path):
+        try:
+            inspection = inspect_input_header(path)
+            header = inspection.get("header") or {}
+            source = inspection.get("source") or describe_input(path).to_dict()
+        except Exception as exc:
+            self.image_info_var.set(f"이미지 정보를 읽지 못했습니다: {exc}")
+            self.target_var.set("")
+            self.date_var.set("")
+            self.category_var.set("기타 / 직접입력")
+            return
+
+        target = target_from_header(header)
+        capture_date = capture_date_from_header(header)
+        self.target_var.set(target)
+        self.date_var.set(capture_date)
+        self._category_auto = True
+        self._set_category_from_target(target, force=True)
+
+        if source.get("fits"):
+            self.image_info_var.set(format_image_info(header, source))
+        else:
+            fmt = source.get("format", "이미지")
+            warning = source.get("warning") or "분석 후 촬영 정보와 작업용 FITS 상태를 표시합니다."
+            self.image_info_var.set(f"{fmt} · {warning}")
+
     def pick_input(self):
         path = filedialog.askopenfilename(
-            title="FITS 선택",
-            filetypes=[("FITS", "*.fits *.fit *.fts"), ("All files", "*.*")]
+            title="이미지 선택",
+            filetypes=[
+                ("지원 이미지", supported_dialog_patterns()),
+                ("FITS", "*.fits *.fit *.fts *.fits.fz"),
+                ("카메라 RAW", "*.cr2 *.cr3 *.nef *.arw *.dng *.raf *.orf *.rw2 *.pef"),
+                ("TIFF / PNG / JPEG", "*.tif *.tiff *.png *.jpg *.jpeg"),
+                ("모든 파일", "*.*"),
+            ]
         )
-        if path:
-            self.input_var.set(path)
+        if not path:
+            return
+        self.input_var.set(path)
+        self.project_dir = None
+        self._invalidate_intake_analysis()
+        self._load_header_hints(Path(path))
+        if hasattr(self, "analyze_btn"):
+            self.analyze_btn.state(["!disabled"])
+        self.status_var.set("이미지 등록 완료 · 형식과 메타데이터를 분석하세요.")
 
     def pick_root(self):
-        path = filedialog.askdirectory(title="프로젝트 루트 선택")
+        path = filedialog.askdirectory(title="저장 위치 선택")
         if path:
             self.root_var.set(path)
+
+    def _persist_project_metadata(self):
+        if not self.project_dir:
+            return
+        try:
+            project = load_project(self.project_dir)
+            p = project["project"]
+            p.setdefault("metadata", {})["copyright"] = self.copyright_var.get().strip()
+            save_project(self.project_dir, project)
+        except Exception:
+            # Metadata editing must never interrupt an image-processing action.
+            pass
 
     def write(self, text, clear=False):
         if clear:
@@ -741,7 +1075,11 @@ class App(tk.Tk):
         if disabled:
             self._busy_disabled_widgets = []
             for w in self._walk_widgets(self):
-                if w in (getattr(self, "log_toggle_btn", None), getattr(self, "copy_log_btn", None)):
+                if w in (
+                    getattr(self, "log_toggle_btn", None),
+                    getattr(self, "copy_log_btn", None),
+                    getattr(self, "cancel_btn", None),
+                ):
                     continue
                 if isinstance(w, (ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton)):
                     try:
@@ -763,7 +1101,13 @@ class App(tk.Tk):
         if not self._busy or self._busy_started is None:
             return
         sec = int(time.monotonic() - self._busy_started)
-        self.elapsed_var.set(f"경과 {sec//60:02d}:{sec%60:02d}")
+        self.elapsed_var.set(f"{sec//60:02d}:{sec%60:02d}")
+        if sec >= 300 and not self._long_running_notice_sent:
+            self._long_running_notice_sent = True
+            self.write(
+                "\n⏱ 장시간 작업이 계속되고 있습니다. "
+                "상세 로그에서 진행 상황을 확인하거나 [중단]을 사용할 수 있습니다.\n"
+            )
         self._busy_timer_id = self.after(500, self._tick_elapsed)
 
     def _begin_busy(self, label: str):
@@ -771,14 +1115,18 @@ class App(tk.Tk):
             raise RuntimeError("다른 작업이 실행 중입니다.")
         self._busy = True
         self._busy_started = time.monotonic()
+        self._current_operation = label
+        self._cancel_requested = False
+        self._long_running_notice_sent = False
         self.operation_var.set(f"● 실행 중: {label}")
-        self.elapsed_var.set("경과 00:00")
+        self.elapsed_var.set("00:00")
         self.progress.start(12)
         self._set_processing_controls_disabled(True)
+        self.cancel_btn.state(["!disabled"])
         self.write(f"\n▶ 실행 시작: {label}\n")
         self._tick_elapsed()
 
-    def _end_busy(self, label: str, success: bool):
+    def _end_busy(self, label: str, success: bool = False, cancelled: bool = False):
         if self._busy_timer_id:
             try:
                 self.after_cancel(self._busy_timer_id)
@@ -786,28 +1134,88 @@ class App(tk.Tk):
                 pass
             self._busy_timer_id = None
         self.progress.stop()
+        self.cancel_btn.state(["disabled"])
         self._set_processing_controls_disabled(False)
         self._busy = False
-        if success:
+        self._current_control = None
+        self._current_operation = None
+        if cancelled:
+            self.operation_var.set(f"■ 중단됨: {label}")
+        elif success:
             self.operation_var.set(f"✓ 완료: {label}")
         else:
             self.operation_var.set(f"✕ 오류: {label}")
 
+    def _execution_log_line(self, line: str):
+        line = str(line).rstrip()
+        if not line:
+            return
+        def apply_line():
+            self.write(f"│ {line}")
+            low = line.lower()
+            stage = None
+            if any(x in low for x in ("cuda", "gpu", "directml")):
+                stage = "GPU / AI 처리"
+            elif "model" in low and any(x in low for x in ("load", "loading", "loaded")):
+                stage = "모델 로딩"
+            elif any(x in low for x in ("tile", "inference", "processing")):
+                stage = "AI 처리"
+            elif any(x in low for x in ("saving", "save ", "writing")):
+                stage = "결과 저장"
+            if stage and self._busy and self._current_operation:
+                self.operation_var.set(f"● 실행 중: {self._current_operation} · {stage}")
+        self.after(0, apply_line)
+
+    def request_cancel(self):
+        if not self._busy or not self._current_control or self._cancel_requested:
+            return
+        operation = self._current_operation or "현재 작업"
+        stronger = any(x in operation for x in ("실제 적용", "실제 실행", "Finalize", "Export"))
+        detail = (
+            "완료되지 않은 출력은 정상 결과로 채택하지 않으며 프로젝트 상태는 완료로 갱신하지 않습니다."
+            if stronger else
+            "완료되지 않은 미리보기/임시 파일은 재사용하지 않습니다."
+        )
+        if not messagebox.askyesno(
+            "작업 중단",
+            f"{operation}을(를) 중단할까요?\n\n{detail}"
+        ):
+            return
+        self._cancel_requested = True
+        self.cancel_btn.state(["disabled"])
+        self.operation_var.set(f"■ 중단 요청 중: {operation}")
+        self.status_var.set("중단 요청 중...")
+        self.write("\n■ 사용자 중단 요청 — 실행 중인 Siril/SyQon 프로세스를 종료합니다.\n")
+        self._current_control.cancel()
+
     def run_bg(self, func, operation: str | None = None, on_success=None):
+        control = TaskControl()
         if operation:
             try:
                 self._begin_busy(operation)
+                self._current_control = control
             except Exception as e:
                 messagebox.showwarning("실행 중", str(e))
                 return
 
         def runner():
             try:
-                result = func()
+                with execution_context(control, log_callback=self._execution_log_line):
+                    result = func()
+                    if control.cancelled:
+                        raise ExecutionCancelled("사용자가 작업을 중단했습니다.")
+            except ExecutionCancelled as e:
+                def cancelled():
+                    if operation:
+                        self._end_busy(operation, cancelled=True)
+                    self.status_var.set("작업 중단됨")
+                    self.write(f"\n■ 작업 중단 완료: {operation or '작업'}\n{e}\n")
+                self.after(0, cancelled)
+                return
             except Exception as e:
                 def fail():
                     if operation:
-                        self._end_busy(operation, False)
+                        self._end_busy(operation, success=False)
                     self.status_var.set("오류")
                     self.write(f"\n✕ 오류: {operation or '작업'}\n{e}\n")
                     self.show_logs()
@@ -817,7 +1225,7 @@ class App(tk.Tk):
 
             def done():
                 if operation:
-                    self._end_busy(operation, True)
+                    self._end_busy(operation, success=True)
                 if on_success:
                     on_success(result)
             self.after(0, done)
@@ -831,28 +1239,186 @@ class App(tk.Tk):
         messagebox.showinfo("처리 완료", msg)
 
     def doctor(self):
-        self.status_var.set("Siril 확인 중...")
         def work():
-            info = get_siril_info(self.cfg)
-            self.after(0, lambda: self.write(
-                f"Siril 연결 OK\n경로: {info.executable}\n버전: {info.version}\n"
-            ))
-            self.after(0, lambda: self.status_var.set("Siril 연결 OK"))
-        self.run_bg(work, operation="Siril 연결 확인")
+            return get_siril_info(self.cfg)
 
-    def create_and_analyze(self):
+        def done(info):
+            self.write(
+                f"Siril 연결 확인 완료\n경로: {info.executable}\n버전: {info.version}\n"
+            )
+            messagebox.showinfo(
+                "Siril 연결 확인",
+                f"Siril에 정상적으로 연결되었습니다.\n\n버전: {info.version}\n경로: {info.executable}",
+            )
+
+        self.run_bg(work, operation="Siril 연결 확인", on_success=done)
+
+    def analyze_input(self):
+        input_path = self.input_var.get().strip()
+        if not input_path:
+            messagebox.showwarning("확인", "먼저 이미지를 선택하세요.")
+            return
+        path = Path(input_path)
+        signature = self._intake_signature(path)
+        self.status_var.set("이미지 분석 중...")
+
+        def work():
+            return analyze_input_file(path, self.cfg)
+
+        def done(result):
+            report, diagnostics = result
+            self._intake_analysis_report = report
+            self._intake_analysis_diagnostics = diagnostics
+            self._intake_analysis_signature = signature
+
+            header = report.get("header") or {}
+            header_target = target_from_header(header)
+            header_date = capture_date_from_header(header)
+            if header_target:
+                self.target_var.set(header_target)
+                self._category_auto = True
+                self._set_category_from_target(header_target, force=True)
+            elif not self.target_var.get().strip():
+                self.target_var.set("")
+                self.category_var.set("기타 / 직접입력")
+            if header_date:
+                self.date_var.set(header_date)
+
+            linearity = report.get("linearity_assessment") or {}
+            linearity_status = linearity.get("status", "UNKNOWN")
+            self.image_info_var.set(format_analysis_info(report))
+
+            stats = report.get("pixel_statistics") or {}
+            source = report.get("source") or {}
+            normalization = report.get("normalization") or {}
+            warning = source.get("warning") or ""
+            self.write(
+                "이미지 분석 완료\n"
+                f"파일: {path}\n"
+                f"입력 형식: {source.get('format', 'UNKNOWN')}\n"
+                f"작업 형식: {normalization.get('working_format', 'FITS')} {normalization.get('precision', '')}\n"
+                f"변환 방식: {normalization.get('method', 'DIRECT_FITS')}\n"
+                f"Siril: {report.get('siril', {}).get('version', 'UNKNOWN')}\n"
+                f"이미지 shape: {stats.get('shape')}\n"
+                f"Linear 판정: {linearity_status}\n"
+                f"판정 이유: {linearity.get('reason', '')}\n"
+                + (f"주의: {warning}\n" if warning else ""),
+                clear=True,
+            )
+            self.status_var.set("이미지 분석 완료 · 프로젝트를 생성할 수 있습니다.")
+            self.current_stage_var.set(
+                "현재 단계 : 이미지 분석이 완료되었습니다. 대상명과 촬영 정보를 확인하세요."
+            )
+            self.next_stage_var.set("다음 작업 : 프로젝트 생성")
+            self.create_project_btn.state(["!disabled"])
+
+        self.run_bg(work, operation="이미지 분석", on_success=done)
+
+    def _project_collision_dialog(self, existing: Path, fresh: Path):
+        result = {"value": None}
+        win = tk.Toplevel(self)
+        win.title("동일 프로젝트가 이미 존재합니다")
+        win.transient(self)
+        win.resizable(False, False)
+        win.grab_set()
+
+        outer = ttk.Frame(win, style="Surface.TFrame", padding=22)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(
+            outer,
+            text="같은 대상명과 촬영일의 프로젝트가 이미 있습니다.",
+            style="StatusValue.TLabel",
+            font=("Segoe UI Semibold", 11),
+        ).pack(anchor="w")
+        ttk.Label(outer, text="기존 프로젝트:", style="SurfaceMuted.TLabel").pack(anchor="w", pady=(14,3))
+        ttk.Label(outer, text=str(existing), wraplength=650, style="SurfaceText.TLabel").pack(anchor="w")
+        ttk.Label(outer, text="새 프로젝트:", style="SurfaceMuted.TLabel").pack(anchor="w", pady=(10,3))
+        ttk.Label(outer, text=str(fresh), wraplength=650, style="SurfaceText.TLabel").pack(anchor="w")
+        ttk.Label(
+            outer,
+            text="기존 프로젝트는 변경하지 않습니다. 원하는 작업을 선택하세요.",
+            wraplength=650, style="SurfaceText.TLabel",
+        ).pack(anchor="w", pady=(14,14))
+
+        row = ttk.Frame(outer, style="Surface.TFrame")
+        row.pack(fill="x")
+        def choose(value):
+            result["value"] = value
+            win.destroy()
+        ttk.Button(
+            row, text="기존 프로젝트 열기", command=lambda: choose("OPEN")
+        ).pack(side="left")
+        ttk.Button(
+            row, text="새 프로젝트 만들기", style="Accent.TButton",
+            command=lambda: choose("NEW")
+        ).pack(side="left", padx=8)
+        ttk.Button(row, text="취소", command=lambda: choose(None)).pack(side="right")
+        win.protocol("WM_DELETE_WINDOW", lambda: choose(None))
+
+        win.update_idletasks()
+        x = self.winfo_rootx() + max(20, (self.winfo_width() - win.winfo_width()) // 2)
+        y = self.winfo_rooty() + max(20, (self.winfo_height() - win.winfo_height()) // 3)
+        win.geometry(f"+{x}+{y}")
+        self.wait_window(win)
+        return result["value"]
+
+    def create_project_from_analysis(self):
         input_path = self.input_var.get().strip()
         target = self.target_var.get().strip()
         capture_date = self.date_var.get().strip()
-        if not input_path or not target or not capture_date:
-            messagebox.showwarning("확인", "FITS, 대상명, 촬영일을 입력하세요.")
+
+        if not input_path:
+            messagebox.showwarning("확인", "먼저 이미지를 선택하세요.")
+            return
+        if not self._intake_analysis_report or self._intake_analysis_signature != self._intake_signature(input_path):
+            self.create_project_btn.state(["disabled"])
+            messagebox.showwarning("이미지 분석 필요", "현재 이미지를 먼저 분석하세요.")
+            return
+        if not target:
+            messagebox.showwarning("대상명 확인", "대상명을 입력하세요.")
+            try:
+                self.target_entry.focus_set()
+            except Exception:
+                pass
+            return
+        if not capture_date:
+            messagebox.showwarning("촬영일 확인", "촬영일을 YYYY-MM-DD 형식으로 입력하세요.")
+            try:
+                self.date_entry.focus_set()
+            except Exception:
+                pass
+            return
+        try:
+            date.fromisoformat(capture_date)
+        except ValueError:
+            messagebox.showwarning("촬영일 확인", "촬영일 형식을 확인하세요. 예: 2026-09-30")
+            try:
+                self.date_entry.focus_set()
+            except Exception:
+                pass
             return
 
-        category = LABEL_TO_ID[self.category_var.get()]
+        try:
+            category = LABEL_TO_ID[self.category_var.get()]
+        except KeyError:
+            category = "UNKNOWN"
         root = Path(self.root_var.get().strip())
-        self.status_var.set("프로젝트 생성 및 분석 중...")
-        self._clear_actions()
-        self.output.delete("1.0", "end")
+        existing_pdir = find_existing_project_dir(root, target, capture_date)
+        requested_pdir = None
+
+        if existing_pdir is not None:
+            fresh_pdir = next_available_project_dir(root, target, capture_date)
+            choice = self._project_collision_dialog(existing_pdir, fresh_pdir)
+            if choice is None:
+                self.status_var.set("대기 중")
+                return
+            if choice == "OPEN":
+                cleanup_analysis_cache(self._intake_analysis_report)
+                self._load_project_from_path(existing_pdir)
+                return
+            requested_pdir = fresh_pdir
+
+        self.status_var.set("프로젝트 생성 중...")
 
         def work():
             pdir = create_project(
@@ -862,36 +1428,45 @@ class App(tk.Tk):
                 category=category,
                 input_file=Path(input_path),
                 copy_input=True,
+                project_dir=requested_pdir,
+                copyright_text=self.copyright_var.get().strip(),
+                analysis_report=self._intake_analysis_report,
             )
-            project, report, task = analyze_project(pdir, self.cfg)
+            project, report, task = apply_analysis_to_project(
+                pdir,
+                self._intake_analysis_report,
+                self._intake_analysis_diagnostics,
+            )
+            cleanup_analysis_cache(self._intake_analysis_report)
+            return pdir, project, report, task
+
+        def done(result):
+            pdir, project, report, task = result
             self.project_dir = pdir
-
-            text = (
-                f"프로젝트 생성 완료\n{pdir}\n"
-                f"캘리브레이션 폴더: {pdir / 'calibration'}\n\n"
-                f"Siril: {report['siril']['version']}\n"
-                f"이미지 shape: {report['pixel_statistics']['shape']}\n"
-                f"Linear 판정: {report['linearity_assessment']['status']}\n"
-                f"판정 이유: {report['linearity_assessment']['reason']}\n\n"
+            self.write(
+                f"프로젝트 생성 완료\n{pdir}\n\n"
+                f"입력 형식: {report.get('source', {}).get('format', 'FITS')}\n"
+                f"Siril: {report.get('siril', {}).get('version', 'UNKNOWN')}\n"
+                f"이미지 shape: {report.get('pixel_statistics', {}).get('shape')}\n"
+                f"Linear 판정: {report.get('linearity_assessment', {}).get('status', 'UNKNOWN')}\n\n"
                 + format_task(task)
-                + f"\n\n상세 분석 로그:\n{pdir / 'logs' / 'analysis_report.json'}"
+                + f"\n\n상세 분석 로그:\n{pdir / 'logs' / 'analysis_report.json'}",
+                clear=True,
             )
-            self.after(0, lambda: self.write(text, clear=True))
-            self.after(0, lambda: self.render_task(task))
-            self.after(0, lambda: self.status_var.set("분석 완료"))
+            self.render_task(task)
+            self.status_var.set("프로젝트 생성 완료")
+            self.create_project_btn.state(["disabled"])
+            self.analyze_btn.state(["disabled"])
 
-        self.run_bg(work, operation="프로젝트 생성 + 분석")
+        self.run_bg(work, operation="프로젝트 생성", on_success=done)
 
-    def open_project(self):
-        path = filedialog.askdirectory(title="기존 AstroSirilAssistant 프로젝트 선택")
-        if not path:
-            return
-        pdir = Path(path)
+    def _load_project_from_path(self, pdir: Path):
+        pdir = Path(pdir)
         try:
             project = load_project(pdir)
         except Exception as e:
             messagebox.showerror("오류", str(e))
-            return
+            return False
 
         self.project_dir = pdir
         project = migrate_post_spcc_task(pdir)
@@ -904,15 +1479,45 @@ class App(tk.Tk):
         project = migrate_ready_for_recombine(pdir)
         project = migrate_ready_for_final_export(pdir)
         p = project["project"]
+
         self.target_var.set(p.get("target_name", ""))
         self.category_var.set(ID_TO_LABEL.get(
-            p.get("target", {}).get("category", "UNKNOWN"), "모름/자동판단 대기"
+            p.get("target", {}).get("category", "UNKNOWN"), "기타 / 직접입력"
         ))
+        self._category_auto = False
         self.date_var.set(p.get("capture", {}).get("date", self.date_var.get()))
+        self.copyright_var.set(str((p.get("metadata") or {}).get("copyright") or ""))
         self.root_var.set(str(pdir.parent))
         current = p.get("current_file")
         if current:
             self.input_var.set(str(current))
+            try:
+                self._load_header_hints(Path(current))
+                # Project metadata is authoritative after loading; header hints must not overwrite it.
+                self.target_var.set(p.get("target_name", ""))
+                self.category_var.set(ID_TO_LABEL.get(
+                    p.get("target", {}).get("category", "UNKNOWN"), "기타 / 직접입력"
+                ))
+                self.date_var.set(p.get("capture", {}).get("date", ""))
+                self.copyright_var.set(str((p.get("metadata") or {}).get("copyright") or ""))
+                self._category_auto = False
+                try:
+                    inspection = inspect_input_header(Path(current))
+                    header = inspection.get("header") or {}
+                    source_fmt = (p.get("input") or {}).get("source_format") or "FITS"
+                    source_view = {"format": source_fmt}
+                    self.image_info_var.set(format_image_info(header, source_view))
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        self._intake_analysis_report = None
+        self._intake_analysis_diagnostics = None
+        self._intake_analysis_signature = None
+        if hasattr(self, "create_project_btn"):
+            self.create_project_btn.state(["disabled"])
+        if hasattr(self, "analyze_btn"):
+            self.analyze_btn.state(["disabled"])
 
         task = p.get("next_task")
         text = (
@@ -923,27 +1528,45 @@ class App(tk.Tk):
         )
         if task:
             text += "\n" + format_task(task)
+
         self.write(text, clear=True)
         self.render_task(task)
         self.status_var.set("기존 프로젝트 로드 완료")
+        return True
+
+    def open_project(self):
+        path = filedialog.askdirectory(title="기존 AstroSirilAssistant 프로젝트 선택")
+        if not path:
+            return
+        self._load_project_from_path(Path(path))
 
     def _clear_actions(self):
         for child in self.action_box.winfo_children():
             child.destroy()
 
+    def _update_stage_summary(self, task):
+        if not task:
+            self.current_stage_var.set("현재 단계 : 다음 처리 단계 정보가 없습니다.")
+            self.next_stage_var.set("다음 작업 : —")
+            return
+        task_id = str(task.get("task_id", ""))
+        desc, next_name = STAGE_FLOW_INFO.get(
+            task_id,
+            (task.get("summary", "현재 처리 단계를 확인하는 중입니다."), "—"),
+        )
+        if task_id == "DEBLUR" and "LEGACY_ORDER" in str(task.get("current_status", "")):
+            next_name = "GHS Stretch"
+        self.current_stage_var.set(f"현재 단계 : {desc}")
+        self.next_stage_var.set(f"다음 작업 : {next_name}")
+
     def render_task(self, task):
+        self._update_stage_summary(task)
         self._clear_actions()
         if not task:
-            ttk.Label(self.action_box, text="다음 작업 정보가 없습니다.").pack(anchor="w", padx=8, pady=8)
+            ttk.Label(self.action_box, text="처리할 작업이 없습니다.").pack(anchor="w", padx=8, pady=8)
             return
 
         task_id = task.get("task_id", "")
-        ttk.Label(
-            self.action_box,
-            text=f"{task.get('title', task_id)} — {task.get('summary', '')}",
-            wraplength=940,
-        ).pack(anchor="w", padx=8, pady=(6, 4))
-
         controls = ttk.Frame(self.action_box)
         controls.pack(fill="x", padx=8, pady=(0, 8))
 
@@ -1098,10 +1721,6 @@ class App(tk.Tk):
         title.pack(side="left")
         self.help.tooltip(title, "spcc.what")
 
-        ttk.Label(
-            head,
-            text="Gaia DR3 + Sensor / Filter 기반 색보정",
-        ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
             head,
@@ -1185,9 +1804,9 @@ class App(tk.Tk):
 
         buttons = ttk.Frame(body)
         buttons.grid(row=8, column=0, columnspan=2, sticky="w", pady=(0,2))
-        ttk.Button(buttons, text="SPCC 목록 불러오기", command=self.load_spcc_lists).pack(side="left", padx=(0,6))
-        ttk.Button(buttons, text="Plate Solve 상태", command=self.show_wcs_status).pack(side="left", padx=6)
-        ttk.Button(buttons, text="SPCC 미리보기", command=self.spcc_preview).pack(side="left", padx=6)
+        ttk.Button(buttons, text="목록 새로고침", command=self.load_spcc_lists).pack(side="left", padx=(0,6))
+        ttk.Button(buttons, text="Plate Solve 확인", command=self.show_wcs_status).pack(side="left", padx=6)
+        ttk.Button(buttons, text="미리보기", command=self.spcc_preview).pack(side="left", padx=6)
         ttk.Button(buttons, text="승인 후 적용", command=self.spcc_apply).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
@@ -1415,9 +2034,6 @@ class App(tk.Tk):
         title = ttk.Label(head, text="Noise Reduction / Denoise", font=("", 10, "bold"))
         title.pack(side="left")
         self.help.tooltip(title, "denoise.what")
-        ttk.Label(
-            head, text="Manual-inspired: Parallax 다음 Prism Mini"
-        ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
             head,
@@ -1433,7 +2049,7 @@ class App(tk.Tk):
         body = ttk.Frame(self.action_box)
         body.pack(fill="x", padx=10, pady=(2,8))
 
-        ttk.Label(body, text="Engine", width=22).grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(body, text="처리 엔진", width=22).grid(row=0, column=0, sticky="w", pady=4)
         engine = ttk.Combobox(
             body,
             textvariable=self.denoise_engine,
@@ -1454,7 +2070,7 @@ class App(tk.Tk):
             w.grid(row=row, column=0, sticky="w", pady=3)
             self.help.tooltip(w, topic)
 
-        p_label(0, "Model", "denoise.prism")
+        p_label(0, "모델", "denoise.prism")
         ttk.Combobox(
             self.prism_frame, textvariable=self.prism_model,
             values=["mini", "deep"], state="readonly", width=12
@@ -1486,11 +2102,6 @@ class App(tk.Tk):
             self.prism_frame, text="사용", variable=self.prism_use_gpu
         ).grid(row=4, column=1, sticky="w", pady=3)
 
-        ttk.Label(
-            self.prism_frame,
-            text="기본: Mini / 512 / 96 / 96 / Modulation 1.0 / Statistical 0.25",
-            style="Muted.TLabel",
-        ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(5,3))
 
         self.native_denoise_frame = ttk.LabelFrame(
             body, text="Siril Native Fallback", style="Card.TLabelframe"
@@ -1522,7 +2133,7 @@ class App(tk.Tk):
         buttons = ttk.Frame(body)
         buttons.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8,0))
         ttk.Button(
-            buttons, text="Denoise 미리보기", command=self.denoise_preview,
+            buttons, text="미리보기", command=self.denoise_preview,
             style="Accent.TButton"
         ).pack(side="left", padx=(0,6))
         ttk.Button(
@@ -1530,7 +2141,7 @@ class App(tk.Tk):
             style="Success.TButton"
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="Denoise 건너뛰기", command=self.denoise_skip
+            buttons, text="이 단계 건너뛰기", command=self.denoise_skip
         ).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
@@ -1690,9 +2301,6 @@ class App(tk.Tk):
         title = ttk.Label(head, text="Restoration / Deblur", font=("", 10, "bold"))
         title.pack(side="left")
         self.help.tooltip(title, "deblur.what")
-        ttk.Label(
-            head, text="Manual-inspired: SPCC 다음 SyQon Parallax Nano"
-        ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
             head,
@@ -1708,7 +2316,7 @@ class App(tk.Tk):
         body = ttk.Frame(self.action_box)
         body.pack(fill="x", padx=10, pady=(2,8))
 
-        ttk.Label(body, text="Engine", width=22).grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(body, text="처리 엔진", width=22).grid(row=0, column=0, sticky="w", pady=4)
         engine = ttk.Combobox(
             body,
             textvariable=self.deblur_engine,
@@ -1772,11 +2380,6 @@ class App(tk.Tk):
             self.parallax_frame, text="사용", variable=self.parallax_use_gpu
         ).grid(row=6, column=1, sticky="w", pady=3)
 
-        ttk.Label(
-            self.parallax_frame,
-            text="기본: Nano / Correction ON / Star 3 / Sharpen 1 / 512 / 64 / 96 / MTF 0.25",
-            style="Muted.TLabel",
-        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(5,3))
 
         self.native_deblur_frame = ttk.LabelFrame(
             body, text="Siril Richardson-Lucy Fallback", style="Card.TLabelframe"
@@ -1827,15 +2430,18 @@ class App(tk.Tk):
         buttons = ttk.Frame(body)
         buttons.grid(row=3, column=0, columnspan=3, sticky="w", pady=(8,0))
         ttk.Button(
-            buttons, text="Restoration 미리보기", command=self.deblur_preview,
+            buttons, text="빠른 미리보기", command=self.deblur_preview_quick,
             style="Accent.TButton"
         ).pack(side="left", padx=(0,6))
         ttk.Button(
-            buttons, text="승인 후 적용", command=self.deblur_apply,
+            buttons, text="전체 처리 + 결과 확인", command=self.deblur_preview_full
+        ).pack(side="left", padx=6)
+        ttk.Button(
+            buttons, text="결과 승인", command=self.deblur_apply,
             style="Success.TButton"
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="Restoration 건너뛰기", command=self.deblur_skip
+            buttons, text="이 단계 건너뛰기", command=self.deblur_skip
         ).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
@@ -1883,6 +2489,9 @@ class App(tk.Tk):
 
     def _invalidate_deblur_preview(self, *args):
         self.deblur_preview_signature = None
+        self.deblur_preview_mode = None
+        self.deblur_full_candidate = None
+        self.deblur_full_preview_meta = None
 
     def _deblur_params(self):
         engine = self.deblur_engine.get().strip().upper()
@@ -1914,7 +2523,13 @@ class App(tk.Tk):
             "multiplicative": bool(self.deblur_multiplicative.get()),
         }
 
-    def deblur_preview(self):
+    def deblur_preview_quick(self):
+        self._start_deblur_preview("QUICK")
+
+    def deblur_preview_full(self):
+        self._start_deblur_preview("FULL")
+
+    def _start_deblur_preview(self, mode: str):
         if not self._require_project():
             return
         try:
@@ -1924,28 +2539,76 @@ class App(tk.Tk):
             return
 
         signature = self._deblur_signature()
+        mode = str(mode).upper()
+        label = "빠른 미리보기" if mode == "QUICK" else "전체 처리 + 결과 확인"
 
         def work():
-            return preview_deblur(self.project_dir, self.cfg, **params)
+            return preview_deblur(
+                self.project_dir, self.cfg, preview_mode=mode, **params
+            )
 
         def done(result):
             jpg, linear_preview, meta = result
             self.deblur_preview_signature = signature
+            self.deblur_preview_mode = mode
+            if mode == "FULL":
+                self.deblur_full_candidate = Path(linear_preview)
+                self.deblur_full_preview_meta = meta
+            crop = meta.get("crop") or {}
+            geometry = meta.get("geometry_guard") or {}
+            safe_banding = meta.get("safe_banding") or {}
+            crop_text = ""
+            if mode == "QUICK":
+                crop_text = (
+                    f"빠른 미리보기 영역: {crop.get('crop_width')}×{crop.get('crop_height')} "
+                    f"/ 원본 {crop.get('source_width')}×{crop.get('source_height')}\n"
+                )
+            elif geometry.get("padded"):
+                crop_text = (
+                    "SyQon geometry guard: "
+                    f"{geometry.get('source_width')}×{geometry.get('source_height')} → "
+                    f"{geometry.get('prepared_width')}×{geometry.get('prepared_height')} 처리 후 "
+                    "원본 크기로 복원\n"
+                )
+            if mode == "FULL" and safe_banding.get("chunked"):
+                crop_text += (
+                    "SyQon Safe-Band: "
+                    f"{safe_banding.get('band_count')}개 band / "
+                    f"overlap {safe_banding.get('overlap')}px / "
+                    f"bridge 목표 ≤ {safe_banding.get('max_payload_mib'):.0f} MiB\n"
+                )
             self.write(
-                "\nRestoration 미리보기 완료\n"
+                f"\nRestoration {label} 완료\n"
                 f"Engine: {meta['engine']}\n"
+                f"{crop_text}"
                 f"표시용 JPEG: {jpg}\n"
                 f"Linear Preview FITS: {linear_preview}\n"
                 f"Script: {meta.get('script_path')}\n"
                 f"명령: {meta.get('engine_command')}\n"
                 f"PSF: {meta.get('psf_file')}\n"
             )
-            self.status_var.set(f"Restoration 미리보기 완료 · {meta['engine']}")
-            self._open_preview(jpg)
+            if mode == "QUICK":
+                self.status_var.set("빠른 미리보기 완료 · 값 확정 후 전체 처리를 실행하세요")
+            else:
+                if safe_banding.get("chunked"):
+                    self.status_var.set(
+                        f"전체 처리 완료 · Safe-Band {safe_banding.get('band_count')}개 결합 · 결과 승인 가능"
+                    )
+                else:
+                    self.status_var.set(f"전체 처리 완료 · 결과 확인 후 [결과 승인]하세요 · {meta['engine']}")
+            if mode == "QUICK" and meta.get("before_preview") and meta.get("after_preview"):
+                self._open_before_after_preview(
+                    Path(meta["before_preview"]),
+                    Path(meta["after_preview"]),
+                    crop_text=f"{crop.get('crop_width')}×{crop.get('crop_height')}",
+                    fallback_after=Path(jpg),
+                )
+            else:
+                self._open_preview(jpg)
 
         self.run_bg(
             work,
-            operation="Restoration / Deblur 미리보기",
+            operation=f"Restoration / Deblur {label}",
             on_success=done,
         )
 
@@ -1958,31 +2621,46 @@ class App(tk.Tk):
             messagebox.showerror("오류", "Restoration 숫자 값을 확인하세요.")
             return
 
-        if self.deblur_preview_signature != self._deblur_signature():
+        if (
+            self.deblur_preview_signature != self._deblur_signature()
+            or self.deblur_preview_mode != "FULL"
+            or not self.deblur_full_candidate
+            or not self.deblur_full_preview_meta
+        ):
             messagebox.showwarning(
-                "미리보기 필요",
-                "현재 Restoration 설정과 동일한 값으로 미리보기를 먼저 확인하세요."
+                "전체 처리 결과 필요",
+                "빠른 미리보기는 값 비교용입니다.\n"
+                "현재 설정과 동일한 값으로 [전체 처리 + 결과 확인]을 완료한 뒤 승인하세요."
             )
             return
 
         ok = messagebox.askyesno(
-            "Restoration 실제 적용",
-            "미리보기와 동일한 설정으로 실제 Linear FITS에 Restoration을 적용합니다.\n\n"
+            "Restoration 결과 승인",
+            "확인한 전체 처리 결과를 정식 Linear FITS로 승격합니다.\n"
+            "Parallax AI를 다시 실행하지 않습니다.\n\n"
             f"Engine: {params['engine']}\n"
             f"Parameters: {params}\n\n"
-            "진행할까요?"
+            "이 결과를 승인할까요?"
         )
         if not ok:
             return
 
+        candidate = Path(self.deblur_full_candidate)
+        candidate_meta = dict(self.deblur_full_preview_meta)
+
         def work():
-            return apply_deblur(
-                self.project_dir, self.cfg, confirmed=True, **params
+            return promote_deblur_preview(
+                self.project_dir, self.cfg,
+                preview_file=candidate, preview_meta=candidate_meta,
+                confirmed=True, **params
             )
 
         def done(result):
             project, output, log = result
             self.deblur_preview_signature = None
+            self.deblur_preview_mode = None
+            self.deblur_full_candidate = None
+            self.deblur_full_preview_meta = None
             self._show_project_task(
                 project,
                 f"Restoration 완료\nEngine: {log.get('engine')}\n출력: {output}"
@@ -1997,7 +2675,7 @@ class App(tk.Tk):
 
         self.run_bg(
             work,
-            operation="Restoration / Deblur 실제 적용",
+            operation="Restoration / Deblur 결과 승인",
             on_success=done,
         )
 
@@ -2028,7 +2706,7 @@ class App(tk.Tk):
         self.help.tooltip(title, "ghs.what")
         ttk.Label(
             head,
-            text="실제 Stretch — 적용 후 Non-linear",
+            text="적용 후 Non-linear",
         ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
@@ -2074,7 +2752,6 @@ class App(tk.Tk):
 
         alabel(2, "Stretch Amount D", "ghs.d")
         ttk.Entry(af, textvariable=self.ghs_auto_d, width=10).grid(row=2, column=1, sticky="w")
-        ttk.Label(af, text="앱의 보수적 시작값 1.0").grid(row=2, column=2, sticky="w", padx=(8,0))
 
         alabel(3, "B", "ghs.b")
         ttk.Entry(af, textvariable=self.ghs_auto_b, width=10).grid(row=3, column=1, sticky="w")
@@ -2126,15 +2803,10 @@ class App(tk.Tk):
         ).grid(row=6, column=1, sticky="w")
         mf.columnconfigure(2, weight=1)
 
-        ttk.Label(
-            body,
-            text="※ GHS 미리보기에는 별도의 AutoStretch를 추가하지 않습니다.",
-        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(6,8))
-
         buttons = ttk.Frame(body)
         buttons.grid(row=4, column=0, columnspan=3, sticky="w")
         ttk.Button(
-            buttons, text="GHS 미리보기", command=self.ghs_preview
+            buttons, text="미리보기", command=self.ghs_preview
         ).pack(side="left", padx=(0,6))
         ttk.Button(
             buttons, text="승인 후 적용", command=self.ghs_apply
@@ -2384,11 +3056,6 @@ class App(tk.Tk):
         title = ttk.Label(head, text="StarNet / 별 분리", font=("", 10, "bold"))
         title.pack(side="left")
         self.help.tooltip(title, "starnet.what")
-        ttk.Label(
-            head,
-            text="StarNet2 2.5+ / Siril Python Script",
-        ).pack(side="left", padx=(8,0))
-
         self.help.section_help_button(
             head,
             "StarNet / 별 분리 도움말",
@@ -2409,17 +3076,9 @@ class App(tk.Tk):
             self.help.tooltip(label, topic)
             return label
 
-        row_label(0, "Engine", "starnet.engine")
-        ttk.Label(body, text="pyscript StarNet.py").grid(row=0, column=1, sticky="w", pady=3)
-
-        row_label(1, "Linear Data", "starnet.linear")
-        ttk.Label(body, text="OFF — 현재 Non-linear / --no-linear").grid(
-            row=1, column=1, sticky="w", pady=3
-        )
-
-        row_label(2, "Stride", "starnet.stride")
+        row_label(0, "Stride", "starnet.stride")
         stride_frame = ttk.Frame(body)
-        stride_frame.grid(row=2, column=1, sticky="w", pady=3)
+        stride_frame.grid(row=0, column=1, sticky="w", pady=3)
 
         stride_combo = ttk.Combobox(
             stride_frame,
@@ -2439,38 +3098,32 @@ class App(tk.Tk):
         self.starnet_stride_value_label = ttk.Label(stride_frame, text="")
         self.starnet_stride_value_label.pack(side="left", padx=(8,0))
 
-        row_label(3, "2x Upsampling", "starnet.upsample")
+        row_label(1, "2x Upsampling", "starnet.upsample")
         ttk.Checkbutton(body, variable=self.starnet_upsample).grid(
-            row=3, column=1, sticky="w", pady=3
+            row=1, column=1, sticky="w", pady=3
         )
 
-        row_label(4, "Protect Highlights", "starnet.highlights")
+        row_label(2, "Protect Highlights", "starnet.highlights")
         ttk.Checkbutton(body, variable=self.starnet_protect_highlights).grid(
-            row=4, column=1, sticky="w", pady=3
+            row=2, column=1, sticky="w", pady=3
         )
 
-        row_label(5, "Stars Layer", "starnet.starlayer")
-        ttk.Label(body, text="SUBTRACT — Original - Starless").grid(
-            row=5, column=1, sticky="w", pady=3
-        )
-
-        row_label(6, "Native Starmask", "starnet.native_mask")
+        row_label(3, "Native Starmask", "starnet.native_mask")
         ttk.Checkbutton(body, variable=self.starnet_native_mask).grid(
-            row=6, column=1, sticky="w", pady=3
+            row=3, column=1, sticky="w", pady=3
         )
 
         ttk.Label(
             body,
-            text="※ Standard 256은 망원경 이미지 권장 시작값입니다. "
-                 "미리보기 결과는 승인 시 재계산 없이 그대로 확정됩니다.",
-            wraplength=850,
-        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6,8))
+            text="권장 시작값: Standard 256 · 승인 시 미리보기 결과를 그대로 사용합니다.",
+            wraplength=850, style="Muted.TLabel",
+        ).grid(row=4, column=0, columnspan=3, sticky="w", pady=(6,8))
 
         buttons = ttk.Frame(body)
-        buttons.grid(row=8, column=0, columnspan=3, sticky="w")
+        buttons.grid(row=5, column=0, columnspan=3, sticky="w")
 
         ttk.Button(
-            buttons, text="StarNet 미리보기", command=self.starnet_preview
+            buttons, text="미리보기", command=self.starnet_preview
         ).pack(side="left", padx=(0,6))
 
         self.starnet_starless_view_btn = ttk.Button(
@@ -2490,7 +3143,7 @@ class App(tk.Tk):
         ).pack(side="left", padx=6)
 
         ttk.Button(
-            buttons, text="StarNet 건너뛰기", command=self.starnet_skip
+            buttons, text="이 단계 건너뛰기", command=self.starnet_skip
         ).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
@@ -2702,7 +3355,7 @@ class App(tk.Tk):
         self.help.tooltip(title, "starless.what")
         ttk.Label(
             head,
-            text="Target-aware Recommendation + CLAHE + Saturation",
+            text="천체 특징 기반 구조·색 보정",
         ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
@@ -2792,23 +3445,17 @@ class App(tk.Tk):
         ).grid(row=7, column=1, sticky="w", pady=3)
         ttk.Label(body, text="6 = All").grid(row=7, column=2, sticky="w", padx=(8,0))
 
-        ttk.Label(
-            body,
-            text="※ 처리 순서: CLAHE → Saturation. 현재 Starless는 Non-linear이므로 미리보기에 AutoStretch를 추가하지 않습니다.",
-            wraplength=900,
-        ).grid(row=8, column=0, columnspan=3, sticky="w", pady=(6,8))
-
         buttons = ttk.Frame(body)
         buttons.grid(row=9, column=0, columnspan=3, sticky="w")
 
         ttk.Button(
-            buttons, text="Starless 미리보기", command=self.starless_preview
+            buttons, text="미리보기", command=self.starless_preview
         ).pack(side="left", padx=(0,6))
         ttk.Button(
             buttons, text="승인 후 적용", command=self.starless_apply
         ).pack(side="left", padx=6)
         ttk.Button(
-            buttons, text="Starless 보정 건너뛰기", command=self.starless_skip
+            buttons, text="이 단계 건너뛰기", command=self.starless_skip
         ).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
@@ -2925,9 +3572,9 @@ class App(tk.Tk):
 
         cat_frame = ttk.Frame(frame)
         cat_frame.pack(fill="x", pady=(0,8))
-        ttk.Label(cat_frame, text="Category", width=15).pack(side="left")
+        ttk.Label(cat_frame, text="대상 종류", width=15).pack(side="left")
         category_var = tk.StringVar(
-            value=ID_TO_LABEL.get(current_category, "모름/자동판단 대기")
+            value=ID_TO_LABEL.get(current_category, "기타 / 직접입력")
         )
         ttk.Combobox(
             cat_frame,
@@ -2939,7 +3586,7 @@ class App(tk.Tk):
 
         ttk.Label(
             frame,
-            text="Target Features — 추천 계산에 사용할 구조적 특징",
+            text="추천 계산에 사용할 천체 특징",
         ).pack(anchor="w", pady=(6,4))
 
         canvas = tk.Canvas(frame, highlightthickness=0)
@@ -2960,7 +3607,7 @@ class App(tk.Tk):
             feature_vars[feature_id] = var
             ttk.Checkbutton(
                 inner,
-                text=f"{label}  ({feature_id})",
+                text=label,
                 variable=var,
             ).pack(anchor="w", pady=2)
 
@@ -3102,7 +3749,7 @@ class App(tk.Tk):
         self.help.tooltip(title, "stars.what")
         ttk.Label(
             head,
-            text="Target-aware Recommendation + Brightness + Saturation",
+            text="천체 특징 기반 별 밝기·색 보정",
         ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
@@ -3198,7 +3845,7 @@ class App(tk.Tk):
 
         ttk.Label(
             body,
-            text="※ v0.11의 Brightness Scale은 별의 존재감을 조절하며 실제 별 반경을 줄이는 Morphological Star Reduction은 아닙니다.",
+            text="※ Brightness Scale은 별 크기가 아니라 밝기와 존재감을 조절합니다.",
             wraplength=900,
         ).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6,8))
 
@@ -3207,7 +3854,7 @@ class App(tk.Tk):
 
         ttk.Button(
             buttons,
-            text="Stars 미리보기",
+            text="미리보기",
             command=self.stars_preview,
         ).pack(side="left", padx=(0,6))
         ttk.Button(
@@ -3217,7 +3864,7 @@ class App(tk.Tk):
         ).pack(side="left", padx=6)
         ttk.Button(
             buttons,
-            text="Stars 보정 건너뛰기",
+            text="이 단계 건너뛰기",
             command=self.stars_skip,
         ).pack(side="left", padx=6)
 
@@ -3486,39 +4133,28 @@ class App(tk.Tk):
             body, text="1.0 = 현재 Stars 레이어 그대로"
         ).grid(row=2, column=2, sticky="w", padx=(8,0))
 
-        row_label(3, "Metadata", "recombine.nosum")
-        ttk.Label(
-            body, text="-nosum (고정)"
-        ).grid(row=3, column=1, sticky="w", pady=3)
-
-        row_label(4, "Rescale Output", "recombine.rescale")
+        row_label(3, "출력 Rescale", "recombine.rescale")
         ttk.Checkbutton(
             body, variable=self.recombine_rescale
-        ).grid(row=4, column=1, sticky="w", pady=3)
+        ).grid(row=3, column=1, sticky="w", pady=3)
         ttk.Label(
             body, text="기본 OFF 권장"
-        ).grid(row=4, column=2, sticky="w", padx=(8,0))
+        ).grid(row=3, column=2, sticky="w", padx=(8,0))
 
         self.recombine_expression_var = tk.StringVar(value="")
         ttk.Label(
-            body, text="Expression", width=22
-        ).grid(row=5, column=0, sticky="w", pady=3)
+            body, text="계산식", width=22
+        ).grid(row=4, column=0, sticky="w", pady=3)
         ttk.Label(
             body,
             textvariable=self.recombine_expression_var,
             font=("Consolas", 10),
-        ).grid(row=5, column=1, columnspan=2, sticky="w", pady=3)
-
-        ttk.Label(
-            body,
-            text="※ 이미 Non-linear 결과를 합성하므로 Preview JPEG에 AutoStretch를 추가하지 않습니다.",
-            wraplength=900,
-        ).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6,8))
+        ).grid(row=4, column=1, columnspan=2, sticky="w", pady=3)
 
         buttons = ttk.Frame(body)
-        buttons.grid(row=7, column=0, columnspan=3, sticky="w")
+        buttons.grid(row=5, column=0, columnspan=3, sticky="w")
         ttk.Button(
-            buttons, text="Recombine 미리보기",
+            buttons, text="미리보기",
             command=self.recombine_preview
         ).pack(side="left", padx=(0,6))
         ttk.Button(
@@ -3740,7 +4376,7 @@ class App(tk.Tk):
         self.help.tooltip(title, "final.what")
         ttk.Label(
             head,
-            text="최종 검토 + FITS / TIFF / PNG",
+            text="최종 결과 저장",
         ).pack(side="left", padx=(8,0))
 
         self.help.section_help_button(
@@ -3767,7 +4403,7 @@ class App(tk.Tk):
             body, text=str(current), wraplength=760
         ).grid(row=0, column=1, columnspan=3, sticky="w", pady=3)
 
-        ttk.Label(body, text="Final Base Name", width=22).grid(
+        ttk.Label(body, text="최종 파일명", width=22).grid(
             row=1, column=0, sticky="w", pady=3, padx=(0,8)
         )
         ttk.Label(
@@ -3812,7 +4448,7 @@ class App(tk.Tk):
             body, text=f"output\\png\\{base}.png"
         ).grid(row=7, column=2, columnspan=2, sticky="w", padx=(8,0))
 
-        ttk.Label(body, text="Preview JPEG Quality", width=22).grid(
+        ttk.Label(body, text="미리보기 JPEG 품질", width=22).grid(
             row=8, column=0, sticky="w", pady=3, padx=(0,8)
         )
         ttk.Entry(
@@ -3821,7 +4457,7 @@ class App(tk.Tk):
 
         ttk.Label(
             body,
-            text="※ PNG/TIFF는 현재 픽셀 결과를 저장하며 v0.14.0은 ICC/sRGB 프로파일 변환을 강제하지 않습니다.",
+            text="※ PNG/TIFF는 색상 프로파일 변환 없이 현재 픽셀 결과를 저장합니다.",
             wraplength=900,
         ).grid(row=9, column=0, columnspan=4, sticky="w", pady=(7,8))
 
@@ -3830,19 +4466,19 @@ class App(tk.Tk):
 
         ttk.Button(
             buttons,
-            text="최종 미리보기",
+            text="미리보기",
             command=self.final_export_preview,
         ).pack(side="left", padx=(0,6))
 
         ttk.Button(
             buttons,
-            text="승인 후 Finalize + Export",
+            text="승인 후 최종 저장",
             command=self.final_export_apply,
         ).pack(side="left", padx=6)
 
         ttk.Button(
             buttons,
-            text="Output 폴더 열기",
+            text="결과 폴더 열기",
             command=self.open_output_folder,
         ).pack(side="left", padx=6)
 
@@ -3861,11 +4497,12 @@ class App(tk.Tk):
     def final_export_preview(self):
         if not self._require_project():
             return
+        self._persist_project_metadata()
 
         try:
             quality = int(self.final_preview_quality.get())
         except ValueError:
-            messagebox.showerror("오류", "Preview JPEG Quality 숫자 값을 확인하세요.")
+            messagebox.showerror("오류", "미리보기 JPEG 품질 값을 확인하세요.")
             return
 
         def work():
@@ -3913,6 +4550,7 @@ class App(tk.Tk):
     def final_export_apply(self):
         if not self._require_project():
             return
+        self._persist_project_metadata()
 
         try:
             options = self._final_export_options()
@@ -3948,12 +4586,15 @@ class App(tk.Tk):
             messagebox.showerror("오류", "FITS / TIFF / PNG 중 하나 이상을 선택하세요.")
             return
 
+        copyright_text = str((project["project"].get("metadata") or {}).get("copyright") or "").strip()
+        copyright_line = f"저작권: {copyright_text}\n" if copyright_text else ""
         ok = messagebox.askyesno(
             "Finalize + Export",
             "현재 Recombined 결과를 최종본으로 확정합니다.\n\n"
             f"생성 형식: {', '.join(selected)}\n"
             f"FITS Checksum: {options['fits_checksum']}\n"
             f"TIFF Deflate: {options['tiff_deflate']}\n"
+            f"{copyright_line}"
             f"Base Name: {final_basename(project['project']['target_name'])}\n\n"
             "진행할까요?"
         )
@@ -3991,9 +4632,8 @@ class App(tk.Tk):
             )
             messagebox.showinfo(
                 "기본 파이프라인 완료",
-                "Final / Export가 정상적으로 완료되었습니다.\n\n"
-                f"{out_text}\n\n"
-                "State: EXPORTED"
+                "최종 저장이 완료되었습니다.\n\n"
+                f"{out_text}"
             )
 
         self.run_bg(
@@ -4057,7 +4697,7 @@ class App(tk.Tk):
 
         ttk.Label(
             head,
-            text="기본 반자동 보정 파이프라인 완료",
+            text="보정 및 최종 저장 완료",
             font=("", 11, "bold"),
         ).pack(side="left")
 
@@ -4070,7 +4710,6 @@ class App(tk.Tk):
             ttk.Label(
                 body,
                 text=(
-                    "Final / Export가 정상적으로 완료되었고 "
                     f"최종 출력 파일 {len(files)}개를 확인했습니다."
                 ),
             ).pack(anchor="w", pady=(0,6))
@@ -4091,8 +4730,7 @@ class App(tk.Tk):
             ttk.Label(
                 body,
                 text=(
-                    "프로젝트 State는 완료 단계이지만 현재 실제 Export 파일을 확인할 수 없어 "
-                    "'최종 결과 폴더 열기' 버튼을 표시하지 않습니다."
+                    "완료된 최종 출력 파일을 찾지 못했습니다. 상세 로그에서 Export 결과를 확인하세요."
                 ),
                 wraplength=900,
             ).pack(anchor="w")
@@ -4105,7 +4743,7 @@ class App(tk.Tk):
         if not files:
             messagebox.showwarning(
                 "최종 결과 없음",
-                "정상적으로 생성된 최종 Export 파일을 확인할 수 없습니다."
+                "완료된 최종 출력 파일을 확인할 수 없습니다."
             )
             return
 
@@ -4230,6 +4868,76 @@ class App(tk.Tk):
             self._open_preview(jpg)
 
         self.run_bg(work, operation="Gradient 미리보기", on_success=done)
+
+    def _open_before_after_preview(
+        self, before_path: Path, after_path: Path, *, crop_text: str = "",
+        fallback_after: Path | None = None,
+    ):
+        """Show Parallax quick preview as a same-scale Before / After pair."""
+        before_path = Path(before_path)
+        after_path = Path(after_path)
+        try:
+            if not before_path.exists() or not after_path.exists():
+                raise FileNotFoundError("Before/After 비교 파일을 찾지 못했습니다.")
+
+            win = tk.Toplevel(self)
+            win.title("Restoration 빠른 미리보기 · Before / After")
+            win.transient(self)
+            win.configure(bg=self.palette.get("bg", "#10141c"))
+
+            outer = ttk.Frame(win, padding=14)
+            outer.pack(fill="both", expand=True)
+            images = ttk.Frame(outer)
+            images.pack(fill="both", expand=True)
+
+            before_img = tk.PhotoImage(file=str(before_path))
+            after_img = tk.PhotoImage(file=str(after_path))
+            max_each_w = max(320, int(self.winfo_screenwidth() * 0.43))
+            max_h = max(320, int(self.winfo_screenheight() * 0.62))
+            ratio = max(
+                before_img.width() / max_each_w,
+                before_img.height() / max_h,
+                after_img.width() / max_each_w,
+                after_img.height() / max_h,
+                1.0,
+            )
+            factor = max(1, int(ratio))
+            if factor < ratio:
+                factor += 1
+            if factor > 1:
+                before_img = before_img.subsample(factor, factor)
+                after_img = after_img.subsample(factor, factor)
+
+            left = ttk.Frame(images)
+            right = ttk.Frame(images)
+            left.grid(row=0, column=0, sticky="nsew", padx=(0,6))
+            right.grid(row=0, column=1, sticky="nsew", padx=(6,0))
+            images.columnconfigure(0, weight=1)
+            images.columnconfigure(1, weight=1)
+
+            ttk.Label(left, text="Before · SPCC", font=("Segoe UI Semibold", 10)).pack(pady=(0,6))
+            ttk.Label(left, image=before_img).pack()
+            ttk.Label(right, text="After · Parallax", font=("Segoe UI Semibold", 10)).pack(pady=(0,6))
+            ttk.Label(right, image=after_img).pack()
+
+            note = "동일 영역 · 동일한 표시 Stretch · 실제 FITS는 Linear 상태 유지"
+            if crop_text:
+                note = f"{crop_text} · " + note
+            ttk.Label(outer, text=note, style="Muted.TLabel").pack(anchor="center", pady=(10,4))
+            ttk.Button(outer, text="닫기", command=win.destroy).pack(anchor="e", pady=(4,0))
+
+            # Tk images must stay referenced for the lifetime of the window.
+            win._preview_images = (before_img, after_img)
+            win.update_idletasks()
+            x = self.winfo_rootx() + max(20, (self.winfo_width() - win.winfo_width()) // 2)
+            y = self.winfo_rooty() + max(20, (self.winfo_height() - win.winfo_height()) // 4)
+            win.geometry(f"+{x}+{y}")
+        except Exception as e:
+            self.write(f"Before/After 비교창 표시 실패: {e}")
+            if fallback_after and Path(fallback_after).exists():
+                self._open_preview(Path(fallback_after))
+            else:
+                messagebox.showwarning("미리보기", f"Before/After 비교창을 열지 못했습니다.\n{e}")
 
     def _open_preview(self, path: Path):
         try:

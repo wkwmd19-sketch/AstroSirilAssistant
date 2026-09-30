@@ -1,3 +1,227 @@
+# AstroSirilAssistant v0.15.1 — CR3/RAW 변환 경로 수정
+
+Siril 내부 작업 디렉터리를 RAW 임시 폴더로 명시적으로 지정해 `convertraw`의 `No RAW files were found for conversion` 오류를 수정했습니다. 자세한 내용은 `docs/HOTFIX_v0.15.1.md`를 참조하세요.
+
+---
+
+# AstroSirilAssistant v0.15.0 — Multi-format Intake
+
+이번 버전은 단일 이미지 입력 계층을 FITS 전용에서 다중 포맷으로 확장합니다.
+기존에 Windows + Siril 1.4.4 + SyQon 환경에서 Final까지 검증된 FITS 처리 파이프라인은 유지하고,
+입력 단계 앞에 **원본 보존 → 이미지 분석 → 작업용 FITS 표준화** 계층을 추가했습니다.
+
+## 지원 입력
+
+- FITS: `.fits`, `.fit`, `.fts`, `.fits.fz`
+- Camera RAW: `.cr2`, `.cr3`, `.nef`, `.arw`, `.dng`, `.raf`, `.orf`, `.rw2`, `.pef`
+- Raster: `.tif`, `.tiff`, `.png`, `.jpg`, `.jpeg`
+
+## 입력 원칙
+
+- 사용자가 선택한 원본은 `input/original`에 그대로 복사해 보존합니다.
+- 실제 보정은 `input/normalized/<target>_00_input.fits`에서 시작합니다.
+- Camera RAW는 Siril의 RAW 변환 경로(LibRaw)에서 Debayer한 뒤 32-bit 작업 모드 FITS로 표준화합니다.
+- RAW 변환 결과가 명확하게 생성되지 않으면 실패로 처리합니다. Debayer 여부가 불명확한 일반 loader fallback은 사용하지 않습니다.
+- JPEG는 손실압축/표시용 형식이므로 Non-linear 입력으로 취급합니다.
+- PNG/TIFF는 확장자만으로 Linear/Non-linear를 단정하지 않습니다.
+- FITS 입력은 분석은 원본에서 직접 수행하고, 프로젝트 생성 시 원본 보존본과 정규화 작업본을 분리합니다.
+
+## 프로젝트 입력 구조
+
+```text
+Auto_<대상>_<촬영일>/
+├─ input/
+│  ├─ original/       # 사용자 원본, 수정 금지
+│  ├─ normalized/     # 파이프라인용 FITS
+│  ├─ metadata/       # 원본/변환 메타데이터 JSON
+│  └─ lights/         # 기존/Sequence 호환
+├─ working/
+├─ output/
+├─ logs/
+└─ project.yaml
+```
+
+## 이미지 분석
+
+프로젝트 생성 전 `이미지 분석`이 다음을 수행합니다.
+
+- 입력 형식 분류
+- 필요한 경우 작업용 FITS 생성
+- 해상도/비트 깊이/촬영 메타데이터 분석
+- 대상명과 촬영일 자동 입력 시도
+- Linear/Non-linear 안전 판정
+- 변환 방식과 원본 형식 기록
+
+분석 캐시의 작업용 FITS는 프로젝트 생성 후 `input/normalized`로 복사되고 임시 캐시는 정리됩니다.
+
+## 메타데이터
+
+`input/metadata/source_metadata.json`에 원본 파일 정보, 변환된 FITS 헤더 매핑,
+Siril 메타데이터를 기록합니다. `project.yaml`에도 source format / family / lossy / RAW 여부와
+normalization method를 기록합니다.
+
+## 현재 범위
+
+v0.15.0은 **다중 포맷 단일 이미지 입력 계층의 첫 버전**입니다.
+
+- 기존 FITS 딥스카이 보정 파이프라인은 유지됩니다.
+- RAW 시퀀스의 정식 Calibration → Debayer → Registration → Stack은 별도 Sequence 흐름의 역할입니다.
+- 달/행성, 은하수/풍경, 별 일주 등의 전용 후처리 파이프라인은 이후 프로파일 단계에서 확장합니다.
+- JPEG/PNG/TIFF를 억지로 Linear 딥스카이 파이프라인에 자동 투입하지 않습니다.
+
+## 첫 실기 검증 권장
+
+1. CR3 한 장 선택
+2. `이미지 분석`
+3. 로그에서 `RAW Decode: Siril/LibRaw + Debayer` 확인
+4. 카메라/촬영일/노출/ISO 등 표시 확인
+5. 프로젝트 생성
+6. `input/original`에 CR3가 그대로 있는지 확인
+7. `input/normalized`에 32-bit 작업용 FITS가 생성됐는지 확인
+8. 정규화 FITS의 색/방향/해상도/Linear 상태를 확인한 뒤 다음 단계 진행
+
+---
+
+# AstroSirilAssistant v0.14.9 — Focus & Input Polish
+
+프로젝트 입력 화면의 Windows 렌더링 잔여 픽셀과 포커스 UX를 다듬은 소규모 UI 패치입니다.
+
+- 프로젝트 입력의 텍스트 입력 필드를 완전한 borderless native Entry로 변경해 모서리의 1px 점/잔여 테두리를 제거했습니다.
+- 대상 종류 Combobox도 focus border 없는 레이아웃으로 정리했습니다.
+- 입력창/콤보/버튼 등에 포커스가 있을 때 화면의 빈 여백, 카드 배경, 라벨 영역을 좌클릭하면 포커스와 텍스트 선택이 해제됩니다.
+- 값 자체는 변경되지 않으며 FocusOut 기반 placeholder/메타데이터 저장 동작은 그대로 유지됩니다.
+- v0.14.8의 프로젝트 입력/분석 흐름과 v0.14.5 이후 검증된 처리 파이프라인은 변경하지 않았습니다.
+
+---
+
+# AstroSirilAssistant v0.14.8 — Project Intake UX + Metadata
+
+이번 버전은 단일 이미지 프로젝트 시작 화면과 입력 흐름을 정리한 UX 업데이트입니다.
+
+- `입력 FITS` → `이미지`로 문구 정리
+- 이미지/저장 위치 경로는 읽기 전용으로 변경
+- FITS 헤더의 `OBJECT`, `DATE-OBS`/`DATE`를 이용해 대상명/촬영일 자동 입력
+- 알려진 대상은 `known_targets.yaml`을 기준으로 대상 종류 자동 분류
+- 알 수 없는 대상은 `기타 / 직접입력`으로 표시
+- 대상명이 없을 때 `천체 명칭을 입력해주세요.` placeholder 표시
+- 프로젝트 시작 순서를 `이미지 분석 → 프로젝트 생성`으로 분리
+- 이미지 분석이 완료되어야 프로젝트 생성 버튼 활성화
+- 프로젝트 입력 카드에 해상도/비트 깊이/카메라/노출/Gain/필터 요약 표시
+- 선택 입력 `저작권` 추가: project.yaml 보관 + Final FITS `COPYRGHT` 헤더 기록
+- Siril 연결 확인 결과를 팝업으로 안내
+- 버튼 순서: Siril 연결 확인 → SyQon 설치 확인 → 이미지 분석 → 프로젝트 생성
+- 상태 영역을 `상태` 라벨과 상태값 두 줄 구조로 변경
+- 프로그레스 시간은 `경과` 문구 없이 `MM:SS`만 표시
+- Entry의 하얀 corner/focus pixel 제거를 위한 borderless layout 적용
+- 세로/가로 스크롤바의 화살표를 제거하고 얇은 thumb 중심 스타일로 변경
+- 일반 도움말은 UI 정책 대신 용어/입력값/버튼 동작 중심의 사용 도움말로 교체
+
+기존 Parallax Safe-Band, Before/After 비교, Prism, GHS, StarNet, Recombine, Final Export 처리 흐름은 유지합니다.
+
+> 저작권 입력은 워터마크가 아닙니다. 현재 Working/Final FITS 헤더에 기록하며 TIFF/PNG 메타데이터에는 강제로 삽입하지 않습니다.
+
+---
+
+# AstroSirilAssistant v0.14.7 — Astro Cozy Dark UI
+
+이번 버전은 v0.14.6의 처리 로직을 유지하면서 시각 톤만 부드럽게 다듬은 UI Polish 릴리스입니다.
+
+- 따뜻한 Navy/Charcoal 기반 `Astro Cozy Dark` 팔레트
+- 강한 테두리를 제거한 카드형 섹션
+- 여백과 행간 확대
+- 버튼/입력창 높이와 패딩 확대
+- 낮은 채도의 Blue / Green / Red 액센트
+- 얇은 프로그레스바와 부드러운 상태 영역
+- 실행 중 `중단` 버튼은 muted-red 스타일
+- Main GUI와 Sequence GUI에 같은 테마 적용
+- Parallax Safe-Band, Before/After, Final Export 등 처리 로직은 변경하지 않음
+
+> Tk/ttk 기반 구조는 그대로 유지합니다. 안정성을 위해 GUI 프레임워크를 교체하지 않고, borderless card + spacing + soft palette 방식으로 둥글고 편안한 인상을 만들었습니다.
+
+---
+
+# AstroSirilAssistant v0.14.6 — Preview Compare + UI Copy Polish
+
+이번 버전은 v0.14.5의 실제 Windows/Siril/SyQon 전체 파이프라인 성공 확인을 기준으로,
+처리 로직을 크게 바꾸지 않고 미리보기 비교와 화면 문구를 정리한 UX 업데이트입니다.
+
+- Parallax 빠른 미리보기: `Before · SPCC` / `After · Parallax` 좌우 동시 비교
+- Before에서 계산한 하나의 표시 Stretch를 Before/After 양쪽에 동일 적용
+- 비교용 Stretch는 표시 전용이며 Linear FITS는 변경하지 않음
+- 상단 `현재 단계 : 한 줄 설명` / `다음 작업 : 단계명`을 중심으로 중복 설명 제거
+- 헤더, 프로젝트 입력, 상태, 처리 설정, 완료/Export 문구 간결화
+- 고정 구현 정보와 반복 안내 문구는 화면에서 제거하고 도움말/상세 로그에 유지
+- Main GUI와 Sequence GUI의 공통 문구 스타일 정리
+
+v0.14.5의 Safe-Band Parallax 전체 처리, 중단 버튼, 실시간 로그, Candidate 승인 방식은 그대로 유지합니다.
+
+---
+
+# AstroSirilAssistant v0.14.5 — SyQon Full Safe-Band Hotfix
+
+Parallax 빠른 미리보기는 정상인데 큰 전체 RGB32 이미지에서 `Python module is up-to-date`
+이후 진행되지 않는 Windows/Siril Python bridge 패턴을 우회합니다.
+
+전체 이미지가 안전 임계값을 넘으면 자동으로 원본 픽셀 스케일의 겹침 band로 나누어
+동일한 Parallax 설정을 적용하고, overlap을 feather 결합한 뒤 원본 크기의 Linear FITS로
+복원합니다. 사용자는 기존과 동일하게 `전체 처리 + 결과 확인` 후 `결과 승인`하면 됩니다.
+
+기본값: 32 MiB 안전 payload / 192px overlap / startup watchdog 30초.
+
+---
+
+# AstroSirilAssistant v0.14.5 — Restoration Full-Run Reliability
+
+이번 패치는 실제 Parallax 테스트 로그를 바탕으로 전체 처리 흐름을 수정합니다.
+
+- `현재 단계 : 한 줄 설명` / `다음 작업 : 단계명` 고정 표시
+- Parallax `전체 처리 + 결과 확인` 결과를 그대로 `결과 승인`하여 재계산 제거
+- FULL SyQon 시작 watchdog 기본 90초
+- 홀수 이미지 크기용 even-geometry guard + 결과 원본 크기 복원
+- 기존 빠른 미리보기 / 실시간 로그 / 중단 버튼 유지
+
+---
+
+# AstroSirilAssistant v0.14.3 — Fast Preview / Cancel / Project UX
+
+이번 업데이트:
+
+- 새 프로젝트 폴더: `Auto_<대상>_<촬영일>`
+- 중복 프로젝트 팝업: `기존 프로젝트 열기 / 새 프로젝트 만들기 / 취소`
+- 기존 `<대상>_<촬영일>_Auto` 프로젝트 호환 유지
+- Parallax `빠른 미리보기` (기본 중앙 1536×1536, 원본 픽셀 스케일 유지)
+- Parallax `전체 미리보기` 분리
+- 실제 적용 전 동일 설정의 전체 미리보기 필수
+- Siril/SyQon 실시간 로그 스트리밍
+- Progress 실행 중 `중단` 버튼
+- Windows에서 Siril 하위 프로세스까지 종료 요청
+- 중단/실패한 Preview temp 결과 재사용 방지
+- Sequence GUI에도 동일한 중단 기능 적용
+
+최종 산출물 파일명 `M31_final_Auto.*` 규칙은 변경하지 않습니다.
+
+---
+
+# AstroSirilAssistant v0.14.2 — Project Collision UX Hotfix
+
+동일한 `대상명 + 촬영일` 프로젝트가 이미 있을 때 더 이상 일반 오류로 끝나지 않습니다.
+
+GUI가 선택지를 표시합니다.
+
+- **예**: 기존 프로젝트 열기
+- **아니오**: 새 번호 프로젝트 생성
+- **취소**: 중단
+
+새 프로젝트 예:
+
+`M31_2026-09-30_02_Auto`
+
+기존 프로젝트는 절대 덮어쓰거나 삭제하지 않습니다.
+
+v0.14.1 Windows BAT 수정, v0.14.0 Parallax/Prism 및 Astro Graphite UI는 그대로 포함합니다.
+
+---
+
 # AstroSirilAssistant v0.14.1 — Windows BAT Launcher Hotfix
 
 v0.14.0에서 일부 Windows `cmd.exe` 환경이 BAT launcher를 잘못 해석하는 문제를 수정했습니다.

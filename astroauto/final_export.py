@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import json
+from astropy.io import fits
 
 from .project import load_project, save_project
 from .siril import run_script, SirilError
@@ -118,6 +119,24 @@ def _max_highlight_clip(stats: dict) -> float:
         for c in (stats.get("channels") or {}).values()
     ]
     return max(ratios) if ratios else 0.0
+
+
+def _write_fits_copyright(path: Path, value: str, *, checksum: bool):
+    value = str(value or "").strip()
+    if not value:
+        return False
+    path = Path(path)
+    with fits.open(path, mode="update", checksum=False) as hdul:
+        hdu = next((h for h in hdul if getattr(h, "data", None) is not None), hdul[0])
+        hdu.header["COPYRGHT"] = (value, "Copyright / rights holder")
+        if checksum:
+            for item in hdul:
+                try:
+                    item.add_checksum(override_datasum=True)
+                except Exception:
+                    pass
+        hdul.flush(output_verify="fix")
+    return True
 
 def preview_final_export(
     project_dir: Path,
@@ -315,6 +334,17 @@ def apply_final_export(
         raise SirilError("Final preview JPG를 찾지 못했습니다.")
     outputs["preview_jpg"] = str(preview_jpg)
 
+    copyright_text = str((p.get("metadata") or {}).get("copyright") or "").strip()
+    copyright_embedded = []
+    if copyright_text:
+        if _write_fits_copyright(working_final, copyright_text, checksum=opts["fits_checksum"]):
+            copyright_embedded.append(str(working_final))
+        if outputs.get("fits"):
+            export_fits_path = Path(outputs["fits"])
+            if export_fits_path.resolve() != working_final.resolve():
+                if _write_fits_copyright(export_fits_path, copyright_text, checksum=opts["fits_checksum"]):
+                    copyright_embedded.append(str(export_fits_path))
+
     stats = analyze_pixels(
         working_final,
         max_samples=int(config.get("analysis", {}).get("max_samples_per_channel", 1500000)),
@@ -332,6 +362,11 @@ def apply_final_export(
         "options": opts,
         "states": ["FINALIZED", "EXPORTED"],
         "timestamp": iso_now(),
+        "metadata": {
+            "copyright": copyright_text or None,
+            "copyright_embedded_fits": copyright_embedded,
+            "raster_note": "TIFF/PNG에는 별도 Copyright 메타데이터를 강제 삽입하지 않습니다.",
+        },
         "notes": {
             "fits_internal_precision": "32-bit float path via set32bits",
             "tiff": "16-bit per channel via savetif",
@@ -355,6 +390,10 @@ def apply_final_export(
         "base_name": base,
         "outputs": outputs,
         "options": opts,
+        "metadata": {
+            "copyright": copyright_text or None,
+            "copyright_embedded_fits": copyright_embedded,
+        },
         "analysis": stats,
         "max_highlight_clip_ratio": _max_highlight_clip(stats),
         "siril_stdout": proc.stdout,
