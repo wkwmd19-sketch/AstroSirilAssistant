@@ -17,8 +17,8 @@ def test_cozy_palette_and_styles_are_present():
 def test_both_guis_use_cozy_busy_bar_and_stop_button():
     main = (ROOT / "gui.py").read_text(encoding="utf-8")
     seq = (ROOT / "sequence_gui.py").read_text(encoding="utf-8")
-    assert "v0.14.8" in main
-    assert "v0.14.8" in seq
+    assert "v0.14.9" in main
+    assert "v0.14.9" in seq
     assert 'style="Danger.TButton"' in main
     assert 'style="Danger.TButton"' in seq
     assert 'style="Surface.TFrame", padding=(14, 10)' in main
@@ -26,7 +26,7 @@ def test_both_guis_use_cozy_busy_bar_and_stop_button():
 
 
 def test_processing_files_are_not_modified_by_theme_release_marker():
-    # The UI polish should not add v0.14.8-specific logic to processing modules.
+    # The UI polish should not add v0.14.9-specific logic to processing modules.
     for name in ("deblur.py", "denoise.py", "ghs.py", "final_export.py", "siril.py", "syqon.py"):
         text = (ROOT / "astroauto" / name).read_text(encoding="utf-8")
-        assert "0.14.8" not in text
+        assert "0.14.9" not in text

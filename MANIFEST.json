@@ -1,17 +1,14 @@
 {
-  "package": "AstroSirilAssistant_v0.14.8",
-  "version": "0.14.8",
+  "package": "AstroSirilAssistant_v0.14.9",
+  "version": "0.14.9",
   "update": "Project intake split, FITS metadata autofill, copyright metadata, and cozy UI cleanup",
   "validation": {
-    "python_compile": "PASS: 64 Python files / 0 syntax errors",
-    "yaml_parse": "PASS: 25 YAML files / 0 errors",
-    "targeted_ui_tests": "PASS: 13 tests",
-    "broad_regression_without_real_astropy": "PASS: 77 tests using import stub; safe-band FITS I/O tests excluded",
-    "main_gui_smoke": "PASS under Xvfb with import-only astropy stub",
-    "sequence_gui_smoke": "PASS under Xvfb with import-only astropy stub",
-    "full_real_astropy_suite": "NOT RUN: container does not have astropy installed",
-    "baseline_windows_siril_syqon_runtime": "v0.14.5 USER CONFIRMED through Final export",
-    "v0.14.8_windows_runtime": "PENDING USER TEST"
+    "python_syntax_errors": 0,
+    "yaml_parse_errors": 0,
+    "targeted_ui_tests": "13 passed",
+    "gui_smoke": "passed with lightweight astropy import stub",
+    "broader_regression": "80 passed; 2 Safe-Band FITS I/O tests not runnable because the lightweight astropy stub has no PrimaryHDU",
+    "windows_runtime": "pending user test"
   },
   "features": {
     "analysis_before_project_create": true,
@@ -47,5 +44,9 @@
     }
   },
   "python_errors": [],
-  "yaml_errors": []
+  "yaml_errors": [],
+  "hotfix": "Project intake corner-pixel cleanup and click-empty-space focus clear",
+  "runtime_status": {
+    "v0.14.9_windows_runtime": "PENDING USER TEST"
+  }
 }

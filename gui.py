@@ -169,7 +169,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.14.8")
+        self.title("AstroSirilAssistant v0.14.9")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -425,6 +425,7 @@ class App(tk.Tk):
         self._long_running_notice_sent = False
 
         self._build()
+        self.bind_all("<Button-1>", self._on_global_left_click, add="+")
 
     def _apply_screen_aware_geometry(self):
         apply_screen_aware_geometry(self)
@@ -500,21 +501,21 @@ class App(tk.Tk):
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 15))
 
         ttk.Label(input_card, text="이미지", style="FieldLabel.TLabel").grid(row=2, column=0, sticky="w", pady=7)
-        self.input_entry = ttk.Entry(input_card, textvariable=self.input_var, state="readonly")
-        self.input_entry.grid(row=2, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.input_entry = self._make_intake_entry(input_card, self.input_var, readonly=True)
+        self.input_entry.grid(row=2, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
         ttk.Button(input_card, text="찾기", command=self.pick_input).grid(row=2, column=2, padx=(10,0), pady=4)
 
         ttk.Label(input_card, text="대상명", style="FieldLabel.TLabel").grid(row=3, column=0, sticky="w", pady=7)
-        self.target_entry = ttk.Entry(input_card, textvariable=self.target_var)
-        self.target_entry.grid(row=3, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.target_entry = self._make_intake_entry(input_card, self.target_var)
+        self.target_entry.grid(row=3, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
         self._target_placeholder = self._attach_placeholder(
             self.target_entry, self.target_var, "천체 명칭을 입력해주세요."
         )
         self.target_entry.bind("<FocusOut>", self._on_target_focus_out, add="+")
 
         ttk.Label(input_card, text="촬영일", style="FieldLabel.TLabel").grid(row=4, column=0, sticky="w", pady=7)
-        self.date_entry = ttk.Entry(input_card, textvariable=self.date_var)
-        self.date_entry.grid(row=4, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.date_entry = self._make_intake_entry(input_card, self.date_var)
+        self.date_entry.grid(row=4, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
         self._date_placeholder = self._attach_placeholder(
             self.date_entry, self.date_var, "YYYY-MM-DD"
         )
@@ -530,14 +531,14 @@ class App(tk.Tk):
         copyright_label = ttk.Label(input_card, text="저작권 (선택)", style="FieldLabel.TLabel")
         copyright_label.grid(row=6, column=0, sticky="w", pady=7)
         self.help.tooltip(copyright_label, "project.copyright")
-        self.copyright_entry = ttk.Entry(input_card, textvariable=self.copyright_var)
-        self.copyright_entry.grid(row=6, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.copyright_entry = self._make_intake_entry(input_card, self.copyright_var)
+        self.copyright_entry.grid(row=6, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
         self._attach_placeholder(self.copyright_entry, self.copyright_var, "예: © 2026 Photographer")
         self.copyright_entry.bind("<FocusOut>", lambda _e: self._persist_project_metadata(), add="+")
 
         ttk.Label(input_card, text="저장 위치", style="FieldLabel.TLabel").grid(row=7, column=0, sticky="w", pady=7)
-        self.root_entry = ttk.Entry(input_card, textvariable=self.root_var, state="readonly")
-        self.root_entry.grid(row=7, column=1, sticky="ew", padx=(14,0), pady=4)
+        self.root_entry = self._make_intake_entry(input_card, self.root_var, readonly=True)
+        self.root_entry.grid(row=7, column=1, sticky="ew", padx=(14,0), pady=4, ipady=9)
         ttk.Button(input_card, text="폴더", command=self.pick_root).grid(row=7, column=2, padx=(10,0), pady=4)
 
         info_strip = ttk.Frame(input_card, style="Card.TFrame")
@@ -636,6 +637,75 @@ class App(tk.Tk):
         scrollbar = ttk.Scrollbar(self.log_frame, command=self.output.yview)
         scrollbar.pack(side="right", fill="y")
         self.output.configure(yscrollcommand=scrollbar.set)
+
+    def _make_intake_entry(self, parent, variable: tk.StringVar, *, readonly: bool = False):
+        """Borderless native Entry used by the project intake card.
+
+        ttk/clam can render tiny one-pixel corner artifacts on some Windows
+        displays.  A native Tk Entry with every border/highlight disabled avoids
+        those pixels while preserving the same dark input surface.
+        """
+        entry = tk.Entry(
+            parent,
+            textvariable=variable,
+            bd=0,
+            relief="flat",
+            highlightthickness=0,
+            background=self.palette["input_bg"],
+            foreground=self.palette["text"],
+            insertbackground=self.palette["text"],
+            selectbackground=self.palette["select_bg"],
+            selectforeground=self.palette["text"],
+            readonlybackground=self.palette["input_bg"],
+            disabledbackground=self.palette["input_bg"],
+            disabledforeground=self.palette["muted"],
+            font=("Segoe UI", 10),
+        )
+        if readonly:
+            entry.configure(state="readonly")
+        return entry
+
+    def _clear_ui_focus(self):
+        """Drop keyboard focus/selection without changing any field value."""
+        focused = self.focus_get()
+        try:
+            if isinstance(focused, (tk.Entry, ttk.Entry, ttk.Combobox)):
+                focused.selection_clear()
+            elif isinstance(focused, tk.Text):
+                focused.tag_remove("sel", "1.0", "end")
+            elif isinstance(focused, tk.Listbox):
+                focused.selection_clear(0, "end")
+        except Exception:
+            pass
+
+        # The root acts as an invisible focus sink.  FocusOut handlers still run
+        # (placeholders/persistence), but no visible input remains focused.
+        try:
+            self.focus_set()
+        except Exception:
+            pass
+
+    def _on_global_left_click(self, event):
+        """Clicking non-interactive/empty UI space clears the current focus."""
+        widget = getattr(event, "widget", None)
+        if widget is None:
+            return
+
+        interactive = (
+            tk.Entry, ttk.Entry, ttk.Combobox, tk.Text, tk.Listbox,
+            tk.Button, ttk.Button, tk.Checkbutton, ttk.Checkbutton,
+            tk.Radiobutton, ttk.Radiobutton, tk.Scale, ttk.Scale,
+            tk.Scrollbar, ttk.Scrollbar, ttk.Treeview, tk.Menubutton, ttk.Menubutton,
+        )
+        if isinstance(widget, interactive):
+            return
+
+        # Labels, frames, canvases and the window background are treated as
+        # neutral space.  This is intentionally value-preserving: only focus and
+        # visual selection are cleared.
+        neutral = (tk.Frame, ttk.Frame, tk.Label, ttk.Label, tk.Canvas, tk.Tk, tk.Toplevel)
+        if isinstance(widget, neutral):
+            self._clear_ui_focus()
 
     def _workspace_bbox(self):
         try:

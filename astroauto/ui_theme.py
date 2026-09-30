@@ -259,6 +259,26 @@ def apply_astro_theme(root: tk.Misc):
         darkcolor=[("focus", p["input_bg"])],
     )
 
+    # Clam can leave one-pixel corner/focus artifacts on Windows.  Rebuild the
+    # combobox layout without the native field border so the intake controls
+    # stay visually flat and clean.
+    try:
+        style.layout(
+            "TCombobox",
+            [
+                ("Combobox.downarrow", {"side": "right", "sticky": "ns"}),
+                ("Combobox.field", {
+                    "sticky": "nswe", "border": "0",
+                    "children": [("Combobox.padding", {
+                        "sticky": "nswe",
+                        "children": [("Combobox.textarea", {"sticky": "nswe"})],
+                    })],
+                }),
+            ],
+        )
+    except Exception:
+        pass
+
     style.configure(
         "TCombobox",
         fieldbackground=p["input_bg"], background=p["card_alt"], foreground=p["text"],
@@ -273,7 +293,7 @@ def apply_astro_theme(root: tk.Misc):
         foreground=[("readonly", p["text"])],
         selectbackground=[("readonly", p["select_bg"])],
         selectforeground=[("readonly", p["text"])],
-        bordercolor=[("focus", p["accent"])],
+        bordercolor=[("focus", p["input_bg"])],
     )
 
     style.configure(

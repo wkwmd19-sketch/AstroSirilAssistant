@@ -25,8 +25,8 @@ def test_intake_metadata_autofill_and_unknown_label():
 
 def test_path_fields_readonly_and_status_is_stacked():
     gui = (ROOT / "gui.py").read_text(encoding="utf-8")
-    assert 'self.input_entry = ttk.Entry(input_card, textvariable=self.input_var, state="readonly")' in gui
-    assert 'self.root_entry = ttk.Entry(input_card, textvariable=self.root_var, state="readonly")' in gui
+    assert 'self.input_entry = self._make_intake_entry(input_card, self.input_var, readonly=True)' in gui
+    assert 'self.root_entry = self._make_intake_entry(input_card, self.root_var, readonly=True)' in gui
     assert 'text="상태", style="StatusKey.TLabel"' in gui
     assert 'pack(anchor="w", pady=(4,0))' in gui
     assert '경과 00:00' not in gui

@@ -1,3 +1,15 @@
+# AstroSirilAssistant v0.14.9 — Focus & Input Polish
+
+프로젝트 입력 화면의 Windows 렌더링 잔여 픽셀과 포커스 UX를 다듬은 소규모 UI 패치입니다.
+
+- 프로젝트 입력의 텍스트 입력 필드를 완전한 borderless native Entry로 변경해 모서리의 1px 점/잔여 테두리를 제거했습니다.
+- 대상 종류 Combobox도 focus border 없는 레이아웃으로 정리했습니다.
+- 입력창/콤보/버튼 등에 포커스가 있을 때 화면의 빈 여백, 카드 배경, 라벨 영역을 좌클릭하면 포커스와 텍스트 선택이 해제됩니다.
+- 값 자체는 변경되지 않으며 FocusOut 기반 placeholder/메타데이터 저장 동작은 그대로 유지됩니다.
+- v0.14.8의 프로젝트 입력/분석 흐름과 v0.14.5 이후 검증된 처리 파이프라인은 변경하지 않았습니다.
+
+---
+
 # AstroSirilAssistant v0.14.8 — Project Intake UX + Metadata
 
 이번 버전은 단일 이미지 프로젝트 시작 화면과 입력 흐름을 정리한 UX 업데이트입니다.
