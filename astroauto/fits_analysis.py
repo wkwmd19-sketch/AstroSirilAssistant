@@ -16,12 +16,14 @@ def _clean_numeric(arr: np.ndarray) -> np.ndarray:
     return arr[np.isfinite(arr)]
 
 def _sample_evenly(arr: np.ndarray, max_samples: int) -> np.ndarray:
-    arr = _clean_numeric(arr)
-    if arr.size <= max_samples:
-        return arr
-    step = max(1, arr.size // max_samples)
-    sampled = arr[::step]
-    return sampled[:max_samples]
+    """Bound the sample *before* allocating float64 data for large images."""
+    if max_samples < 1:
+        raise ValueError("max_samples는 1 이상이어야 합니다.")
+    flat = np.asarray(arr).ravel()
+    if flat.size > max_samples:
+        step = math.ceil(flat.size / max_samples)
+        flat = flat[::step][:max_samples]
+    return _clean_numeric(flat)
 
 def _channel_views(data: np.ndarray):
     data = np.asarray(data)

@@ -1,3 +1,17 @@
+# AstroSirilAssistant v0.15.2 — FITS 이미지 분석 호환성 핫픽스 + 인수인계 문서
+
+v0.15.1 CR3 테스트에서 Siril/LibRaw 변환과 `jsonmetadata`는 성공했으나 후속 이미지 분석이 중단됐습니다.
+`astroauto/fits_analysis.py`가 BZERO/BSCALE 스케일링이 필요한 16-bit FITS를 `memmap=True`로 열던 호환성 문제를 수정했습니다.
+픽셀·헤더 읽기에서 `memmap=False`를 사용하고, 대형 이미지에서는 float64 배열로 바꾸기 **전에** 채널을 제한 샘플링합니다.
+
+- RAW 디코딩·원본 보존·기존 FITS 처리 순서·SyQon·Final Export는 변경하지 않았습니다.
+- 인수인계 문서 9개: `docs/handoff/` (요구사항, UI 문구/용어, 단계·파일 규칙, 변경 이력, 미해결 문제).
+- 상세: `docs/HOTFIX_v0.15.2.md` 및 `docs/handoff/00_먼저_읽기.md`.
+- **실제 Windows/Siril 1.4.4/Canon EOS RP CR3 전체 흐름은 아직 검증되지 않았습니다.**
+- Git 커밋/푸시는 수행하지 않았습니다.
+
+---
+
 # AstroSirilAssistant v0.15.1 — CR3/RAW 변환 경로 수정
 
 Siril 내부 작업 디렉터리를 RAW 임시 폴더로 명시적으로 지정해 `convertraw`의 `No RAW files were found for conversion` 오류를 수정했습니다. 자세한 내용은 `docs/HOTFIX_v0.15.1.md`를 참조하세요.

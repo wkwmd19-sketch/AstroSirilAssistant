@@ -1,7 +1,7 @@
 {
-  "package": "AstroSirilAssistant_v0.15.1",
-  "version": "0.15.1",
-  "update": "CR3/RAW Siril internal working directory hotfix",
+  "package": "AstroSirilAssistant_v0.15.2",
+  "version": "0.15.2",
+  "update": "BZERO/BSCALE FITS analysis memmap compatibility hotfix + development handoff docs",
   "features": {
     "formats": [
       "FITS",
@@ -31,19 +31,26 @@
     "existing_fits_pipeline": "USER VERIFIED THROUGH FINAL EXPORT",
     "parallax_safe_band": "USER VERIFIED",
     "v0.15.0_multiformat_windows_runtime": "RAW conversion failed: Siril scanned saved Pictures directory",
-    "v0.15.1_cr3_windows_runtime": "PENDING USER TEST"
+    "v0.15.1_cr3_windows_runtime": "RAW decoding and jsonmetadata succeeded; image analysis reported failed",
+    "v0.15.2_cr3_windows_runtime": "PENDING USER TEST"
   },
   "validation": {
-    "python_files_compiled": 68,
-    "python_syntax_errors": 0,
-    "yaml_files_parsed": 25,
-    "yaml_parse_errors": 0,
-    "selected_regression_tests_passed": 21,
-    "selected_regression_tests_deselected": 1,
-    "note": "Actual Windows Siril/CR3 runtime still pending; full suite could not collect without astropy."
+    "note": "Static compile/YAML/available pytest executed in build environment; actual Windows/Siril and Astropy FITS I/O require runtime validation",
+    "actual_windows_cr3_test": "PENDING",
+    "full_suite_astropy_required": "PENDING",
+    "handoff_docs": 9,
+    "python_syntax_parse": "PASS (70 files)",
+    "yaml_parse": "PASS (25 files)",
+    "dependency_independent_and_stubbed_unit_tests": "PASS (94 tests; Astropy import stub used, 2 real-I/O test files excluded)",
+    "new_policy_plus_selected_original_tests": "PASS (17 tests; 1 real-I/O file skipped without Astropy)",
+    "real_astropy_fits_roundtrip": "PENDING (Astropy missing in build environment)",
+    "actual_windows_siril_cr3": "PENDING USER TEST"
   },
   "fixes": [
     "Explicit Siril cd to single RAW staging folder before convertraw",
-    "Regression tests verify source preservation, staged path, and failure behavior"
+    "Regression tests verify source preservation, staged path, and failure behavior",
+    "Disable Astropy memory mapping when reading potentially scaled FITS (pixel and header summary)",
+    "Sample large image channels before float64 conversion to reduce peak analysis memory",
+    "Include consolidated requirements, UI terminology, version decisions and validation handoff docs"
   ]
 }

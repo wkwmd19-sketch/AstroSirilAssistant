@@ -17,8 +17,8 @@ def test_cozy_palette_and_styles_are_present():
 def test_both_guis_use_cozy_busy_bar_and_stop_button():
     main = (ROOT / "gui.py").read_text(encoding="utf-8")
     seq = (ROOT / "sequence_gui.py").read_text(encoding="utf-8")
-    assert "v0.15.1" in main
-    assert "v0.15.1" in seq
+    assert "v0.15.2" in main
+    assert "v0.15.2" in seq
     assert 'style="Danger.TButton"' in main
     assert 'style="Danger.TButton"' in seq
     assert 'style="Surface.TFrame", padding=(14, 10)' in main
