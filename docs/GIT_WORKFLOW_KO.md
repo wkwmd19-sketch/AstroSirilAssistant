@@ -4,7 +4,7 @@
 
 압축을 풀고 `AstroSirilAssistant` 폴더를 터미널에서 엽니다.
 숨겨진 `.git` 폴더가 이력을 담고 있으므로 함께 유지합니다.
-현재 `main`은 v0.15.1에 FITS 분석 핫픽스를 적용한 소스와 Git 관리 문서로 구성됩니다.
+현재 `main`은 v0.16.0 전체 배포 소스와 Git 관리 문서로 구성됩니다.
 
 ```shell
 git status
@@ -15,7 +15,7 @@ git tag --list --sort=version:refname
 ## 변경 내용 비교
 
 ```shell
-git diff --stat v0.14.1 v0.15.1
+git diff --stat v0.15.1 v0.16.0
 git diff v0.15.1 v0.15.1-fits-hotfix -- astroauto/fits_analysis.py
 ```
 
@@ -109,7 +109,7 @@ GitHub 웹 화면에서 파일만 업로드하면 과거 커밋·태그가 이�
 
 ## 보존·검증 범위
 
-- 보관된 전체 배포 ZIP 31개를 버전 순서대로 가져왔습니다.
+- 보관된 전체 배포 ZIP 34개를 버전 순서대로 가져왔습니다.
 - 원본 버전 태그에는 ZIP의 파일 바이트와 실행 권한을 그대로 보존했습니다.
 - 원본 버전 태그에서는 최상위 폴더만 제거했습니다.
 - `v0.15.1-fits-hotfix`는 기존 패치를 적용한 별도 태그이며, `v0.15.1` 원본 태그는 유지합니다.

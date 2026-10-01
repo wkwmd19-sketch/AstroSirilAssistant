@@ -10,6 +10,7 @@ from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
 from .starless_processing import make_starless_process_task
+from .final_export import make_final_export_task
 
 STRIDE_PRESETS = {
     "LARGE": 384,
@@ -415,18 +416,18 @@ def apply_star_separation(
     return project, starless_out, stars_out, payload
 
 def skip_star_separation(project_dir: Path):
+    """Explicit StarNet skip; export the intact Non-linear image directly."""
     pdir = Path(project_dir)
     project = load_project(pdir)
     p = project["project"]
-
-    if p.get("current_state") != "STRETCHED":
-        raise ValueError("StarNet 건너뛰기는 STRETCHED 상태에서만 사용할 수 있습니다.")
-
-    p["next_task"] = make_starnet_skipped_task()
+    if (p.get("next_task") or {}).get("task_id") != "STAR_SEPARATION":
+        raise ValueError("현재 StarNet 단계에서만 생략할 수 있습니다.")
+    current = _current_nonlinear_file(project)
+    p.setdefault("separation", {})["skipped"] = True
+    p["separation"]["source_file"] = str(current)
+    p["current_state"] = "EXPORT_READY"
+    p["next_task"] = make_final_export_task(direct=True)
     save_project(pdir, project)
-    append_jsonl(pdir, {
-        "event": "STARNET_SKIP",
-        "status": "SKIPPED",
-        "current_file": p.get("current_file"),
-    })
+    append_jsonl(pdir, {"event": "STARNET_SKIP", "status": "USER_APPROVED",
+                            "current_file": str(current), "next_task": "FINALIZE_EXPORT"})
     return project

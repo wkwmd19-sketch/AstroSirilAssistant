@@ -5,8 +5,8 @@
   "history_type": "reconstructed_from_release_archives",
   "date_policy": "Git dates are import times; source_archive_recorded_at is the source file record timestamp, not a claimed development or release date.",
   "snapshot_policy": "Remove only the enclosing version directory. Preserve every file byte and executable flag, including historical generated files.",
-  "source_count": 31,
-  "latest_tag": "v0.15.1",
+  "source_count": 34,
+  "latest_tag": "v0.16.0",
   "releases": [
     {
       "version": "0.1",
@@ -12190,9 +12190,1944 @@
           "reason": "Byte-identical duplicate; imported once."
         }
       ]
+    },
+    {
+      "version": "0.15.2",
+      "tag": "v0.15.2",
+      "commit": "848437aa664d7016796af70fb927f9ffde2e9d2a",
+      "summary_ko": "FITS 스케일링 호환성·메모리 개선과 인수인계 문서",
+      "source_archive": "AstroSirilAssistant_v0.15.2.zip",
+      "source_archive_sha256": "d75f89313f5e640452736c9f306ee60ce7f532afc1f1f50946662fdebaba5fac",
+      "source_archive_recorded_at": "2026-09-30T12:47:12.171836Z",
+      "removed_enclosing_directory": "AstroSirilAssistant_v0.15.2",
+      "file_count": 153,
+      "files": {
+        "MANIFEST.json": {
+          "sha256": "ac90e0334cf037d058ccc9843e7fd9f12a53af54820f60beeab57bf8b5bfe344",
+          "git_mode": "100644"
+        },
+        "README_KO.md": {
+          "sha256": "91a86612ac15ea18801e3a3359e190d77ba5816d918e4086713093b8a9f75497",
+          "git_mode": "100644"
+        },
+        "app.py": {
+          "sha256": "5c93f7a0ec1011da901466c1ec9446f4eff5e19daf23eae89de9167eaa62294e",
+          "git_mode": "100644"
+        },
+        "astroauto/__init__.py": {
+          "sha256": "04e0b925415bce48421bdea1aceb47ee41035c5dda34e838919f7b3b31b3aee2",
+          "git_mode": "100644"
+        },
+        "astroauto/analyzer.py": {
+          "sha256": "c9fa7243290149ca29e09f7a636e2ca48601e5390c93b418de37505b4bc8b674",
+          "git_mode": "100644"
+        },
+        "astroauto/calibration.py": {
+          "sha256": "d5f450f4c3edb6a2325ff2dcd9ac214ab8ea28998fb052f02fd2a6c0b40bf03a",
+          "git_mode": "100644"
+        },
+        "astroauto/config.py": {
+          "sha256": "3bf3ba7c911311eafb1da40ac3582a511faf73c6021f2b828ff948e9d6ccf2da",
+          "git_mode": "100644"
+        },
+        "astroauto/deblur.py": {
+          "sha256": "aa079e31fb0d6661858acf955f3fb02a4f219a2b6a22e928b5b8dc2af8d4715c",
+          "git_mode": "100644"
+        },
+        "astroauto/denoise.py": {
+          "sha256": "30743c5e2406c5de46b908a06f4b7570aa914e9079deef0b93b7c57800437029",
+          "git_mode": "100644"
+        },
+        "astroauto/execution.py": {
+          "sha256": "e5a010c3329bd685b1e7efdafdb08a17799cdb0a0bb375fe35c2bf6b64694382",
+          "git_mode": "100644"
+        },
+        "astroauto/final_export.py": {
+          "sha256": "3e12b308765d7835d3215c380a24bda3ba721c571948e119bda2ced31be1842d",
+          "git_mode": "100644"
+        },
+        "astroauto/fits_analysis.py": {
+          "sha256": "7fbdfc3bb3ef7c5c12eedeac69458d0f2917e468c5b0a739c0520ed792f3c519",
+          "git_mode": "100644"
+        },
+        "astroauto/ghs.py": {
+          "sha256": "267b16463deac514cc6cbb0332642fec0f260d6e6b822378d70dcccaa4a5897c",
+          "git_mode": "100644"
+        },
+        "astroauto/gradient.py": {
+          "sha256": "d7bc7bdb8199e4929836d3597a9f511cb8b415d7378e8dd75dfe832d94f76f03",
+          "git_mode": "100644"
+        },
+        "astroauto/help_system.py": {
+          "sha256": "368ae13e052b873ffee7d78f55d572f50848f534cdbf14450c2556b671cbb86a",
+          "git_mode": "100644"
+        },
+        "astroauto/input_formats.py": {
+          "sha256": "c8bf33d90414fed1d453eafaa67fb3c5e65166d1a502880eb60fa53ef7423cba",
+          "git_mode": "100644"
+        },
+        "astroauto/intake.py": {
+          "sha256": "38923154f95e2288d25c5fbd5996935fa6e60118e43d97af11c485135c68c09e",
+          "git_mode": "100644"
+        },
+        "astroauto/logging_utils.py": {
+          "sha256": "6be19174c968860a4f57268401c723c784ac73dc3d42e44291fa620381cf6442",
+          "git_mode": "100644"
+        },
+        "astroauto/preprocess_engine.py": {
+          "sha256": "66a97416adf49e01b7a52429dae08153a5f42c0346689f089d5a1d5f577b40ef",
+          "git_mode": "100644"
+        },
+        "astroauto/preview_utils.py": {
+          "sha256": "26d3ec668700c9361d36390e9859316b1d315c869cf044399a95924bf3cfc583",
+          "git_mode": "100644"
+        },
+        "astroauto/project.py": {
+          "sha256": "c49c16816316bd3073ff412040dcd02a3ebd3dbf79d52bd8a6e83618ba1d4b6f",
+          "git_mode": "100644"
+        },
+        "astroauto/recombine.py": {
+          "sha256": "7f317b88e7dc2f39af50017bef7cb1d03da40c425b0f0adece4fbf34a7e30a69",
+          "git_mode": "100644"
+        },
+        "astroauto/recommendations.py": {
+          "sha256": "620257a79f928a3fce944334294857ef706565d5d5383d9207e49c518bfaa9e9",
+          "git_mode": "100644"
+        },
+        "astroauto/sequence_project.py": {
+          "sha256": "922a5e9627308063f8db89103859f386b3f5a9ee78b19914080ae59c4615ce69",
+          "git_mode": "100644"
+        },
+        "astroauto/siril.py": {
+          "sha256": "388a4628a41c34ebf8777d3436f0065aff86664deaabf73b43d19590ba982df1",
+          "git_mode": "100644"
+        },
+        "astroauto/spcc.py": {
+          "sha256": "4e42f6c02d99827d49ba6788dd0befb996e029d8700d818093c2fd052e1c175a",
+          "git_mode": "100644"
+        },
+        "astroauto/star_separation.py": {
+          "sha256": "c16db44fbe083a3012078468f7e22a42545398cf83103b112393802440e36050",
+          "git_mode": "100644"
+        },
+        "astroauto/starless_processing.py": {
+          "sha256": "2a32d096cf6c03caf28bf5b8c85df7a1d995f350c65ae88b03a9e9f8fc34aa10",
+          "git_mode": "100644"
+        },
+        "astroauto/stars_processing.py": {
+          "sha256": "9a9db00219ef9f2000257911b5a4d4d8a9ecc331f6834a42328459b19b98db0c",
+          "git_mode": "100644"
+        },
+        "astroauto/state_actions.py": {
+          "sha256": "af8ec538a16c8ee972ee620afa283f4c252dceefa5d28211ab442388363a62a5",
+          "git_mode": "100644"
+        },
+        "astroauto/syqon.py": {
+          "sha256": "92802a196c1e08180a68a8d7d464d9324bae9a6b69744aab9b1527d4c9f1eb13",
+          "git_mode": "100644"
+        },
+        "astroauto/ui_theme.py": {
+          "sha256": "7cda8711ced64f598e51ad73a00df35210e6225a785b4b2ff66006d61f671a55",
+          "git_mode": "100644"
+        },
+        "astroauto/utils.py": {
+          "sha256": "28e32a6fc6bcc317c393646ea3b4f27d462c7d1bbccacc33ca137202699aaeab",
+          "git_mode": "100644"
+        },
+        "astroauto/workflow.py": {
+          "sha256": "0d1ca1cf1fec4b99a47fbcc508ca50727146450d7e79d55c7e43415b044ddfe8",
+          "git_mode": "100644"
+        },
+        "config/app.yaml": {
+          "sha256": "3f5ca079e2c27fb96767d971ba5c63d7358635e9a3fe11633a89c6c3b41d45cc",
+          "git_mode": "100644"
+        },
+        "config/calibration_policy.yaml": {
+          "sha256": "fadaea0e817d924daed9d9859a3d04da076e2be72d6f62e4b13f117fe6ee830d",
+          "git_mode": "100644"
+        },
+        "config/quality_schema.yaml": {
+          "sha256": "be483d028ec65bd9a26098af47ce26fbdaa556ea7160b8046eec46b534b05f6c",
+          "git_mode": "100644"
+        },
+        "config/session_schema.yaml": {
+          "sha256": "97a7655e1c908ab3570ae12455f7dbf16a05a2ba8df980be7aba0cadbab53132",
+          "git_mode": "100644"
+        },
+        "config/state_machine.yaml": {
+          "sha256": "ad42f3ebddd71f26aeea7ab843234359bc2259e312a139cad87627cc258e8278",
+          "git_mode": "100644"
+        },
+        "config/ui_defaults.yaml": {
+          "sha256": "7470187891feee1c8ebe2e728bab924cb5673f18720e6902bc576eb662082711",
+          "git_mode": "100644"
+        },
+        "docs/ARCHITECTURE_EXTENSIONS_v0.3.3.md": {
+          "sha256": "8f93750ab7dc8ab464628e0abd67aa79d3ce1b0adc69d6815a5fda0b281f1469",
+          "git_mode": "100644"
+        },
+        "docs/CALIBRATION_WORKFLOW.md": {
+          "sha256": "f856b3a4bc5638c868f2ca1699a37f7ca6efb19d4454aababdf33402dd4459e1",
+          "git_mode": "100644"
+        },
+        "docs/DEBLUR_v0.7.0.md": {
+          "sha256": "e509b380c98f2e18f36a5362ddfcc35040ada12e84bce0a682ce262fe6868cb0",
+          "git_mode": "100644"
+        },
+        "docs/DENOISE_v0.6.0.md": {
+          "sha256": "5055daf3d1b793e101fb3327becf758810ff63ecf80f156234084a7da04dc030",
+          "git_mode": "100644"
+        },
+        "docs/DYNAMIC_UI_v0.11.0.md": {
+          "sha256": "5edc0e6121968c9a6024719efd3983ee6494ceb6b975fcdc83ff1c2035fdebbc",
+          "git_mode": "100644"
+        },
+        "docs/FINAL_EXPORT_v0.13.0.md": {
+          "sha256": "d0b41ca2874f62e486a79c31c7e123487c4751a0695528f38461537ab543585c",
+          "git_mode": "100644"
+        },
+        "docs/GHS_v0.8.0.md": {
+          "sha256": "b5f7f78536d8bc8ab549f5696ec235fbbce49e2d4055a6cbac438be3173207d6",
+          "git_mode": "100644"
+        },
+        "docs/HELP_SYSTEM_v0.1.md": {
+          "sha256": "a2a36bd7f634f4d8a8dcec3567af927e3aacea26f462751adfebeee740d7def2",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.11.1.md": {
+          "sha256": "3c0c549beb0ad51505f2418227889c23f7bf505b363bddb5ddc4ddc976a10f23",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.13.1.md": {
+          "sha256": "af94f254ea2914974a6cee16ff07a8b9b67005287130a74a78fc73ed7df1e5a7",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.1.md": {
+          "sha256": "3d0cca9328aebb79159357effed6fec62916e7ab7890b8cd2f43b3f7149635be",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.2.md": {
+          "sha256": "41393bdc653f26ba94530c36e688fe796e8f98a2d13744efe24d3c3ff2044e62",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.3.md": {
+          "sha256": "6a38d432be605de8b966f14d1e5e711102617e827b6e93cc36e0e90883ac743f",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.4.md": {
+          "sha256": "09a54e4689b162e1f199ca15085dbcf4b59c76d21dc959e22b6c3f3fd9628915",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.5.md": {
+          "sha256": "5dd38889f1cf488fb4c8f116a03ebc64cd5fff806eee9dc36b1b0da14be9e261",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.1.md": {
+          "sha256": "c467669e03cf5e2fc9796a87dd9390a1134e55797df7520f6fab7e1325f4f7be",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.2.md": {
+          "sha256": "06a8804a73ee3c855352136fb82e22d0969238608c8116811df233bcc5e171d2",
+          "git_mode": "100644"
+        },
+        "docs/INTERACTIVE_SINGLE_FITS_v0.4.2.md": {
+          "sha256": "78802722b3699645f2124e924c8d9a3405ab0d5760361bb341211224e8fc2ab8",
+          "git_mode": "100644"
+        },
+        "docs/MANUAL_INSPIRED_SYQON_v0.14.0.md": {
+          "sha256": "f75e1e226dc4c4f83ace7365a67cba6dd41796d90f896c735c635a43a5ee1588",
+          "git_mode": "100644"
+        },
+        "docs/MULTIFORMAT_INPUT_v0.15.0.md": {
+          "sha256": "648e98d6a17e8eef4c5841afcf49a83d2e11f95f26ca4f740414497db8cc373c",
+          "git_mode": "100644"
+        },
+        "docs/MULTI_SESSION_AND_FILTERS.md": {
+          "sha256": "467c8e8a75a8b530f545e902dda0424c02bdb4885eacb522ea93a1be05078eaa",
+          "git_mode": "100644"
+        },
+        "docs/NEXT_STEPS.md": {
+          "sha256": "064a5655dcb3f3f63ea79b043ba78204641040de588dfc1851f9edb5ca24042a",
+          "git_mode": "100644"
+        },
+        "docs/PATCH_v0.4.1.md": {
+          "sha256": "63bde05026b8637b8ddc80780b7fcd8981f23558eab20d7c5f51c9820eb0a77d",
+          "git_mode": "100644"
+        },
+        "docs/PATCH_v0.5.1.md": {
+          "sha256": "c604cb08108ce84b9793939ffac95d32be018040468ebe1cb53733ea3a6e5f33",
+          "git_mode": "100644"
+        },
+        "docs/PIXEL_MATH_RECOMBINE_v0.12.0.md": {
+          "sha256": "cb39d2c31d0665fae3935497ac23190295eb4767b095522c526a8cc09080a994",
+          "git_mode": "100644"
+        },
+        "docs/PLANETARY_LUNAR_NOTES.md": {
+          "sha256": "27de6631598ef4b3b713820153e610f209e5bbda463789a6c2696c353c6dd7f1",
+          "git_mode": "100644"
+        },
+        "docs/PREPROCESS_V0.4.md": {
+          "sha256": "9ecff0574ee0cdb7d9c5b0e82114904efa84f6619c509f694c15322ef492e084",
+          "git_mode": "100644"
+        },
+        "docs/PROJECT_INTAKE_UX_v0.14.8.md": {
+          "sha256": "a669345abde2a4e869ab9661e82cfa8df31ac1a3084e011d4ee601d4dd0110e4",
+          "git_mode": "100644"
+        },
+        "docs/SPCC_v0.5.0.md": {
+          "sha256": "14e75866cccc9a010bd7193fddcd9f7c944b7789d1560672a0cc6beebc03adfc",
+          "git_mode": "100644"
+        },
+        "docs/STARLESS_PROCESSING_v0.10.0.md": {
+          "sha256": "7b2fdd06ad2b804df82bbb56ca11f33468122eb6e1c2e53221167ae53119271c",
+          "git_mode": "100644"
+        },
+        "docs/STARNET_v0.9.0.md": {
+          "sha256": "076519fd1be5d9e64970acdae957e7ab88d2a3224328bd1e8ebc75525d2e88df",
+          "git_mode": "100644"
+        },
+        "docs/STARS_PROCESSING_v0.11.0.md": {
+          "sha256": "a3b2d9b21d3c5f2e6b114ff0d1e76611c8812cf35027e10cd351124813b87b52",
+          "git_mode": "100644"
+        },
+        "docs/STAR_TRAIL_WORKFLOW.md": {
+          "sha256": "3902254330f4bb19e223169198f5dfc924fe123cf107dbe2089824a6eeda39cd",
+          "git_mode": "100644"
+        },
+        "docs/TARGET_RECOMMENDATIONS_v0.1.md": {
+          "sha256": "759ebc7c70641569019eac7b1f3746e572e24c688c19ea6b30811ba22e4c71c1",
+          "git_mode": "100644"
+        },
+        "docs/UI_COZY_v0.14.7.md": {
+          "sha256": "72eac0de4af41189125d3f903199fde6d6b107b954301a42cad536a439bd6543",
+          "git_mode": "100644"
+        },
+        "docs/UI_FOCUS_POLISH_v0.14.9.md": {
+          "sha256": "6caa7fbc87cc6dd820e6551e76d56a7ff61dd0bb1d71847bb390b793d955c483",
+          "git_mode": "100644"
+        },
+        "docs/UI_POLISH_v0.14.6.md": {
+          "sha256": "d24b00e122cdc4ac30ee5ec179f16cb9e92c7475ff53e17ebc9c03cb529633ba",
+          "git_mode": "100644"
+        },
+        "docs/UI_REFRESH_v0.14.0.md": {
+          "sha256": "7d8ea8c962e5c8bbd92a3dcc824ececa3e05f86795d9de34c824206b6d378d3a",
+          "git_mode": "100644"
+        },
+        "docs/UI_STATUS_LOG_v0.6.0.md": {
+          "sha256": "78f27f74988edf4fb298ec06210a973ff8199049009486260365231bfe859fd6",
+          "git_mode": "100644"
+        },
+        "docs/VALIDATION_v0.14.0.md": {
+          "sha256": "88f93ca42a2ec53434cc24adfa48b005144d6b237143deb7077d9e0eafdd5fde",
+          "git_mode": "100644"
+        },
+        "docs/VERSION_COMPATIBILITY.md": {
+          "sha256": "90d8f796f4fa91070da00140ffc8404a02ea4d47fbba89e5265e8c7886334e84",
+          "git_mode": "100644"
+        },
+        "docs/handoff/00_먼저_읽기.md": {
+          "sha256": "271c57d2c1027f06fb5e5d64201fb174d4f13bf18cd3197a7499e1fb1b38f7ff",
+          "git_mode": "100644"
+        },
+        "docs/handoff/01_새_채팅용_핵심맥락.md": {
+          "sha256": "482cc749d907216f54e62fbb606ee6c1a5e8e877b4b9242f33f49a7f96528686",
+          "git_mode": "100644"
+        },
+        "docs/handoff/02_요구사항_명세.md": {
+          "sha256": "6f67c6c2c2fd2c434043ceb1021043e426e403ef32553c8e0095f7cc51454995",
+          "git_mode": "100644"
+        },
+        "docs/handoff/03_UI_문구_및_용어집.md": {
+          "sha256": "a85d2f7ac1eb5d28f73c7f1a8e80bd525cbd149be37f3b5593b05523eefbe3e0",
+          "git_mode": "100644"
+        },
+        "docs/handoff/04_작업흐름_및_파일규칙.md": {
+          "sha256": "4f9729e29611d956a8ad1e9b4c413e3ca4bdfa022613fe047ead56fcf8c33829",
+          "git_mode": "100644"
+        },
+        "docs/handoff/05_버전별_결정_이력.md": {
+          "sha256": "7d1e2732e09f8a2744f34bd9b6dca4d0b1ae76f8098009d1d755638d199bf83a",
+          "git_mode": "100644"
+        },
+        "docs/handoff/06_미해결_이슈_및_검증.md": {
+          "sha256": "5b04f2ef6b9871336f83ee0bffc897a052f75567da002d2f6243acf13f952ae4",
+          "git_mode": "100644"
+        },
+        "docs/handoff/07_근거_및_유지보수_규칙.md": {
+          "sha256": "3273a4bf805de51c6c18c3da5fec847d1ecce2c5eab4ae77b87eca03ede44b29",
+          "git_mode": "100644"
+        },
+        "docs/handoff/ARCHIVE_CHECKLIST.md": {
+          "sha256": "cf6583333eea5eeadc20840afa55eefb5b62834f20542e4a0cf084f4f840387e",
+          "git_mode": "100644"
+        },
+        "gui.py": {
+          "sha256": "7f911591eaefce1409e592b40ad771bcb9f4eddd814bdd6067ebff2f21ab31aa",
+          "git_mode": "100644"
+        },
+        "help/topics.yaml": {
+          "sha256": "180ac12463e80c03410e3c42129cc4fb0d6bdcb7285c441261950c8b082a8a9f",
+          "git_mode": "100644"
+        },
+        "install_windows.bat": {
+          "sha256": "6e004040470c5434f692adee83c6cec378af9d0b5aebffc52e043b3d472934b4",
+          "git_mode": "100644"
+        },
+        "mappings/siril_commands.yaml": {
+          "sha256": "7f900f97893aab9c78977173f5c57b42829519435c085bda74d710dbe97fe903",
+          "git_mode": "100644"
+        },
+        "profiles/comet.yaml": {
+          "sha256": "11fe91042e84e3d882aa0027d050da32958ebe0de90f4a59acf8f1eeac266231",
+          "git_mode": "100644"
+        },
+        "profiles/dark_nebula.yaml": {
+          "sha256": "facfc453a1802cd6c5fd62feed7ed098d13e31b52b9b5c738f20d1221418da47",
+          "git_mode": "100644"
+        },
+        "profiles/emission_nebula.yaml": {
+          "sha256": "82a206e2383af88e0a87039a30fca38f1200fd74d078b3e560372304bc3f045a",
+          "git_mode": "100644"
+        },
+        "profiles/galaxy.yaml": {
+          "sha256": "9ef672d04697da25261e6931a227d3ad8fe5ccc2b0ee8e52b0a252d36c7bb99b",
+          "git_mode": "100644"
+        },
+        "profiles/general_starfield.yaml": {
+          "sha256": "ce656b67fadf96833f8680161b0ee55efbfc293c4a1579e05f5cc9ff5c248b12",
+          "git_mode": "100644"
+        },
+        "profiles/globular_cluster.yaml": {
+          "sha256": "f4a0231da62bfff25580f3c583a9cd959895e77b160d82fd34df5574509f66a2",
+          "git_mode": "100644"
+        },
+        "profiles/known_targets.yaml": {
+          "sha256": "8e14457fccf66a1ec36d6e34ba9cd8f78e726cc60d780b4b95d6e4316495a6fb",
+          "git_mode": "100644"
+        },
+        "profiles/milkyway.yaml": {
+          "sha256": "bcdf881444e80b6862a6bdbce4f25f0e7eafd100b7f36e4b3865a3688d6d3f9c",
+          "git_mode": "100644"
+        },
+        "profiles/mono_multifilter.yaml": {
+          "sha256": "8cfc1decf2f7523cdc8a8c383383297f68545a95f029ea080bf1dc1002cb57a2",
+          "git_mode": "100644"
+        },
+        "profiles/mosaic.yaml": {
+          "sha256": "24ca2e766fc057d872060513ab3a20a64f788b7e3fb6ff5bf0718f9605d35022",
+          "git_mode": "100644"
+        },
+        "profiles/open_cluster.yaml": {
+          "sha256": "1fb1433a18fe62efd7a019d8a0636e912657ef1ac9c1e75f503f282eeec87040",
+          "git_mode": "100644"
+        },
+        "profiles/planetary_lunar.yaml": {
+          "sha256": "67a772efe5ebd5be529763d1f208e50597ec416797d67fcb899066ef117d9f33",
+          "git_mode": "100644"
+        },
+        "profiles/planetary_nebula.yaml": {
+          "sha256": "5fe18c5468efb76df1622b13bbdc8458e6b4341d6587c429f58b8d2b0d14118a",
+          "git_mode": "100644"
+        },
+        "profiles/recommendation_profiles.yaml": {
+          "sha256": "88b86df22ba34c35aea9435b518d7672db1bf0090dc633ac86f670bc308bcadf",
+          "git_mode": "100644"
+        },
+        "profiles/reflection_nebula.yaml": {
+          "sha256": "78fb444add82986aac015465fdb297986977c47b2e480d81ba62b42cd7319e3d",
+          "git_mode": "100644"
+        },
+        "profiles/star_trail.yaml": {
+          "sha256": "e5faf3c1540a29112f30f4df465a8ac00f97a209ffa12bd495914174ab92af20",
+          "git_mode": "100644"
+        },
+        "profiles/supernova_remnant.yaml": {
+          "sha256": "caecb38a2f69a379ec11f700ed3c8e517453108907b0bc4fd8a7c29b24c63276",
+          "git_mode": "100644"
+        },
+        "requirements.txt": {
+          "sha256": "0144a098b41e12a8007094bbca566bfc0392f1d60582e4fc33f39a95efd3a97b",
+          "git_mode": "100644"
+        },
+        "run_cli.bat": {
+          "sha256": "4766aadb89878407095d53b04f7432230215aad098c7a0f18fc9e3b3d3c1c029",
+          "git_mode": "100644"
+        },
+        "run_common.bat": {
+          "sha256": "adc91f01bc797fafcde83309df0cd7758ef9a364020fe9e4592ed1f785edf347",
+          "git_mode": "100644"
+        },
+        "run_gui.bat": {
+          "sha256": "85825483e7c0b63d88f6741f4d036026d1d2e709dadef12c465c84ec82926d2b",
+          "git_mode": "100644"
+        },
+        "run_sequence_gui.bat": {
+          "sha256": "2489ba35face03f7960cd00dd4d845d1f65171bbc6fe03f4edfc0e43258d3528",
+          "git_mode": "100644"
+        },
+        "sequence_gui.py": {
+          "sha256": "afbe996d8523e05fa34be46d1ae6b5bd16f17271019225ba9d563185f503e022",
+          "git_mode": "100644"
+        },
+        "tests/test_calibration_logic.py": {
+          "sha256": "ed8f10061b2724e2fc42306691c16dbe95fdbe38ac63aa3c39661c1a9506fcd1",
+          "git_mode": "100644"
+        },
+        "tests/test_deblur_command.py": {
+          "sha256": "fb3a7f672b77b1a17fbbb0098cee3b75c6969165e1493f5222a6816869053294",
+          "git_mode": "100644"
+        },
+        "tests/test_denoise_command.py": {
+          "sha256": "2e7ae270522d8cdb52f7f5f535f4a2905c115d472edcc67faef901e0c10b4d3d",
+          "git_mode": "100644"
+        },
+        "tests/test_execution_cancel.py": {
+          "sha256": "e37ca6221b2da38821ecab31dd6eb4666384aca2eb1d2bc2fc71bbedf5c05186",
+          "git_mode": "100644"
+        },
+        "tests/test_final_export.py": {
+          "sha256": "0564cf8d1246ee79f1903e33f011448ed44763a85369f4ad753e1f83d2a42725",
+          "git_mode": "100644"
+        },
+        "tests/test_ghs_command.py": {
+          "sha256": "2b21015e7fe7e101c7f2902e4b44377dc27aeb554b05171af04253c42d152229",
+          "git_mode": "100644"
+        },
+        "tests/test_gradient_command.py": {
+          "sha256": "7aa3d95a52cae31a960cc13c2ce58f3e9b4685f5259bc4f6671efdda8778a2ef",
+          "git_mode": "100644"
+        },
+        "tests/test_help_catalog.py": {
+          "sha256": "3b2da8312afd67ad03d753ae420aade6c9a024ee586bc2d8abcd88a270b210c7",
+          "git_mode": "100644"
+        },
+        "tests/test_help_single_window_policy.py": {
+          "sha256": "15353c00a32386e12d5de02a50b01d62e06c77103583e8bc3a0357202e9308cf",
+          "git_mode": "100644"
+        },
+        "tests/test_preprocess_plan.py": {
+          "sha256": "5bb3c280d875072b1567f7e1aadf8e682ea7d545f5bcf5d73c635c99da2db258",
+          "git_mode": "100644"
+        },
+        "tests/test_project_naming_v0143.py": {
+          "sha256": "c3e6d15d35e9f817b3f14d85bd4b73cd5d17fd82a699b2f3d045ed900c5a1419",
+          "git_mode": "100644"
+        },
+        "tests/test_recombine_command.py": {
+          "sha256": "29db6c84481e281a5a1b6d6a9e98b8f09b172dd29496fb8d22947641eedf6333",
+          "git_mode": "100644"
+        },
+        "tests/test_recommendation_profiles.py": {
+          "sha256": "944f46b82194326e18cd4622d1d5461be4a94eeb2b359d6aa1a7e470b8f31215",
+          "git_mode": "100644"
+        },
+        "tests/test_reserved_profiles.py": {
+          "sha256": "a822c48d27e8adc1b2c1a1570c66f5fb114560110ee2d34117aec7a78fa7d91f",
+          "git_mode": "100644"
+        },
+        "tests/test_siril_requires.py": {
+          "sha256": "14ba2ce440b3e14b00210472212b5d6ab42896bc0f415710d979e2c7268b3c64",
+          "git_mode": "100644"
+        },
+        "tests/test_siril_startup_watchdog.py": {
+          "sha256": "9fc6fdd83200c14f1a458439da3c00028d283b32f4b1ff912555ae26fa4a9988",
+          "git_mode": "100644"
+        },
+        "tests/test_spcc_command.py": {
+          "sha256": "99a4b0a21a0859c2f066a7b73cda1f22b3f2d414c3e88f71d766eee6a204575f",
+          "git_mode": "100644"
+        },
+        "tests/test_star_separation_command.py": {
+          "sha256": "cdcdde831eec41649bb9fd2fe761b1c171c7ad6c7881ab524de9c13716996877",
+          "git_mode": "100644"
+        },
+        "tests/test_star_trail_workflow.py": {
+          "sha256": "f4a389aad8a4df316c1f37286f82921094d95d95961162948bb8cbe64408754b",
+          "git_mode": "100644"
+        },
+        "tests/test_starless_processing.py": {
+          "sha256": "538f890bda6ebf66b79f3753e35b8d6e5df110b4ef55d9539c57ecbd273c6f27",
+          "git_mode": "100644"
+        },
+        "tests/test_stars_processing.py": {
+          "sha256": "db8afe5c5aba824e8272a09990b06851a546b520e130a37a4d0ba6480d5208e9",
+          "git_mode": "100644"
+        },
+        "tests/test_stars_recommendation_profile.py": {
+          "sha256": "5a98cccc880471a29418c05951ae5a7727008363de3ed28cafe9004a861b4504",
+          "git_mode": "100644"
+        },
+        "tests/test_syqon_v014.py": {
+          "sha256": "3ec812c67b527e6780c2b714eab5c4abe7496e6272ced55aa2bd26d04c92cd6b",
+          "git_mode": "100644"
+        },
+        "tests/test_utils.py": {
+          "sha256": "f5ba9cf8c88d8bc81d876ab192e720f976185ce58e7d636eeb1238897a2434e9",
+          "git_mode": "100644"
+        },
+        "tests/test_v0144_structure.py": {
+          "sha256": "8f587f01402c7674f2d9f2c96a9586f302099e100e0bd40a60dd02d6810cae28",
+          "git_mode": "100644"
+        },
+        "tests/test_v0145_safe_banding.py": {
+          "sha256": "cb399c984f8154260ac17325f96c058c7b52ebb9842cd20d816305187ca248ca",
+          "git_mode": "100644"
+        },
+        "tests/test_v0146_ui_polish.py": {
+          "sha256": "90c9e7b7cc368a0a63e1b3476bd6229d369603bda0e21623db35f4444bff705a",
+          "git_mode": "100644"
+        },
+        "tests/test_v0147_cozy_theme.py": {
+          "sha256": "8e2f22a70ec6474051d48a3c40297af012d1f02194d39172e9c441ce85cc9c34",
+          "git_mode": "100644"
+        },
+        "tests/test_v0148_intake_ux.py": {
+          "sha256": "bead4710f7a7b15f7b6b396dc30d2a0ec520b6a7713c78a4655b4467d384bae9",
+          "git_mode": "100644"
+        },
+        "tests/test_v0149_focus_polish.py": {
+          "sha256": "88ade3f56f3d2a0a468398e9d5423f9646cc0a6a7ecc80fccf677ccf7dee8a0a",
+          "git_mode": "100644"
+        },
+        "tests/test_v014_migration.py": {
+          "sha256": "166687e39aef9d0337a3d5e2c344e922b8f2a5d62467fa5498acae059ff60064",
+          "git_mode": "100644"
+        },
+        "tests/test_v014_structure.py": {
+          "sha256": "89b4b2d04034c3221d80bef4534ce0989916fa09ca918a807de4c1931b3cf68e",
+          "git_mode": "100644"
+        },
+        "tests/test_v0150_multiformat_input.py": {
+          "sha256": "f9bcb65d17f8f078a1bde7ff7ef10852ff0c5a7fc22441b2721a9333e3c45776",
+          "git_mode": "100644"
+        },
+        "tests/test_v0151_raw_directory.py": {
+          "sha256": "4268ae95c7c7970dcd51df50803eec97d5d207bf51ed3039b497b559ea98367f",
+          "git_mode": "100644"
+        },
+        "tests/test_v0152_fits_analysis_policy.py": {
+          "sha256": "7fbae5a7a3d66487aca92c69e769083527aa499a310c58f7162cdf41baaeebd0",
+          "git_mode": "100644"
+        },
+        "tests/test_v0152_fits_real.py": {
+          "sha256": "bc31bebf0de034b1c48fcc72b094ce900351c156215e67708dad7c18bcd8c99d",
+          "git_mode": "100644"
+        }
+      },
+      "duplicate_source_archives": [
+        {
+          "name": "ASA_v0152_full.zip",
+          "sha256": "d75f89313f5e640452736c9f306ee60ce7f532afc1f1f50946662fdebaba5fac",
+          "recorded_at": "2026-09-30T13:34:57.814167Z",
+          "reason": "Byte-identical duplicate; imported once."
+        }
+      ]
+    },
+    {
+      "version": "0.15.3",
+      "tag": "v0.15.3",
+      "commit": "61f0d6687ed10588da76be30e094325c13962f6d",
+      "summary_ko": "캘리브레이션 프레임 등록·검사·검토 GUI 연결",
+      "source_archive": "ASA_v0153_full.zip",
+      "source_archive_sha256": "d4d445bed5fd3f65237f918ba96e3ef0d42de55bea679b0f9caf226deb52e470",
+      "source_archive_recorded_at": "2026-09-30T13:49:28.282595Z",
+      "removed_enclosing_directory": "AstroSirilAssistant_v0.15.3",
+      "file_count": 157,
+      "files": {
+        "MANIFEST.json": {
+          "sha256": "a4b5c378227f8bccc5aba807341d0c320ff881bbb8a0c60b38cd582724a2f7f5",
+          "git_mode": "100644"
+        },
+        "README_KO.md": {
+          "sha256": "cd410f51f1293d04b94dc7f06862c2507468b42263ce0d53ca79b3561d5f83f0",
+          "git_mode": "100644"
+        },
+        "app.py": {
+          "sha256": "ce8d6990466059d4c0ac0352a520473f4cd976dcd673a1c5b6a695e3b45b468f",
+          "git_mode": "100644"
+        },
+        "astroauto/__init__.py": {
+          "sha256": "59b70176a68d0911ec46ab3aac6777a512cfe24412208dad77d751d0597a1dc5",
+          "git_mode": "100644"
+        },
+        "astroauto/analyzer.py": {
+          "sha256": "c9fa7243290149ca29e09f7a636e2ca48601e5390c93b418de37505b4bc8b674",
+          "git_mode": "100644"
+        },
+        "astroauto/calibration.py": {
+          "sha256": "b83803af5a64074b85d5dd9960144adff44ae536165e0da5ac007c74fa556340",
+          "git_mode": "100644"
+        },
+        "astroauto/config.py": {
+          "sha256": "3bf3ba7c911311eafb1da40ac3582a511faf73c6021f2b828ff948e9d6ccf2da",
+          "git_mode": "100644"
+        },
+        "astroauto/deblur.py": {
+          "sha256": "aa079e31fb0d6661858acf955f3fb02a4f219a2b6a22e928b5b8dc2af8d4715c",
+          "git_mode": "100644"
+        },
+        "astroauto/denoise.py": {
+          "sha256": "30743c5e2406c5de46b908a06f4b7570aa914e9079deef0b93b7c57800437029",
+          "git_mode": "100644"
+        },
+        "astroauto/execution.py": {
+          "sha256": "e5a010c3329bd685b1e7efdafdb08a17799cdb0a0bb375fe35c2bf6b64694382",
+          "git_mode": "100644"
+        },
+        "astroauto/final_export.py": {
+          "sha256": "3e12b308765d7835d3215c380a24bda3ba721c571948e119bda2ced31be1842d",
+          "git_mode": "100644"
+        },
+        "astroauto/fits_analysis.py": {
+          "sha256": "7fbdfc3bb3ef7c5c12eedeac69458d0f2917e468c5b0a739c0520ed792f3c519",
+          "git_mode": "100644"
+        },
+        "astroauto/ghs.py": {
+          "sha256": "267b16463deac514cc6cbb0332642fec0f260d6e6b822378d70dcccaa4a5897c",
+          "git_mode": "100644"
+        },
+        "astroauto/gradient.py": {
+          "sha256": "d7bc7bdb8199e4929836d3597a9f511cb8b415d7378e8dd75dfe832d94f76f03",
+          "git_mode": "100644"
+        },
+        "astroauto/help_system.py": {
+          "sha256": "368ae13e052b873ffee7d78f55d572f50848f534cdbf14450c2556b671cbb86a",
+          "git_mode": "100644"
+        },
+        "astroauto/input_formats.py": {
+          "sha256": "c8bf33d90414fed1d453eafaa67fb3c5e65166d1a502880eb60fa53ef7423cba",
+          "git_mode": "100644"
+        },
+        "astroauto/intake.py": {
+          "sha256": "38923154f95e2288d25c5fbd5996935fa6e60118e43d97af11c485135c68c09e",
+          "git_mode": "100644"
+        },
+        "astroauto/logging_utils.py": {
+          "sha256": "6be19174c968860a4f57268401c723c784ac73dc3d42e44291fa620381cf6442",
+          "git_mode": "100644"
+        },
+        "astroauto/preprocess_engine.py": {
+          "sha256": "66a97416adf49e01b7a52429dae08153a5f42c0346689f089d5a1d5f577b40ef",
+          "git_mode": "100644"
+        },
+        "astroauto/preview_utils.py": {
+          "sha256": "26d3ec668700c9361d36390e9859316b1d315c869cf044399a95924bf3cfc583",
+          "git_mode": "100644"
+        },
+        "astroauto/project.py": {
+          "sha256": "c49c16816316bd3073ff412040dcd02a3ebd3dbf79d52bd8a6e83618ba1d4b6f",
+          "git_mode": "100644"
+        },
+        "astroauto/recombine.py": {
+          "sha256": "7f317b88e7dc2f39af50017bef7cb1d03da40c425b0f0adece4fbf34a7e30a69",
+          "git_mode": "100644"
+        },
+        "astroauto/recommendations.py": {
+          "sha256": "620257a79f928a3fce944334294857ef706565d5d5383d9207e49c518bfaa9e9",
+          "git_mode": "100644"
+        },
+        "astroauto/sequence_project.py": {
+          "sha256": "922a5e9627308063f8db89103859f386b3f5a9ee78b19914080ae59c4615ce69",
+          "git_mode": "100644"
+        },
+        "astroauto/siril.py": {
+          "sha256": "388a4628a41c34ebf8777d3436f0065aff86664deaabf73b43d19590ba982df1",
+          "git_mode": "100644"
+        },
+        "astroauto/spcc.py": {
+          "sha256": "4e42f6c02d99827d49ba6788dd0befb996e029d8700d818093c2fd052e1c175a",
+          "git_mode": "100644"
+        },
+        "astroauto/star_separation.py": {
+          "sha256": "c16db44fbe083a3012078468f7e22a42545398cf83103b112393802440e36050",
+          "git_mode": "100644"
+        },
+        "astroauto/starless_processing.py": {
+          "sha256": "2a32d096cf6c03caf28bf5b8c85df7a1d995f350c65ae88b03a9e9f8fc34aa10",
+          "git_mode": "100644"
+        },
+        "astroauto/stars_processing.py": {
+          "sha256": "9a9db00219ef9f2000257911b5a4d4d8a9ecc331f6834a42328459b19b98db0c",
+          "git_mode": "100644"
+        },
+        "astroauto/state_actions.py": {
+          "sha256": "af8ec538a16c8ee972ee620afa283f4c252dceefa5d28211ab442388363a62a5",
+          "git_mode": "100644"
+        },
+        "astroauto/syqon.py": {
+          "sha256": "92802a196c1e08180a68a8d7d464d9324bae9a6b69744aab9b1527d4c9f1eb13",
+          "git_mode": "100644"
+        },
+        "astroauto/ui_theme.py": {
+          "sha256": "7cda8711ced64f598e51ad73a00df35210e6225a785b4b2ff66006d61f671a55",
+          "git_mode": "100644"
+        },
+        "astroauto/utils.py": {
+          "sha256": "28e32a6fc6bcc317c393646ea3b4f27d462c7d1bbccacc33ca137202699aaeab",
+          "git_mode": "100644"
+        },
+        "astroauto/workflow.py": {
+          "sha256": "d9eacef9c577b63a753b5ff4f9a70de318215bcb7aae94c1a93ff019f1a5780d",
+          "git_mode": "100644"
+        },
+        "config/app.yaml": {
+          "sha256": "c631cd712615cc41350bc16df4e837badd9cbc1801b97e9f730a9310f585aaf3",
+          "git_mode": "100644"
+        },
+        "config/calibration_policy.yaml": {
+          "sha256": "fadaea0e817d924daed9d9859a3d04da076e2be72d6f62e4b13f117fe6ee830d",
+          "git_mode": "100644"
+        },
+        "config/quality_schema.yaml": {
+          "sha256": "be483d028ec65bd9a26098af47ce26fbdaa556ea7160b8046eec46b534b05f6c",
+          "git_mode": "100644"
+        },
+        "config/session_schema.yaml": {
+          "sha256": "97a7655e1c908ab3570ae12455f7dbf16a05a2ba8df980be7aba0cadbab53132",
+          "git_mode": "100644"
+        },
+        "config/state_machine.yaml": {
+          "sha256": "519b3ca2cf90df899e5c9683fedab255d33eab54cb07f649b2e46b8e0b7e6102",
+          "git_mode": "100644"
+        },
+        "config/ui_defaults.yaml": {
+          "sha256": "7470187891feee1c8ebe2e728bab924cb5673f18720e6902bc576eb662082711",
+          "git_mode": "100644"
+        },
+        "docs/ARCHITECTURE_EXTENSIONS_v0.3.3.md": {
+          "sha256": "8f93750ab7dc8ab464628e0abd67aa79d3ce1b0adc69d6815a5fda0b281f1469",
+          "git_mode": "100644"
+        },
+        "docs/CALIBRATION_CHECK_v0.15.3.md": {
+          "sha256": "88d0bd360cc6364439a12864fdc0388f9bb65f808ebf940ea1535c3a90dbf2d5",
+          "git_mode": "100644"
+        },
+        "docs/CALIBRATION_WORKFLOW.md": {
+          "sha256": "f856b3a4bc5638c868f2ca1699a37f7ca6efb19d4454aababdf33402dd4459e1",
+          "git_mode": "100644"
+        },
+        "docs/DEBLUR_v0.7.0.md": {
+          "sha256": "e509b380c98f2e18f36a5362ddfcc35040ada12e84bce0a682ce262fe6868cb0",
+          "git_mode": "100644"
+        },
+        "docs/DENOISE_v0.6.0.md": {
+          "sha256": "5055daf3d1b793e101fb3327becf758810ff63ecf80f156234084a7da04dc030",
+          "git_mode": "100644"
+        },
+        "docs/DYNAMIC_UI_v0.11.0.md": {
+          "sha256": "5edc0e6121968c9a6024719efd3983ee6494ceb6b975fcdc83ff1c2035fdebbc",
+          "git_mode": "100644"
+        },
+        "docs/FINAL_EXPORT_v0.13.0.md": {
+          "sha256": "d0b41ca2874f62e486a79c31c7e123487c4751a0695528f38461537ab543585c",
+          "git_mode": "100644"
+        },
+        "docs/GHS_v0.8.0.md": {
+          "sha256": "b5f7f78536d8bc8ab549f5696ec235fbbce49e2d4055a6cbac438be3173207d6",
+          "git_mode": "100644"
+        },
+        "docs/HELP_SYSTEM_v0.1.md": {
+          "sha256": "a2a36bd7f634f4d8a8dcec3567af927e3aacea26f462751adfebeee740d7def2",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.11.1.md": {
+          "sha256": "3c0c549beb0ad51505f2418227889c23f7bf505b363bddb5ddc4ddc976a10f23",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.13.1.md": {
+          "sha256": "af94f254ea2914974a6cee16ff07a8b9b67005287130a74a78fc73ed7df1e5a7",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.1.md": {
+          "sha256": "3d0cca9328aebb79159357effed6fec62916e7ab7890b8cd2f43b3f7149635be",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.2.md": {
+          "sha256": "41393bdc653f26ba94530c36e688fe796e8f98a2d13744efe24d3c3ff2044e62",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.3.md": {
+          "sha256": "6a38d432be605de8b966f14d1e5e711102617e827b6e93cc36e0e90883ac743f",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.4.md": {
+          "sha256": "09a54e4689b162e1f199ca15085dbcf4b59c76d21dc959e22b6c3f3fd9628915",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.5.md": {
+          "sha256": "5dd38889f1cf488fb4c8f116a03ebc64cd5fff806eee9dc36b1b0da14be9e261",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.1.md": {
+          "sha256": "c467669e03cf5e2fc9796a87dd9390a1134e55797df7520f6fab7e1325f4f7be",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.2.md": {
+          "sha256": "06a8804a73ee3c855352136fb82e22d0969238608c8116811df233bcc5e171d2",
+          "git_mode": "100644"
+        },
+        "docs/INTERACTIVE_SINGLE_FITS_v0.4.2.md": {
+          "sha256": "78802722b3699645f2124e924c8d9a3405ab0d5760361bb341211224e8fc2ab8",
+          "git_mode": "100644"
+        },
+        "docs/MANUAL_INSPIRED_SYQON_v0.14.0.md": {
+          "sha256": "f75e1e226dc4c4f83ace7365a67cba6dd41796d90f896c735c635a43a5ee1588",
+          "git_mode": "100644"
+        },
+        "docs/MULTIFORMAT_INPUT_v0.15.0.md": {
+          "sha256": "648e98d6a17e8eef4c5841afcf49a83d2e11f95f26ca4f740414497db8cc373c",
+          "git_mode": "100644"
+        },
+        "docs/MULTI_SESSION_AND_FILTERS.md": {
+          "sha256": "467c8e8a75a8b530f545e902dda0424c02bdb4885eacb522ea93a1be05078eaa",
+          "git_mode": "100644"
+        },
+        "docs/NEXT_STEPS.md": {
+          "sha256": "064a5655dcb3f3f63ea79b043ba78204641040de588dfc1851f9edb5ca24042a",
+          "git_mode": "100644"
+        },
+        "docs/PATCH_v0.4.1.md": {
+          "sha256": "63bde05026b8637b8ddc80780b7fcd8981f23558eab20d7c5f51c9820eb0a77d",
+          "git_mode": "100644"
+        },
+        "docs/PATCH_v0.5.1.md": {
+          "sha256": "c604cb08108ce84b9793939ffac95d32be018040468ebe1cb53733ea3a6e5f33",
+          "git_mode": "100644"
+        },
+        "docs/PIXEL_MATH_RECOMBINE_v0.12.0.md": {
+          "sha256": "cb39d2c31d0665fae3935497ac23190295eb4767b095522c526a8cc09080a994",
+          "git_mode": "100644"
+        },
+        "docs/PLANETARY_LUNAR_NOTES.md": {
+          "sha256": "27de6631598ef4b3b713820153e610f209e5bbda463789a6c2696c353c6dd7f1",
+          "git_mode": "100644"
+        },
+        "docs/PREPROCESS_V0.4.md": {
+          "sha256": "9ecff0574ee0cdb7d9c5b0e82114904efa84f6619c509f694c15322ef492e084",
+          "git_mode": "100644"
+        },
+        "docs/PROJECT_INTAKE_UX_v0.14.8.md": {
+          "sha256": "a669345abde2a4e869ab9661e82cfa8df31ac1a3084e011d4ee601d4dd0110e4",
+          "git_mode": "100644"
+        },
+        "docs/SPCC_v0.5.0.md": {
+          "sha256": "14e75866cccc9a010bd7193fddcd9f7c944b7789d1560672a0cc6beebc03adfc",
+          "git_mode": "100644"
+        },
+        "docs/STARLESS_PROCESSING_v0.10.0.md": {
+          "sha256": "7b2fdd06ad2b804df82bbb56ca11f33468122eb6e1c2e53221167ae53119271c",
+          "git_mode": "100644"
+        },
+        "docs/STARNET_v0.9.0.md": {
+          "sha256": "076519fd1be5d9e64970acdae957e7ab88d2a3224328bd1e8ebc75525d2e88df",
+          "git_mode": "100644"
+        },
+        "docs/STARS_PROCESSING_v0.11.0.md": {
+          "sha256": "a3b2d9b21d3c5f2e6b114ff0d1e76611c8812cf35027e10cd351124813b87b52",
+          "git_mode": "100644"
+        },
+        "docs/STAR_TRAIL_WORKFLOW.md": {
+          "sha256": "3902254330f4bb19e223169198f5dfc924fe123cf107dbe2089824a6eeda39cd",
+          "git_mode": "100644"
+        },
+        "docs/TARGET_RECOMMENDATIONS_v0.1.md": {
+          "sha256": "759ebc7c70641569019eac7b1f3746e572e24c688c19ea6b30811ba22e4c71c1",
+          "git_mode": "100644"
+        },
+        "docs/UI_COZY_v0.14.7.md": {
+          "sha256": "72eac0de4af41189125d3f903199fde6d6b107b954301a42cad536a439bd6543",
+          "git_mode": "100644"
+        },
+        "docs/UI_FOCUS_POLISH_v0.14.9.md": {
+          "sha256": "6caa7fbc87cc6dd820e6551e76d56a7ff61dd0bb1d71847bb390b793d955c483",
+          "git_mode": "100644"
+        },
+        "docs/UI_POLISH_v0.14.6.md": {
+          "sha256": "d24b00e122cdc4ac30ee5ec179f16cb9e92c7475ff53e17ebc9c03cb529633ba",
+          "git_mode": "100644"
+        },
+        "docs/UI_REFRESH_v0.14.0.md": {
+          "sha256": "7d8ea8c962e5c8bbd92a3dcc824ececa3e05f86795d9de34c824206b6d378d3a",
+          "git_mode": "100644"
+        },
+        "docs/UI_STATUS_LOG_v0.6.0.md": {
+          "sha256": "78f27f74988edf4fb298ec06210a973ff8199049009486260365231bfe859fd6",
+          "git_mode": "100644"
+        },
+        "docs/VALIDATION_v0.14.0.md": {
+          "sha256": "88f93ca42a2ec53434cc24adfa48b005144d6b237143deb7077d9e0eafdd5fde",
+          "git_mode": "100644"
+        },
+        "docs/VERSION_COMPATIBILITY.md": {
+          "sha256": "90d8f796f4fa91070da00140ffc8404a02ea4d47fbba89e5265e8c7886334e84",
+          "git_mode": "100644"
+        },
+        "docs/handoff/00_먼저_읽기.md": {
+          "sha256": "271c57d2c1027f06fb5e5d64201fb174d4f13bf18cd3197a7499e1fb1b38f7ff",
+          "git_mode": "100644"
+        },
+        "docs/handoff/01_새_채팅용_핵심맥락.md": {
+          "sha256": "482cc749d907216f54e62fbb606ee6c1a5e8e877b4b9242f33f49a7f96528686",
+          "git_mode": "100644"
+        },
+        "docs/handoff/02_요구사항_명세.md": {
+          "sha256": "6f67c6c2c2fd2c434043ceb1021043e426e403ef32553c8e0095f7cc51454995",
+          "git_mode": "100644"
+        },
+        "docs/handoff/03_UI_문구_및_용어집.md": {
+          "sha256": "a85d2f7ac1eb5d28f73c7f1a8e80bd525cbd149be37f3b5593b05523eefbe3e0",
+          "git_mode": "100644"
+        },
+        "docs/handoff/04_작업흐름_및_파일규칙.md": {
+          "sha256": "4f9729e29611d956a8ad1e9b4c413e3ca4bdfa022613fe047ead56fcf8c33829",
+          "git_mode": "100644"
+        },
+        "docs/handoff/05_버전별_결정_이력.md": {
+          "sha256": "7d1e2732e09f8a2744f34bd9b6dca4d0b1ae76f8098009d1d755638d199bf83a",
+          "git_mode": "100644"
+        },
+        "docs/handoff/06_미해결_이슈_및_검증.md": {
+          "sha256": "5b04f2ef6b9871336f83ee0bffc897a052f75567da002d2f6243acf13f952ae4",
+          "git_mode": "100644"
+        },
+        "docs/handoff/07_근거_및_유지보수_규칙.md": {
+          "sha256": "3273a4bf805de51c6c18c3da5fec847d1ecce2c5eab4ae77b87eca03ede44b29",
+          "git_mode": "100644"
+        },
+        "docs/handoff/08_v0153_캘리브레이션_검사.md": {
+          "sha256": "c88c91b1b18dff34156e62400880cc75b543296fbe097070a95b99905232b332",
+          "git_mode": "100644"
+        },
+        "docs/handoff/ARCHIVE_CHECKLIST.md": {
+          "sha256": "cf6583333eea5eeadc20840afa55eefb5b62834f20542e4a0cf084f4f840387e",
+          "git_mode": "100644"
+        },
+        "gui.py": {
+          "sha256": "7f716151f6695e84eb753e8e479e02503a6e43e13afd9c6954aefcf3bd72814f",
+          "git_mode": "100644"
+        },
+        "help/topics.yaml": {
+          "sha256": "180ac12463e80c03410e3c42129cc4fb0d6bdcb7285c441261950c8b082a8a9f",
+          "git_mode": "100644"
+        },
+        "install_windows.bat": {
+          "sha256": "6e004040470c5434f692adee83c6cec378af9d0b5aebffc52e043b3d472934b4",
+          "git_mode": "100644"
+        },
+        "mappings/siril_commands.yaml": {
+          "sha256": "7f900f97893aab9c78977173f5c57b42829519435c085bda74d710dbe97fe903",
+          "git_mode": "100644"
+        },
+        "profiles/comet.yaml": {
+          "sha256": "11fe91042e84e3d882aa0027d050da32958ebe0de90f4a59acf8f1eeac266231",
+          "git_mode": "100644"
+        },
+        "profiles/dark_nebula.yaml": {
+          "sha256": "facfc453a1802cd6c5fd62feed7ed098d13e31b52b9b5c738f20d1221418da47",
+          "git_mode": "100644"
+        },
+        "profiles/emission_nebula.yaml": {
+          "sha256": "82a206e2383af88e0a87039a30fca38f1200fd74d078b3e560372304bc3f045a",
+          "git_mode": "100644"
+        },
+        "profiles/galaxy.yaml": {
+          "sha256": "9ef672d04697da25261e6931a227d3ad8fe5ccc2b0ee8e52b0a252d36c7bb99b",
+          "git_mode": "100644"
+        },
+        "profiles/general_starfield.yaml": {
+          "sha256": "ce656b67fadf96833f8680161b0ee55efbfc293c4a1579e05f5cc9ff5c248b12",
+          "git_mode": "100644"
+        },
+        "profiles/globular_cluster.yaml": {
+          "sha256": "f4a0231da62bfff25580f3c583a9cd959895e77b160d82fd34df5574509f66a2",
+          "git_mode": "100644"
+        },
+        "profiles/known_targets.yaml": {
+          "sha256": "8e14457fccf66a1ec36d6e34ba9cd8f78e726cc60d780b4b95d6e4316495a6fb",
+          "git_mode": "100644"
+        },
+        "profiles/milkyway.yaml": {
+          "sha256": "bcdf881444e80b6862a6bdbce4f25f0e7eafd100b7f36e4b3865a3688d6d3f9c",
+          "git_mode": "100644"
+        },
+        "profiles/mono_multifilter.yaml": {
+          "sha256": "8cfc1decf2f7523cdc8a8c383383297f68545a95f029ea080bf1dc1002cb57a2",
+          "git_mode": "100644"
+        },
+        "profiles/mosaic.yaml": {
+          "sha256": "24ca2e766fc057d872060513ab3a20a64f788b7e3fb6ff5bf0718f9605d35022",
+          "git_mode": "100644"
+        },
+        "profiles/open_cluster.yaml": {
+          "sha256": "1fb1433a18fe62efd7a019d8a0636e912657ef1ac9c1e75f503f282eeec87040",
+          "git_mode": "100644"
+        },
+        "profiles/planetary_lunar.yaml": {
+          "sha256": "67a772efe5ebd5be529763d1f208e50597ec416797d67fcb899066ef117d9f33",
+          "git_mode": "100644"
+        },
+        "profiles/planetary_nebula.yaml": {
+          "sha256": "5fe18c5468efb76df1622b13bbdc8458e6b4341d6587c429f58b8d2b0d14118a",
+          "git_mode": "100644"
+        },
+        "profiles/recommendation_profiles.yaml": {
+          "sha256": "88b86df22ba34c35aea9435b518d7672db1bf0090dc633ac86f670bc308bcadf",
+          "git_mode": "100644"
+        },
+        "profiles/reflection_nebula.yaml": {
+          "sha256": "78fb444add82986aac015465fdb297986977c47b2e480d81ba62b42cd7319e3d",
+          "git_mode": "100644"
+        },
+        "profiles/star_trail.yaml": {
+          "sha256": "e5faf3c1540a29112f30f4df465a8ac00f97a209ffa12bd495914174ab92af20",
+          "git_mode": "100644"
+        },
+        "profiles/supernova_remnant.yaml": {
+          "sha256": "caecb38a2f69a379ec11f700ed3c8e517453108907b0bc4fd8a7c29b24c63276",
+          "git_mode": "100644"
+        },
+        "requirements.txt": {
+          "sha256": "0144a098b41e12a8007094bbca566bfc0392f1d60582e4fc33f39a95efd3a97b",
+          "git_mode": "100644"
+        },
+        "run_cli.bat": {
+          "sha256": "4766aadb89878407095d53b04f7432230215aad098c7a0f18fc9e3b3d3c1c029",
+          "git_mode": "100644"
+        },
+        "run_common.bat": {
+          "sha256": "adc91f01bc797fafcde83309df0cd7758ef9a364020fe9e4592ed1f785edf347",
+          "git_mode": "100644"
+        },
+        "run_gui.bat": {
+          "sha256": "85825483e7c0b63d88f6741f4d036026d1d2e709dadef12c465c84ec82926d2b",
+          "git_mode": "100644"
+        },
+        "run_sequence_gui.bat": {
+          "sha256": "2489ba35face03f7960cd00dd4d845d1f65171bbc6fe03f4edfc0e43258d3528",
+          "git_mode": "100644"
+        },
+        "sequence_gui.py": {
+          "sha256": "4021eef04d31f614e679b5a6b76d24e7ed14faf2eecb1576004d3aa01eadefeb",
+          "git_mode": "100644"
+        },
+        "tests/test_calibration_logic.py": {
+          "sha256": "ed8f10061b2724e2fc42306691c16dbe95fdbe38ac63aa3c39661c1a9506fcd1",
+          "git_mode": "100644"
+        },
+        "tests/test_deblur_command.py": {
+          "sha256": "fb3a7f672b77b1a17fbbb0098cee3b75c6969165e1493f5222a6816869053294",
+          "git_mode": "100644"
+        },
+        "tests/test_denoise_command.py": {
+          "sha256": "2e7ae270522d8cdb52f7f5f535f4a2905c115d472edcc67faef901e0c10b4d3d",
+          "git_mode": "100644"
+        },
+        "tests/test_execution_cancel.py": {
+          "sha256": "e37ca6221b2da38821ecab31dd6eb4666384aca2eb1d2bc2fc71bbedf5c05186",
+          "git_mode": "100644"
+        },
+        "tests/test_final_export.py": {
+          "sha256": "0564cf8d1246ee79f1903e33f011448ed44763a85369f4ad753e1f83d2a42725",
+          "git_mode": "100644"
+        },
+        "tests/test_ghs_command.py": {
+          "sha256": "2b21015e7fe7e101c7f2902e4b44377dc27aeb554b05171af04253c42d152229",
+          "git_mode": "100644"
+        },
+        "tests/test_gradient_command.py": {
+          "sha256": "7aa3d95a52cae31a960cc13c2ce58f3e9b4685f5259bc4f6671efdda8778a2ef",
+          "git_mode": "100644"
+        },
+        "tests/test_help_catalog.py": {
+          "sha256": "3b2da8312afd67ad03d753ae420aade6c9a024ee586bc2d8abcd88a270b210c7",
+          "git_mode": "100644"
+        },
+        "tests/test_help_single_window_policy.py": {
+          "sha256": "15353c00a32386e12d5de02a50b01d62e06c77103583e8bc3a0357202e9308cf",
+          "git_mode": "100644"
+        },
+        "tests/test_preprocess_plan.py": {
+          "sha256": "5bb3c280d875072b1567f7e1aadf8e682ea7d545f5bcf5d73c635c99da2db258",
+          "git_mode": "100644"
+        },
+        "tests/test_project_naming_v0143.py": {
+          "sha256": "c3e6d15d35e9f817b3f14d85bd4b73cd5d17fd82a699b2f3d045ed900c5a1419",
+          "git_mode": "100644"
+        },
+        "tests/test_recombine_command.py": {
+          "sha256": "29db6c84481e281a5a1b6d6a9e98b8f09b172dd29496fb8d22947641eedf6333",
+          "git_mode": "100644"
+        },
+        "tests/test_recommendation_profiles.py": {
+          "sha256": "944f46b82194326e18cd4622d1d5461be4a94eeb2b359d6aa1a7e470b8f31215",
+          "git_mode": "100644"
+        },
+        "tests/test_reserved_profiles.py": {
+          "sha256": "a822c48d27e8adc1b2c1a1570c66f5fb114560110ee2d34117aec7a78fa7d91f",
+          "git_mode": "100644"
+        },
+        "tests/test_siril_requires.py": {
+          "sha256": "14ba2ce440b3e14b00210472212b5d6ab42896bc0f415710d979e2c7268b3c64",
+          "git_mode": "100644"
+        },
+        "tests/test_siril_startup_watchdog.py": {
+          "sha256": "9fc6fdd83200c14f1a458439da3c00028d283b32f4b1ff912555ae26fa4a9988",
+          "git_mode": "100644"
+        },
+        "tests/test_spcc_command.py": {
+          "sha256": "99a4b0a21a0859c2f066a7b73cda1f22b3f2d414c3e88f71d766eee6a204575f",
+          "git_mode": "100644"
+        },
+        "tests/test_star_separation_command.py": {
+          "sha256": "cdcdde831eec41649bb9fd2fe761b1c171c7ad6c7881ab524de9c13716996877",
+          "git_mode": "100644"
+        },
+        "tests/test_star_trail_workflow.py": {
+          "sha256": "f4a389aad8a4df316c1f37286f82921094d95d95961162948bb8cbe64408754b",
+          "git_mode": "100644"
+        },
+        "tests/test_starless_processing.py": {
+          "sha256": "538f890bda6ebf66b79f3753e35b8d6e5df110b4ef55d9539c57ecbd273c6f27",
+          "git_mode": "100644"
+        },
+        "tests/test_stars_processing.py": {
+          "sha256": "db8afe5c5aba824e8272a09990b06851a546b520e130a37a4d0ba6480d5208e9",
+          "git_mode": "100644"
+        },
+        "tests/test_stars_recommendation_profile.py": {
+          "sha256": "5a98cccc880471a29418c05951ae5a7727008363de3ed28cafe9004a861b4504",
+          "git_mode": "100644"
+        },
+        "tests/test_syqon_v014.py": {
+          "sha256": "3ec812c67b527e6780c2b714eab5c4abe7496e6272ced55aa2bd26d04c92cd6b",
+          "git_mode": "100644"
+        },
+        "tests/test_utils.py": {
+          "sha256": "f5ba9cf8c88d8bc81d876ab192e720f976185ce58e7d636eeb1238897a2434e9",
+          "git_mode": "100644"
+        },
+        "tests/test_v0144_structure.py": {
+          "sha256": "8f587f01402c7674f2d9f2c96a9586f302099e100e0bd40a60dd02d6810cae28",
+          "git_mode": "100644"
+        },
+        "tests/test_v0145_safe_banding.py": {
+          "sha256": "cb399c984f8154260ac17325f96c058c7b52ebb9842cd20d816305187ca248ca",
+          "git_mode": "100644"
+        },
+        "tests/test_v0146_ui_polish.py": {
+          "sha256": "90c9e7b7cc368a0a63e1b3476bd6229d369603bda0e21623db35f4444bff705a",
+          "git_mode": "100644"
+        },
+        "tests/test_v0147_cozy_theme.py": {
+          "sha256": "3f54eaeb4bdd24217e7baa0ab23708e259d60dbf8fb13999c1b8b51ae5d4b1f3",
+          "git_mode": "100644"
+        },
+        "tests/test_v0148_intake_ux.py": {
+          "sha256": "bead4710f7a7b15f7b6b396dc30d2a0ec520b6a7713c78a4655b4467d384bae9",
+          "git_mode": "100644"
+        },
+        "tests/test_v0149_focus_polish.py": {
+          "sha256": "88ade3f56f3d2a0a468398e9d5423f9646cc0a6a7ecc80fccf677ccf7dee8a0a",
+          "git_mode": "100644"
+        },
+        "tests/test_v014_migration.py": {
+          "sha256": "166687e39aef9d0337a3d5e2c344e922b8f2a5d62467fa5498acae059ff60064",
+          "git_mode": "100644"
+        },
+        "tests/test_v014_structure.py": {
+          "sha256": "89b4b2d04034c3221d80bef4534ce0989916fa09ca918a807de4c1931b3cf68e",
+          "git_mode": "100644"
+        },
+        "tests/test_v0150_multiformat_input.py": {
+          "sha256": "f9bcb65d17f8f078a1bde7ff7ef10852ff0c5a7fc22441b2721a9333e3c45776",
+          "git_mode": "100644"
+        },
+        "tests/test_v0151_raw_directory.py": {
+          "sha256": "4268ae95c7c7970dcd51df50803eec97d5d207bf51ed3039b497b559ea98367f",
+          "git_mode": "100644"
+        },
+        "tests/test_v0152_fits_analysis_policy.py": {
+          "sha256": "7fbae5a7a3d66487aca92c69e769083527aa499a310c58f7162cdf41baaeebd0",
+          "git_mode": "100644"
+        },
+        "tests/test_v0152_fits_real.py": {
+          "sha256": "bc31bebf0de034b1c48fcc72b094ce900351c156215e67708dad7c18bcd8c99d",
+          "git_mode": "100644"
+        },
+        "tests/test_v0153_calibration_flow.py": {
+          "sha256": "f16412b3c4c60c6205a60b335c97f4119c59cc61ba032e2c9c66c4731f037485",
+          "git_mode": "100644"
+        },
+        "tests/test_v0153_source_wiring.py": {
+          "sha256": "113778ba7233952def70ec268eda04dde7341648b4457fca7730acfc05cd0309",
+          "git_mode": "100644"
+        }
+      },
+      "duplicate_source_archives": [
+        {
+          "name": "AstroSirilAssistant_0153_20260930_relink.zip",
+          "sha256": "d4d445bed5fd3f65237f918ba96e3ef0d42de55bea679b0f9caf226deb52e470",
+          "recorded_at": "2026-09-30T13:58:25.558250Z",
+          "reason": "Byte-identical duplicate; imported once."
+        }
+      ]
+    },
+    {
+      "version": "0.16.0",
+      "tag": "v0.16.0",
+      "commit": "50a77d72e61dd546b3fa42a8562a30bb0dac1cc5",
+      "summary_ko": "단일 이미지 후처리 단계 생략·연결과 최종 내보내기 통합",
+      "source_archive": "ASA_v0160_full.zip",
+      "source_archive_sha256": "154e3c8c80fe398362bb97f13826121bb4366b7df9bf8c6d62b4934ce211fb5b",
+      "source_archive_recorded_at": "2026-09-30T15:09:50.596927Z",
+      "removed_enclosing_directory": "AstroSirilAssistant_v0.16.0",
+      "file_count": 160,
+      "files": {
+        "MANIFEST.json": {
+          "sha256": "964ecc7ec6635426330a83564272b2ac88695b7be3b970d67beab183b6ea2c46",
+          "git_mode": "100644"
+        },
+        "README_KO.md": {
+          "sha256": "548b8c1158c10a6e490013acf175e423201e9b16aebb18273bb9cf2e5821ba7b",
+          "git_mode": "100644"
+        },
+        "app.py": {
+          "sha256": "ce8d6990466059d4c0ac0352a520473f4cd976dcd673a1c5b6a695e3b45b468f",
+          "git_mode": "100644"
+        },
+        "astroauto/__init__.py": {
+          "sha256": "59b70176a68d0911ec46ab3aac6777a512cfe24412208dad77d751d0597a1dc5",
+          "git_mode": "100644"
+        },
+        "astroauto/analyzer.py": {
+          "sha256": "c9fa7243290149ca29e09f7a636e2ca48601e5390c93b418de37505b4bc8b674",
+          "git_mode": "100644"
+        },
+        "astroauto/calibration.py": {
+          "sha256": "c495eaf3077ca48cde16faf379921cbaeb269d7d71197a5546f30cf7e086ae76",
+          "git_mode": "100644"
+        },
+        "astroauto/config.py": {
+          "sha256": "3bf3ba7c911311eafb1da40ac3582a511faf73c6021f2b828ff948e9d6ccf2da",
+          "git_mode": "100644"
+        },
+        "astroauto/deblur.py": {
+          "sha256": "2d0edc903d1a008bfd2f58508f641fe66c42b179de15a944f9377537774f81a8",
+          "git_mode": "100644"
+        },
+        "astroauto/denoise.py": {
+          "sha256": "ee5f398720dd0f2299bfefae564e71352200c4d37cb397df610465c79f00e447",
+          "git_mode": "100644"
+        },
+        "astroauto/execution.py": {
+          "sha256": "e5a010c3329bd685b1e7efdafdb08a17799cdb0a0bb375fe35c2bf6b64694382",
+          "git_mode": "100644"
+        },
+        "astroauto/final_export.py": {
+          "sha256": "e0c7859c844c71465c58d3932fefe14077b6eb866db635f1112ffaf3f783b223",
+          "git_mode": "100644"
+        },
+        "astroauto/fits_analysis.py": {
+          "sha256": "7fbdfc3bb3ef7c5c12eedeac69458d0f2917e468c5b0a739c0520ed792f3c519",
+          "git_mode": "100644"
+        },
+        "astroauto/ghs.py": {
+          "sha256": "267b16463deac514cc6cbb0332642fec0f260d6e6b822378d70dcccaa4a5897c",
+          "git_mode": "100644"
+        },
+        "astroauto/gradient.py": {
+          "sha256": "a74a319e6b19e8653aaffb944f5aba237cf8080f49b986028e084a6e9ce6fbde",
+          "git_mode": "100644"
+        },
+        "astroauto/help_system.py": {
+          "sha256": "368ae13e052b873ffee7d78f55d572f50848f534cdbf14450c2556b671cbb86a",
+          "git_mode": "100644"
+        },
+        "astroauto/input_formats.py": {
+          "sha256": "c8bf33d90414fed1d453eafaa67fb3c5e65166d1a502880eb60fa53ef7423cba",
+          "git_mode": "100644"
+        },
+        "astroauto/intake.py": {
+          "sha256": "38923154f95e2288d25c5fbd5996935fa6e60118e43d97af11c485135c68c09e",
+          "git_mode": "100644"
+        },
+        "astroauto/logging_utils.py": {
+          "sha256": "6be19174c968860a4f57268401c723c784ac73dc3d42e44291fa620381cf6442",
+          "git_mode": "100644"
+        },
+        "astroauto/preprocess_engine.py": {
+          "sha256": "66a97416adf49e01b7a52429dae08153a5f42c0346689f089d5a1d5f577b40ef",
+          "git_mode": "100644"
+        },
+        "astroauto/preview_utils.py": {
+          "sha256": "26d3ec668700c9361d36390e9859316b1d315c869cf044399a95924bf3cfc583",
+          "git_mode": "100644"
+        },
+        "astroauto/project.py": {
+          "sha256": "c49c16816316bd3073ff412040dcd02a3ebd3dbf79d52bd8a6e83618ba1d4b6f",
+          "git_mode": "100644"
+        },
+        "astroauto/recombine.py": {
+          "sha256": "7f317b88e7dc2f39af50017bef7cb1d03da40c425b0f0adece4fbf34a7e30a69",
+          "git_mode": "100644"
+        },
+        "astroauto/recommendations.py": {
+          "sha256": "620257a79f928a3fce944334294857ef706565d5d5383d9207e49c518bfaa9e9",
+          "git_mode": "100644"
+        },
+        "astroauto/sequence_project.py": {
+          "sha256": "922a5e9627308063f8db89103859f386b3f5a9ee78b19914080ae59c4615ce69",
+          "git_mode": "100644"
+        },
+        "astroauto/siril.py": {
+          "sha256": "388a4628a41c34ebf8777d3436f0065aff86664deaabf73b43d19590ba982df1",
+          "git_mode": "100644"
+        },
+        "astroauto/spcc.py": {
+          "sha256": "069ec3f0b4210632916a07374c6762f8df7a872b68033aa3629610df9e3b82e4",
+          "git_mode": "100644"
+        },
+        "astroauto/star_separation.py": {
+          "sha256": "91a3a4ffc69ddc4791bb16474981375bfb78a8fdc1230e86bb7b3caf47aa5950",
+          "git_mode": "100644"
+        },
+        "astroauto/starless_processing.py": {
+          "sha256": "2a32d096cf6c03caf28bf5b8c85df7a1d995f350c65ae88b03a9e9f8fc34aa10",
+          "git_mode": "100644"
+        },
+        "astroauto/stars_processing.py": {
+          "sha256": "9a9db00219ef9f2000257911b5a4d4d8a9ecc331f6834a42328459b19b98db0c",
+          "git_mode": "100644"
+        },
+        "astroauto/state_actions.py": {
+          "sha256": "af8ec538a16c8ee972ee620afa283f4c252dceefa5d28211ab442388363a62a5",
+          "git_mode": "100644"
+        },
+        "astroauto/syqon.py": {
+          "sha256": "92802a196c1e08180a68a8d7d464d9324bae9a6b69744aab9b1527d4c9f1eb13",
+          "git_mode": "100644"
+        },
+        "astroauto/ui_theme.py": {
+          "sha256": "7cda8711ced64f598e51ad73a00df35210e6225a785b4b2ff66006d61f671a55",
+          "git_mode": "100644"
+        },
+        "astroauto/utils.py": {
+          "sha256": "28e32a6fc6bcc317c393646ea3b4f27d462c7d1bbccacc33ca137202699aaeab",
+          "git_mode": "100644"
+        },
+        "astroauto/workflow.py": {
+          "sha256": "c1a238abe566a5f391e3e59eeaa2ece35535cc9c2e3c881ddb363fb31d1ee12c",
+          "git_mode": "100644"
+        },
+        "config/app.yaml": {
+          "sha256": "eaf4990596ba7300e32faaed013a70e2fe6682ae90f1a18bcda914af4d100e64",
+          "git_mode": "100644"
+        },
+        "config/calibration_policy.yaml": {
+          "sha256": "fadaea0e817d924daed9d9859a3d04da076e2be72d6f62e4b13f117fe6ee830d",
+          "git_mode": "100644"
+        },
+        "config/quality_schema.yaml": {
+          "sha256": "be483d028ec65bd9a26098af47ce26fbdaa556ea7160b8046eec46b534b05f6c",
+          "git_mode": "100644"
+        },
+        "config/session_schema.yaml": {
+          "sha256": "97a7655e1c908ab3570ae12455f7dbf16a05a2ba8df980be7aba0cadbab53132",
+          "git_mode": "100644"
+        },
+        "config/state_machine.yaml": {
+          "sha256": "b49146bf23cd52c564a8475131b025d6af3da5e196648ce17bfb7b94a252bc46",
+          "git_mode": "100644"
+        },
+        "config/ui_defaults.yaml": {
+          "sha256": "7470187891feee1c8ebe2e728bab924cb5673f18720e6902bc576eb662082711",
+          "git_mode": "100644"
+        },
+        "docs/ARCHITECTURE_EXTENSIONS_v0.3.3.md": {
+          "sha256": "8f93750ab7dc8ab464628e0abd67aa79d3ce1b0adc69d6815a5fda0b281f1469",
+          "git_mode": "100644"
+        },
+        "docs/CALIBRATION_CHECK_v0.15.3.md": {
+          "sha256": "88d0bd360cc6364439a12864fdc0388f9bb65f808ebf940ea1535c3a90dbf2d5",
+          "git_mode": "100644"
+        },
+        "docs/CALIBRATION_WORKFLOW.md": {
+          "sha256": "f856b3a4bc5638c868f2ca1699a37f7ca6efb19d4454aababdf33402dd4459e1",
+          "git_mode": "100644"
+        },
+        "docs/DEBLUR_v0.7.0.md": {
+          "sha256": "e509b380c98f2e18f36a5362ddfcc35040ada12e84bce0a682ce262fe6868cb0",
+          "git_mode": "100644"
+        },
+        "docs/DENOISE_v0.6.0.md": {
+          "sha256": "5055daf3d1b793e101fb3327becf758810ff63ecf80f156234084a7da04dc030",
+          "git_mode": "100644"
+        },
+        "docs/DYNAMIC_UI_v0.11.0.md": {
+          "sha256": "5edc0e6121968c9a6024719efd3983ee6494ceb6b975fcdc83ff1c2035fdebbc",
+          "git_mode": "100644"
+        },
+        "docs/END_TO_END_v0.16.0.md": {
+          "sha256": "0d90d11c7221ad8ae5aaf33fa105d0016b79ef5b04b163d1c8926af6b9480c5d",
+          "git_mode": "100644"
+        },
+        "docs/FINAL_EXPORT_v0.13.0.md": {
+          "sha256": "d0b41ca2874f62e486a79c31c7e123487c4751a0695528f38461537ab543585c",
+          "git_mode": "100644"
+        },
+        "docs/GHS_v0.8.0.md": {
+          "sha256": "b5f7f78536d8bc8ab549f5696ec235fbbce49e2d4055a6cbac438be3173207d6",
+          "git_mode": "100644"
+        },
+        "docs/HELP_SYSTEM_v0.1.md": {
+          "sha256": "a2a36bd7f634f4d8a8dcec3567af927e3aacea26f462751adfebeee740d7def2",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.11.1.md": {
+          "sha256": "3c0c549beb0ad51505f2418227889c23f7bf505b363bddb5ddc4ddc976a10f23",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.13.1.md": {
+          "sha256": "af94f254ea2914974a6cee16ff07a8b9b67005287130a74a78fc73ed7df1e5a7",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.1.md": {
+          "sha256": "3d0cca9328aebb79159357effed6fec62916e7ab7890b8cd2f43b3f7149635be",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.2.md": {
+          "sha256": "41393bdc653f26ba94530c36e688fe796e8f98a2d13744efe24d3c3ff2044e62",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.3.md": {
+          "sha256": "6a38d432be605de8b966f14d1e5e711102617e827b6e93cc36e0e90883ac743f",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.4.md": {
+          "sha256": "09a54e4689b162e1f199ca15085dbcf4b59c76d21dc959e22b6c3f3fd9628915",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.14.5.md": {
+          "sha256": "5dd38889f1cf488fb4c8f116a03ebc64cd5fff806eee9dc36b1b0da14be9e261",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.1.md": {
+          "sha256": "c467669e03cf5e2fc9796a87dd9390a1134e55797df7520f6fab7e1325f4f7be",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.2.md": {
+          "sha256": "06a8804a73ee3c855352136fb82e22d0969238608c8116811df233bcc5e171d2",
+          "git_mode": "100644"
+        },
+        "docs/HOTFIX_v0.15.4.md": {
+          "sha256": "c07fded8913a47f2b03b50833f40cd8fa95ccf3a8b9b6a8a4ac99a8331c5f748",
+          "git_mode": "100644"
+        },
+        "docs/INTERACTIVE_SINGLE_FITS_v0.4.2.md": {
+          "sha256": "78802722b3699645f2124e924c8d9a3405ab0d5760361bb341211224e8fc2ab8",
+          "git_mode": "100644"
+        },
+        "docs/MANUAL_INSPIRED_SYQON_v0.14.0.md": {
+          "sha256": "f75e1e226dc4c4f83ace7365a67cba6dd41796d90f896c735c635a43a5ee1588",
+          "git_mode": "100644"
+        },
+        "docs/MULTIFORMAT_INPUT_v0.15.0.md": {
+          "sha256": "648e98d6a17e8eef4c5841afcf49a83d2e11f95f26ca4f740414497db8cc373c",
+          "git_mode": "100644"
+        },
+        "docs/MULTI_SESSION_AND_FILTERS.md": {
+          "sha256": "467c8e8a75a8b530f545e902dda0424c02bdb4885eacb522ea93a1be05078eaa",
+          "git_mode": "100644"
+        },
+        "docs/NEXT_STEPS.md": {
+          "sha256": "064a5655dcb3f3f63ea79b043ba78204641040de588dfc1851f9edb5ca24042a",
+          "git_mode": "100644"
+        },
+        "docs/PATCH_v0.4.1.md": {
+          "sha256": "63bde05026b8637b8ddc80780b7fcd8981f23558eab20d7c5f51c9820eb0a77d",
+          "git_mode": "100644"
+        },
+        "docs/PATCH_v0.5.1.md": {
+          "sha256": "c604cb08108ce84b9793939ffac95d32be018040468ebe1cb53733ea3a6e5f33",
+          "git_mode": "100644"
+        },
+        "docs/PIXEL_MATH_RECOMBINE_v0.12.0.md": {
+          "sha256": "cb39d2c31d0665fae3935497ac23190295eb4767b095522c526a8cc09080a994",
+          "git_mode": "100644"
+        },
+        "docs/PLANETARY_LUNAR_NOTES.md": {
+          "sha256": "27de6631598ef4b3b713820153e610f209e5bbda463789a6c2696c353c6dd7f1",
+          "git_mode": "100644"
+        },
+        "docs/PREPROCESS_V0.4.md": {
+          "sha256": "9ecff0574ee0cdb7d9c5b0e82114904efa84f6619c509f694c15322ef492e084",
+          "git_mode": "100644"
+        },
+        "docs/PROJECT_INTAKE_UX_v0.14.8.md": {
+          "sha256": "a669345abde2a4e869ab9661e82cfa8df31ac1a3084e011d4ee601d4dd0110e4",
+          "git_mode": "100644"
+        },
+        "docs/SPCC_v0.5.0.md": {
+          "sha256": "14e75866cccc9a010bd7193fddcd9f7c944b7789d1560672a0cc6beebc03adfc",
+          "git_mode": "100644"
+        },
+        "docs/STARLESS_PROCESSING_v0.10.0.md": {
+          "sha256": "7b2fdd06ad2b804df82bbb56ca11f33468122eb6e1c2e53221167ae53119271c",
+          "git_mode": "100644"
+        },
+        "docs/STARNET_v0.9.0.md": {
+          "sha256": "076519fd1be5d9e64970acdae957e7ab88d2a3224328bd1e8ebc75525d2e88df",
+          "git_mode": "100644"
+        },
+        "docs/STARS_PROCESSING_v0.11.0.md": {
+          "sha256": "a3b2d9b21d3c5f2e6b114ff0d1e76611c8812cf35027e10cd351124813b87b52",
+          "git_mode": "100644"
+        },
+        "docs/STAR_TRAIL_WORKFLOW.md": {
+          "sha256": "3902254330f4bb19e223169198f5dfc924fe123cf107dbe2089824a6eeda39cd",
+          "git_mode": "100644"
+        },
+        "docs/TARGET_RECOMMENDATIONS_v0.1.md": {
+          "sha256": "759ebc7c70641569019eac7b1f3746e572e24c688c19ea6b30811ba22e4c71c1",
+          "git_mode": "100644"
+        },
+        "docs/UI_COZY_v0.14.7.md": {
+          "sha256": "72eac0de4af41189125d3f903199fde6d6b107b954301a42cad536a439bd6543",
+          "git_mode": "100644"
+        },
+        "docs/UI_FOCUS_POLISH_v0.14.9.md": {
+          "sha256": "6caa7fbc87cc6dd820e6551e76d56a7ff61dd0bb1d71847bb390b793d955c483",
+          "git_mode": "100644"
+        },
+        "docs/UI_POLISH_v0.14.6.md": {
+          "sha256": "d24b00e122cdc4ac30ee5ec179f16cb9e92c7475ff53e17ebc9c03cb529633ba",
+          "git_mode": "100644"
+        },
+        "docs/UI_REFRESH_v0.14.0.md": {
+          "sha256": "7d8ea8c962e5c8bbd92a3dcc824ececa3e05f86795d9de34c824206b6d378d3a",
+          "git_mode": "100644"
+        },
+        "docs/UI_STATUS_LOG_v0.6.0.md": {
+          "sha256": "78f27f74988edf4fb298ec06210a973ff8199049009486260365231bfe859fd6",
+          "git_mode": "100644"
+        },
+        "docs/VALIDATION_v0.14.0.md": {
+          "sha256": "88f93ca42a2ec53434cc24adfa48b005144d6b237143deb7077d9e0eafdd5fde",
+          "git_mode": "100644"
+        },
+        "docs/VERSION_COMPATIBILITY.md": {
+          "sha256": "90d8f796f4fa91070da00140ffc8404a02ea4d47fbba89e5265e8c7886334e84",
+          "git_mode": "100644"
+        },
+        "docs/handoff/00_먼저_읽기.md": {
+          "sha256": "271c57d2c1027f06fb5e5d64201fb174d4f13bf18cd3197a7499e1fb1b38f7ff",
+          "git_mode": "100644"
+        },
+        "docs/handoff/01_새_채팅용_핵심맥락.md": {
+          "sha256": "482cc749d907216f54e62fbb606ee6c1a5e8e877b4b9242f33f49a7f96528686",
+          "git_mode": "100644"
+        },
+        "docs/handoff/02_요구사항_명세.md": {
+          "sha256": "6f67c6c2c2fd2c434043ceb1021043e426e403ef32553c8e0095f7cc51454995",
+          "git_mode": "100644"
+        },
+        "docs/handoff/03_UI_문구_및_용어집.md": {
+          "sha256": "a85d2f7ac1eb5d28f73c7f1a8e80bd525cbd149be37f3b5593b05523eefbe3e0",
+          "git_mode": "100644"
+        },
+        "docs/handoff/04_작업흐름_및_파일규칙.md": {
+          "sha256": "4f9729e29611d956a8ad1e9b4c413e3ca4bdfa022613fe047ead56fcf8c33829",
+          "git_mode": "100644"
+        },
+        "docs/handoff/05_버전별_결정_이력.md": {
+          "sha256": "7d1e2732e09f8a2744f34bd9b6dca4d0b1ae76f8098009d1d755638d199bf83a",
+          "git_mode": "100644"
+        },
+        "docs/handoff/06_미해결_이슈_및_검증.md": {
+          "sha256": "5b04f2ef6b9871336f83ee0bffc897a052f75567da002d2f6243acf13f952ae4",
+          "git_mode": "100644"
+        },
+        "docs/handoff/07_근거_및_유지보수_규칙.md": {
+          "sha256": "3273a4bf805de51c6c18c3da5fec847d1ecce2c5eab4ae77b87eca03ede44b29",
+          "git_mode": "100644"
+        },
+        "docs/handoff/08_v0153_캘리브레이션_검사.md": {
+          "sha256": "c88c91b1b18dff34156e62400880cc75b543296fbe097070a95b99905232b332",
+          "git_mode": "100644"
+        },
+        "docs/handoff/ARCHIVE_CHECKLIST.md": {
+          "sha256": "cf6583333eea5eeadc20840afa55eefb5b62834f20542e4a0cf084f4f840387e",
+          "git_mode": "100644"
+        },
+        "gui.py": {
+          "sha256": "ac4aa44329d00abc2fd0eef64536b596dbe08a01d8bb9cad9a2be40257eed9b1",
+          "git_mode": "100644"
+        },
+        "help/topics.yaml": {
+          "sha256": "180ac12463e80c03410e3c42129cc4fb0d6bdcb7285c441261950c8b082a8a9f",
+          "git_mode": "100644"
+        },
+        "install_windows.bat": {
+          "sha256": "6e004040470c5434f692adee83c6cec378af9d0b5aebffc52e043b3d472934b4",
+          "git_mode": "100644"
+        },
+        "mappings/siril_commands.yaml": {
+          "sha256": "7f900f97893aab9c78977173f5c57b42829519435c085bda74d710dbe97fe903",
+          "git_mode": "100644"
+        },
+        "profiles/comet.yaml": {
+          "sha256": "11fe91042e84e3d882aa0027d050da32958ebe0de90f4a59acf8f1eeac266231",
+          "git_mode": "100644"
+        },
+        "profiles/dark_nebula.yaml": {
+          "sha256": "facfc453a1802cd6c5fd62feed7ed098d13e31b52b9b5c738f20d1221418da47",
+          "git_mode": "100644"
+        },
+        "profiles/emission_nebula.yaml": {
+          "sha256": "82a206e2383af88e0a87039a30fca38f1200fd74d078b3e560372304bc3f045a",
+          "git_mode": "100644"
+        },
+        "profiles/galaxy.yaml": {
+          "sha256": "9ef672d04697da25261e6931a227d3ad8fe5ccc2b0ee8e52b0a252d36c7bb99b",
+          "git_mode": "100644"
+        },
+        "profiles/general_starfield.yaml": {
+          "sha256": "ce656b67fadf96833f8680161b0ee55efbfc293c4a1579e05f5cc9ff5c248b12",
+          "git_mode": "100644"
+        },
+        "profiles/globular_cluster.yaml": {
+          "sha256": "f4a0231da62bfff25580f3c583a9cd959895e77b160d82fd34df5574509f66a2",
+          "git_mode": "100644"
+        },
+        "profiles/known_targets.yaml": {
+          "sha256": "8e14457fccf66a1ec36d6e34ba9cd8f78e726cc60d780b4b95d6e4316495a6fb",
+          "git_mode": "100644"
+        },
+        "profiles/milkyway.yaml": {
+          "sha256": "bcdf881444e80b6862a6bdbce4f25f0e7eafd100b7f36e4b3865a3688d6d3f9c",
+          "git_mode": "100644"
+        },
+        "profiles/mono_multifilter.yaml": {
+          "sha256": "8cfc1decf2f7523cdc8a8c383383297f68545a95f029ea080bf1dc1002cb57a2",
+          "git_mode": "100644"
+        },
+        "profiles/mosaic.yaml": {
+          "sha256": "24ca2e766fc057d872060513ab3a20a64f788b7e3fb6ff5bf0718f9605d35022",
+          "git_mode": "100644"
+        },
+        "profiles/open_cluster.yaml": {
+          "sha256": "1fb1433a18fe62efd7a019d8a0636e912657ef1ac9c1e75f503f282eeec87040",
+          "git_mode": "100644"
+        },
+        "profiles/planetary_lunar.yaml": {
+          "sha256": "67a772efe5ebd5be529763d1f208e50597ec416797d67fcb899066ef117d9f33",
+          "git_mode": "100644"
+        },
+        "profiles/planetary_nebula.yaml": {
+          "sha256": "5fe18c5468efb76df1622b13bbdc8458e6b4341d6587c429f58b8d2b0d14118a",
+          "git_mode": "100644"
+        },
+        "profiles/recommendation_profiles.yaml": {
+          "sha256": "88b86df22ba34c35aea9435b518d7672db1bf0090dc633ac86f670bc308bcadf",
+          "git_mode": "100644"
+        },
+        "profiles/reflection_nebula.yaml": {
+          "sha256": "78fb444add82986aac015465fdb297986977c47b2e480d81ba62b42cd7319e3d",
+          "git_mode": "100644"
+        },
+        "profiles/star_trail.yaml": {
+          "sha256": "e5faf3c1540a29112f30f4df465a8ac00f97a209ffa12bd495914174ab92af20",
+          "git_mode": "100644"
+        },
+        "profiles/supernova_remnant.yaml": {
+          "sha256": "caecb38a2f69a379ec11f700ed3c8e517453108907b0bc4fd8a7c29b24c63276",
+          "git_mode": "100644"
+        },
+        "requirements.txt": {
+          "sha256": "0144a098b41e12a8007094bbca566bfc0392f1d60582e4fc33f39a95efd3a97b",
+          "git_mode": "100644"
+        },
+        "run_cli.bat": {
+          "sha256": "4766aadb89878407095d53b04f7432230215aad098c7a0f18fc9e3b3d3c1c029",
+          "git_mode": "100644"
+        },
+        "run_common.bat": {
+          "sha256": "adc91f01bc797fafcde83309df0cd7758ef9a364020fe9e4592ed1f785edf347",
+          "git_mode": "100644"
+        },
+        "run_gui.bat": {
+          "sha256": "85825483e7c0b63d88f6741f4d036026d1d2e709dadef12c465c84ec82926d2b",
+          "git_mode": "100644"
+        },
+        "run_sequence_gui.bat": {
+          "sha256": "2489ba35face03f7960cd00dd4d845d1f65171bbc6fe03f4edfc0e43258d3528",
+          "git_mode": "100644"
+        },
+        "sequence_gui.py": {
+          "sha256": "4021eef04d31f614e679b5a6b76d24e7ed14faf2eecb1576004d3aa01eadefeb",
+          "git_mode": "100644"
+        },
+        "tests/test_calibration_logic.py": {
+          "sha256": "ed8f10061b2724e2fc42306691c16dbe95fdbe38ac63aa3c39661c1a9506fcd1",
+          "git_mode": "100644"
+        },
+        "tests/test_deblur_command.py": {
+          "sha256": "fb3a7f672b77b1a17fbbb0098cee3b75c6969165e1493f5222a6816869053294",
+          "git_mode": "100644"
+        },
+        "tests/test_denoise_command.py": {
+          "sha256": "2e7ae270522d8cdb52f7f5f535f4a2905c115d472edcc67faef901e0c10b4d3d",
+          "git_mode": "100644"
+        },
+        "tests/test_execution_cancel.py": {
+          "sha256": "e37ca6221b2da38821ecab31dd6eb4666384aca2eb1d2bc2fc71bbedf5c05186",
+          "git_mode": "100644"
+        },
+        "tests/test_final_export.py": {
+          "sha256": "0564cf8d1246ee79f1903e33f011448ed44763a85369f4ad753e1f83d2a42725",
+          "git_mode": "100644"
+        },
+        "tests/test_ghs_command.py": {
+          "sha256": "2b21015e7fe7e101c7f2902e4b44377dc27aeb554b05171af04253c42d152229",
+          "git_mode": "100644"
+        },
+        "tests/test_gradient_command.py": {
+          "sha256": "7aa3d95a52cae31a960cc13c2ce58f3e9b4685f5259bc4f6671efdda8778a2ef",
+          "git_mode": "100644"
+        },
+        "tests/test_help_catalog.py": {
+          "sha256": "3b2da8312afd67ad03d753ae420aade6c9a024ee586bc2d8abcd88a270b210c7",
+          "git_mode": "100644"
+        },
+        "tests/test_help_single_window_policy.py": {
+          "sha256": "15353c00a32386e12d5de02a50b01d62e06c77103583e8bc3a0357202e9308cf",
+          "git_mode": "100644"
+        },
+        "tests/test_preprocess_plan.py": {
+          "sha256": "5bb3c280d875072b1567f7e1aadf8e682ea7d545f5bcf5d73c635c99da2db258",
+          "git_mode": "100644"
+        },
+        "tests/test_project_naming_v0143.py": {
+          "sha256": "c3e6d15d35e9f817b3f14d85bd4b73cd5d17fd82a699b2f3d045ed900c5a1419",
+          "git_mode": "100644"
+        },
+        "tests/test_recombine_command.py": {
+          "sha256": "29db6c84481e281a5a1b6d6a9e98b8f09b172dd29496fb8d22947641eedf6333",
+          "git_mode": "100644"
+        },
+        "tests/test_recommendation_profiles.py": {
+          "sha256": "944f46b82194326e18cd4622d1d5461be4a94eeb2b359d6aa1a7e470b8f31215",
+          "git_mode": "100644"
+        },
+        "tests/test_reserved_profiles.py": {
+          "sha256": "a822c48d27e8adc1b2c1a1570c66f5fb114560110ee2d34117aec7a78fa7d91f",
+          "git_mode": "100644"
+        },
+        "tests/test_siril_requires.py": {
+          "sha256": "14ba2ce440b3e14b00210472212b5d6ab42896bc0f415710d979e2c7268b3c64",
+          "git_mode": "100644"
+        },
+        "tests/test_siril_startup_watchdog.py": {
+          "sha256": "9fc6fdd83200c14f1a458439da3c00028d283b32f4b1ff912555ae26fa4a9988",
+          "git_mode": "100644"
+        },
+        "tests/test_spcc_command.py": {
+          "sha256": "99a4b0a21a0859c2f066a7b73cda1f22b3f2d414c3e88f71d766eee6a204575f",
+          "git_mode": "100644"
+        },
+        "tests/test_star_separation_command.py": {
+          "sha256": "cdcdde831eec41649bb9fd2fe761b1c171c7ad6c7881ab524de9c13716996877",
+          "git_mode": "100644"
+        },
+        "tests/test_star_trail_workflow.py": {
+          "sha256": "f4a389aad8a4df316c1f37286f82921094d95d95961162948bb8cbe64408754b",
+          "git_mode": "100644"
+        },
+        "tests/test_starless_processing.py": {
+          "sha256": "538f890bda6ebf66b79f3753e35b8d6e5df110b4ef55d9539c57ecbd273c6f27",
+          "git_mode": "100644"
+        },
+        "tests/test_stars_processing.py": {
+          "sha256": "db8afe5c5aba824e8272a09990b06851a546b520e130a37a4d0ba6480d5208e9",
+          "git_mode": "100644"
+        },
+        "tests/test_stars_recommendation_profile.py": {
+          "sha256": "5a98cccc880471a29418c05951ae5a7727008363de3ed28cafe9004a861b4504",
+          "git_mode": "100644"
+        },
+        "tests/test_syqon_v014.py": {
+          "sha256": "3ec812c67b527e6780c2b714eab5c4abe7496e6272ced55aa2bd26d04c92cd6b",
+          "git_mode": "100644"
+        },
+        "tests/test_utils.py": {
+          "sha256": "f5ba9cf8c88d8bc81d876ab192e720f976185ce58e7d636eeb1238897a2434e9",
+          "git_mode": "100644"
+        },
+        "tests/test_v0144_structure.py": {
+          "sha256": "8f587f01402c7674f2d9f2c96a9586f302099e100e0bd40a60dd02d6810cae28",
+          "git_mode": "100644"
+        },
+        "tests/test_v0145_safe_banding.py": {
+          "sha256": "cb399c984f8154260ac17325f96c058c7b52ebb9842cd20d816305187ca248ca",
+          "git_mode": "100644"
+        },
+        "tests/test_v0146_ui_polish.py": {
+          "sha256": "90c9e7b7cc368a0a63e1b3476bd6229d369603bda0e21623db35f4444bff705a",
+          "git_mode": "100644"
+        },
+        "tests/test_v0147_cozy_theme.py": {
+          "sha256": "3f54eaeb4bdd24217e7baa0ab23708e259d60dbf8fb13999c1b8b51ae5d4b1f3",
+          "git_mode": "100644"
+        },
+        "tests/test_v0148_intake_ux.py": {
+          "sha256": "bead4710f7a7b15f7b6b396dc30d2a0ec520b6a7713c78a4655b4467d384bae9",
+          "git_mode": "100644"
+        },
+        "tests/test_v0149_focus_polish.py": {
+          "sha256": "88ade3f56f3d2a0a468398e9d5423f9646cc0a6a7ecc80fccf677ccf7dee8a0a",
+          "git_mode": "100644"
+        },
+        "tests/test_v014_migration.py": {
+          "sha256": "166687e39aef9d0337a3d5e2c344e922b8f2a5d62467fa5498acae059ff60064",
+          "git_mode": "100644"
+        },
+        "tests/test_v014_structure.py": {
+          "sha256": "89b4b2d04034c3221d80bef4534ce0989916fa09ca918a807de4c1931b3cf68e",
+          "git_mode": "100644"
+        },
+        "tests/test_v0150_multiformat_input.py": {
+          "sha256": "f9bcb65d17f8f078a1bde7ff7ef10852ff0c5a7fc22441b2721a9333e3c45776",
+          "git_mode": "100644"
+        },
+        "tests/test_v0151_raw_directory.py": {
+          "sha256": "4268ae95c7c7970dcd51df50803eec97d5d207bf51ed3039b497b559ea98367f",
+          "git_mode": "100644"
+        },
+        "tests/test_v0152_fits_analysis_policy.py": {
+          "sha256": "7fbae5a7a3d66487aca92c69e769083527aa499a310c58f7162cdf41baaeebd0",
+          "git_mode": "100644"
+        },
+        "tests/test_v0152_fits_real.py": {
+          "sha256": "bc31bebf0de034b1c48fcc72b094ce900351c156215e67708dad7c18bcd8c99d",
+          "git_mode": "100644"
+        },
+        "tests/test_v0153_calibration_flow.py": {
+          "sha256": "bd511568910b15d498980b7c874e446549e414e23a9630033c181e3f44026785",
+          "git_mode": "100644"
+        },
+        "tests/test_v0153_source_wiring.py": {
+          "sha256": "947399c6a7517ca3d0b39075bdf23dde1348bd892d67c883a700e3b579dfb341",
+          "git_mode": "100644"
+        },
+        "tests/test_v0160_end_to_end.py": {
+          "sha256": "1323a1ef2aa1e14ee63e948f1e8f2d10dda6d3be51be081f62e26f66bb47c4f7",
+          "git_mode": "100644"
+        }
+      }
     }
   ],
-  "latest_effective_tag": "v0.15.1-fits-hotfix",
+  "latest_effective_tag": "v0.16.0",
   "patches": [
     {
       "tag": "v0.15.1-fits-hotfix",
@@ -12241,6 +14176,25 @@
         "v0.15.1-fits-hotfix"
       ],
       "base_main": "ebcfc2dae0a2b1b6f5e00c9f2e024a356f95b5c9"
+    },
+    {
+      "imported_at": "2026-10-01T11:41:59.612779+00:00",
+      "versions": [
+        "v0.15.2",
+        "v0.15.3",
+        "v0.16.0"
+      ],
+      "patch_tags": [],
+      "base_main": "b5c46b7ceef078ed9b194926a199a4e41e5e5792",
+      "validation": {
+        "source_file_instances_verified": 470,
+        "python_syntax_files_checked": 215,
+        "existing_dependency_light_checks_passed": 6,
+        "windows_siril_runtime_tested": false
+      },
+      "notes": [
+        "v0.15.4 is mentioned in the v0.16.0 README, but no separate original archive was available. No v0.15.4 tag or artificial snapshot was created."
+      ]
     }
   ]
 }

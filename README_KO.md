@@ -1,3 +1,46 @@
+# AstroSirilAssistant v0.16.0 — 단일 이미지 후처리 전체 경로 통합
+
+기존 v0.15.4의 프로젝트/RAW 처리·캘리브레이션 검사 기능을 보존하면서 Gradient부터 최종 내보내기까지 끊기던 작업 흐름을 연결했습니다.
+
+- **캘리브레이션 프레임이 없으면 검사 없이 승인 후 Gradient로 이동**하는 경로의 상태 버그 수정.
+- **Gradient / SPCC**는 미리보기·적용하거나 사용자 승인하에 생략할 수 있습니다.
+- **Restoration / Denoise**를 각각 또는 모두 생략해도 GHS 단계로 정상 진입합니다.
+- **GHS**로 최소 한 번 실제 Stretch하여 Non-linear 이미지를 만든 뒤 StarNet 적용 여부를 선택합니다.
+- **StarNet 적용:** Starless · Stars 개별 처리 → Pixel Math 재합성 → FITS/TIFF/PNG 최종 내보내기.
+- **StarNet 생략:** 원래 Non-linear 이미지를 바로 최종 미리보기 및 FITS/TIFF/PNG 내보내기로 연결합니다.
+- 이전 버전에서 StarNet을 생략한 뒤 중단된 프로젝트(`POST_STARNET_SKIPPED`)도 재열기 시 안전하게 이어갈 수 있습니다.
+- 상태·원본 보존·단계 이동 검증을 추가했습니다. 실제 Windows/Siril/SyQon 전체 처리 검증은 사용자 환경에서 필요합니다.
+
+전체 흐름 및 제한 사항: `docs/END_TO_END_v0.16.0.md`
+
+---
+
+# AstroSirilAssistant v0.15.3 — 캘리브레이션 프레임 검사 단계
+
+0.15.2에서 CR3 이미지 분석 및 프로젝트 생성까지 완료된 것을 확인했습니다. 프로젝트 생성 뒤의 다음 작업인 Dark·Bias·Flat·Dark-flat 검사 GUI를 연결했습니다.
+
+- [Dark/Bias/Flat/Dark-flat] 선택 → [폴더에서 등록] 또는 [프레임 폴더 열기] → [프레임 검사 / 재검사] → 화면에서 조건·오류 확인.
+- 캘리브레이션 파일은 FITS·카메라 RAW를 지원합니다. RAW는 Siril을 통해 임시 변환 후 정보를 검사합니다. 원본은 보존합니다.
+- 단일 Light에서 **명시적으로 승인한 경우만** 보정 없이 Gradient 단계로 진행합니다. 현재 버전은 **검사 전용**이며 Master 제작·Light 수치 보정은 수행하지 않습니다.
+- 기존 v0.15.2 프로젝트를 그대로 열 수 있습니다. 세부 안내: `docs/CALIBRATION_CHECK_v0.15.3.md`, `docs/handoff/08_v0153_캘리브레이션_검사.md`.
+- 실제 Windows/Siril 및 Astropy FITS 입출력 회귀 검증은 남아 있습니다. Git 커밋/푸시는 하지 않았습니다.
+
+---
+
+# AstroSirilAssistant v0.15.2 — FITS 이미지 분석 호환성 핫픽스 + 인수인계 문서
+
+v0.15.1 CR3 테스트에서 Siril/LibRaw 변환과 `jsonmetadata`는 성공했으나 후속 이미지 분석이 중단됐습니다.
+`astroauto/fits_analysis.py`가 BZERO/BSCALE 스케일링이 필요한 16-bit FITS를 `memmap=True`로 열던 호환성 문제를 수정했습니다.
+픽셀·헤더 읽기에서 `memmap=False`를 사용하고, 대형 이미지에서는 float64 배열로 바꾸기 **전에** 채널을 제한 샘플링합니다.
+
+- RAW 디코딩·원본 보존·기존 FITS 처리 순서·SyQon·Final Export는 변경하지 않았습니다.
+- 인수인계 문서 9개: `docs/handoff/` (요구사항, UI 문구/용어, 단계·파일 규칙, 변경 이력, 미해결 문제).
+- 상세: `docs/HOTFIX_v0.15.2.md` 및 `docs/handoff/00_먼저_읽기.md`.
+- **실제 Windows/Siril 1.4.4/Canon EOS RP CR3 전체 흐름은 아직 검증되지 않았습니다.**
+- Git 커밋/푸시는 수행하지 않았습니다.
+
+---
+
 # AstroSirilAssistant v0.15.1 — CR3/RAW 변환 경로 수정
 
 Siril 내부 작업 디렉터리를 RAW 임시 폴더로 명시적으로 지정해 `convertraw`의 `No RAW files were found for conversion` 오류를 수정했습니다. 자세한 내용은 `docs/HOTFIX_v0.15.1.md`를 참조하세요.

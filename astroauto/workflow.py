@@ -28,7 +28,7 @@ def next_task_after_analysis(project: dict):
     trail_mode = p.get("star_trail", {}).get("mode", "UNKNOWN")
 
     if category == "STAR_TRAIL":
-        return _star_trail_task(source_stage, input_status, trail_mode)
+        return _star_trail_task(source_stage, input_status, trail_mode, p)
 
     if category == "COMET":
         return {
@@ -99,6 +99,16 @@ def next_task_after_analysis(project: dict):
         }
 
     if source_stage in ("LIGHT_SEQUENCE", "SINGLE_LIGHT", "REGISTERED_SEQUENCE") and input_status == "RAW_UNCALIBRATED":
+        calibration = p.get("calibration", {})
+        # User-approved bypass does not imply that a frame scan was performed.
+        # v0.15.4 permitted skipping before inspection, so resolution must win
+        # over `checked` while keeping that inspection flag truthful.
+        if calibration.get("resolution") == "SKIPPED" and source_stage == "SINGLE_LIGHT":
+            if linearity == "LINEAR":
+                return _gradient_task(label, stage="SINGLE_LIGHT")
+            return _confirm_light_linearity_task(label)
+        if calibration.get("checked"):
+            return _review_calibration_task(p, label)
         return {
             "task_id": "CHECK_CALIBRATION_FRAMES",
             "title": "Dark / Flat / Bias / Dark-flat 검사",
@@ -107,7 +117,7 @@ def next_task_after_analysis(project: dict):
             "current_status": f"{source_stage} / RAW_UNCALIBRATED",
             "recommendations": {
                 "scan": "calibration/dark, bias, flat, dark_flat",
-                "shared_library": "CalibrationLibrary도 함께 조회 예정"
+                "shared_library": "공유 Library는 아직 자동 검색하지 않습니다. 프로젝트 프레임 폴더에서 검사합니다."
             },
             "cautions": [
                 "Bias와 Dark-flat을 무조건 동시에 요구하거나 중복 적용하지 않습니다.",
@@ -160,9 +170,10 @@ def next_task_after_analysis(project: dict):
             "actions": ["CONFIRM", "EDIT"],
         }
 
-    return _gradient_task(label)
+    return _gradient_task(label, stage="SINGLE_LIGHT" if source_stage == "SINGLE_LIGHT" else "STACKED_LINEAR")
 
-def _star_trail_task(source_stage: str, input_status: str, trail_mode: str):
+def _star_trail_task(source_stage: str, input_status: str, trail_mode: str, p: dict | None = None):
+    calibration = (p or {}).get("calibration", {})
     if trail_mode == "UNKNOWN":
         return {
             "task_id": "CONFIRM_STAR_TRAIL_MODE",
@@ -206,20 +217,21 @@ def _star_trail_task(source_stage: str, input_status: str, trail_mode: str):
         }
 
     if input_status == "RAW_UNCALIBRATED":
-        return {
-            "task_id": "CHECK_CALIBRATION_FRAMES",
-            "title": "Dark / Flat / Bias / Dark-flat 검사",
-            "summary": "일주 프레임용 캘리브레이션 프레임을 점검합니다.",
-            "purpose": "핫픽셀, 고정패턴, 비네팅 등을 줄여 trail 품질을 높입니다.",
-            "current_status": f"{trail_mode} / RAW_UNCALIBRATED",
-            "recommendations": {"scan": "calibration/dark, bias, flat, dark_flat"},
-            "cautions": [
-                "Flat은 있으면 유용하지만 필수는 아닙니다.",
-                "Bias와 Dark-flat은 센서/워크플로에 따라 선택합니다."
-            ],
-            "completion_criteria": ["캘리브레이션 프레임 호환성 보고서 생성"],
-            "actions": ["RUN", "EDIT", "SKIP"],
-        }
+        if calibration.get("checked"):
+            if calibration.get("resolution") != "SKIPPED":
+                return _review_calibration_task(p or {}, "별 일주사진")
+        else:
+            return {
+                "task_id": "CHECK_CALIBRATION_FRAMES",
+                "title": "Dark / Flat / Bias / Dark-flat 검사",
+                "summary": "일주 프레임용 캘리브레이션 프레임을 점검합니다.",
+                "purpose": "핫픽셀, 고정패턴, 비네팅 등을 줄여 trail 품질을 높입니다.",
+                "current_status": f"{trail_mode} / RAW_UNCALIBRATED",
+                "recommendations": {"scan": "calibration/dark, bias, flat, dark_flat"},
+                "cautions": ["Flat은 있으면 유용하지만 필수는 아닙니다.", "Bias와 Dark-flat은 센서/워크플로에 따라 선택합니다."],
+                "completion_criteria": ["캘리브레이션 프레임 호환성 보고서 생성"],
+                "actions": ["RUN", "EDIT", "SKIP"],
+            }
 
     return {
         "task_id": "FRAME_QUALITY_CHECK",
@@ -239,13 +251,47 @@ def _star_trail_task(source_stage: str, input_status: str, trail_mode: str):
         "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
     }
 
-def _gradient_task(label: str):
+
+def _review_calibration_task(p: dict, label: str) -> dict:
+    cal = p.get("calibration", {})
+    frames = cal.get("frames") or {}
+    counts = ", ".join(f"{name} {frames.get(name, {}).get('count', 0)}장" for name in ("dark", "bias", "flat", "dark_flat"))
+    cautions = ["검사는 실제 캘리브레이션을 적용하지 않습니다.",
+                "프레임을 새로 등록했다면 다시 검사해야 합니다."]
+    cautions.extend((cal.get("recommendation") or {}).get("warnings") or [])
+    return {
+        "task_id": "REVIEW_CALIBRATION_FRAMES",
+        "title": "캘리브레이션 검사 결과 확인",
+        "summary": "프레임 검사 결과를 검토하고, 보정 없이 진행할지 결정합니다.",
+        "purpose": "불완전하거나 호환되지 않는 프레임이 데이터에 적용되지 않도록 방지합니다.",
+        "current_status": f"CALIBRATION_CHECKED / {label}",
+        "recommendations": {"detected": counts, "report": "logs/calibration_report.json"},
+        "cautions": cautions,
+        "completion_criteria": ["검사 결과 확인", "보정 적용 여부에 대한 명시적 결정"],
+        "actions": ["EDIT", "RUN", "SKIP"],
+    }
+
+
+def _confirm_light_linearity_task(label: str) -> dict:
+    return {
+        "task_id": "CONFIRM_LINEARITY",
+        "title": "Linear 상태 확인",
+        "summary": "후처리 시작 전 Linear 상태를 확인합니다.",
+        "purpose": "Non-linear 영상에 Linear 전용 보정을 적용하지 않기 위함입니다.",
+        "current_status": f"SINGLE_LIGHT / {label}",
+        "recommendations": {"question": "Stretch가 적용되지 않은 Linear 데이터인가요?"},
+        "cautions": ["확실하지 않다면 적용하지 마세요."],
+        "completion_criteria": ["Linearity 확정"],
+        "actions": ["CONFIRM"],
+    }
+
+def _gradient_task(label: str, stage: str = "STACKED_LINEAR"):
     return {
         "task_id": "GRADIENT_CORRECTION",
         "title": "Background / Gradient Correction",
         "summary": "광해, 달빛, 광학계 때문에 생긴 배경 밝기 불균형을 줄입니다.",
         "purpose": f"{label} 신호를 보존하면서 이후 색보정과 Stretch가 안정적으로 동작하도록 배경을 정리합니다.",
-        "current_status": f"STACKED_LINEAR / {label}",
+        "current_status": f"{stage} / {label}",
         "recommendations": {
             "engine": "Siril 1.4.4 subsky -rbf",
             "samples": 20,

@@ -1,7 +1,7 @@
 {
-  "package": "AstroSirilAssistant_v0.15.1",
-  "version": "0.15.1",
-  "update": "CR3/RAW Siril internal working directory hotfix",
+  "package": "AstroSirilAssistant_v0.16.0",
+  "version": "0.16.0",
+  "update": "End-to-end single-image workflow: safe Gradient/SPCC skips, StarNet-skip direct Final export, legacy skip migration",
   "features": {
     "formats": [
       "FITS",
@@ -25,25 +25,84 @@
     "jpeg_policy": "NONLINEAR",
     "png_tiff_policy": "CONFIRM_LINEARITY",
     "source_metadata_json": true,
-    "legacy_projects_supported": true
+    "legacy_projects_supported": true,
+    "calibration_inspection": {
+      "frame_types": [
+        "dark",
+        "bias",
+        "flat",
+        "dark_flat"
+      ],
+      "input_formats": [
+        "FITS",
+        "Camera RAW via temporary Siril normalization"
+      ],
+      "checks": [
+        "dimensions",
+        "camera",
+        "binning",
+        "ISO",
+        "gain",
+        "exposure for dark/dark-flat",
+        "temperature when available",
+        "filter/bayer/optics when available"
+      ],
+      "report": "logs/calibration_report.json",
+      "manual_skip_for_single_light": true,
+      "master_creation_and_light_calibration": "NOT IMPLEMENTED in the v0.15.3 GUI",
+      "shared_calibration_library_autoscan": false
+    },
+    "optional_gradient_spcc_skips": true,
+    "starnet_skipped_direct_final_export": true
   },
   "runtime_status": {
     "existing_fits_pipeline": "USER VERIFIED THROUGH FINAL EXPORT",
     "parallax_safe_band": "USER VERIFIED",
     "v0.15.0_multiformat_windows_runtime": "RAW conversion failed: Siril scanned saved Pictures directory",
-    "v0.15.1_cr3_windows_runtime": "PENDING USER TEST"
+    "v0.15.1_cr3_windows_runtime": "RAW decoding and jsonmetadata succeeded; image analysis reported failed",
+    "v0.15.2_cr3_windows_runtime": "USER PROVIDED SCREENSHOTS: image analysis and project creation succeeded",
+    "v0.15.3_calibration_windows_runtime": "PENDING USER TEST",
+    "v0.15.4_direct_skip_without_frames": "PENDING USER TEST",
+    "v0.16.0_windows_siril_end_to_end": "PENDING USER TEST"
   },
   "validation": {
-    "python_files_compiled": 68,
-    "python_syntax_errors": 0,
-    "yaml_files_parsed": 25,
-    "yaml_parse_errors": 0,
-    "selected_regression_tests_passed": 21,
-    "selected_regression_tests_deselected": 1,
-    "note": "Actual Windows Siril/CR3 runtime still pending; full suite could not collect without astropy."
+    "note": "Static Python/JSON/YAML and stubbed unit tests executed; real Astropy FITS I/O and Windows/Siril CR3 calibration frame tests pending",
+    "actual_windows_cr3_test": "PENDING",
+    "full_suite_astropy_required": "PENDING (Astropy unavailable in build environment)",
+    "handoff_docs": 10,
+    "python_syntax_parse": "PASS (72 Python files)",
+    "yaml_parse": "PASS (25 YAML files)",
+    "dependency_independent_and_stubbed_unit_tests": "PASS (94 tests; Astropy import stub used, 2 real-I/O test files excluded)",
+    "new_policy_plus_selected_original_tests": "PASS (17 tests; 1 real-I/O file skipped without Astropy)",
+    "real_astropy_fits_roundtrip": "PENDING (Astropy unavailable in build environment)",
+    "actual_windows_siril_cr3": "USER VERIFIED through project creation for v0.15.2; v0.15.3 calibration RAW scan pending",
+    "stubbed_unit_tests": "PASS: 97 tests (Astropy stub, three real FITS I/O suites excluded)",
+    "synthetic_single_cr3_flow": "PASS (mocked FITS header/Siril normalization: scan -> review -> explicit skip -> Gradient)",
+    "synthetic_raw_calibration_import": "PASS (duplicate safety, raw temp cleanup, compatibility report)",
+    "real_astropy_calibration_fits_roundtrip": "PENDING (Astropy unavailable in build environment)",
+    "actual_windows_calibration_scan": "PENDING USER TEST",
+    "new_v0154_direct_skip_flow": "PASS (static tests and source wiring in build environment)",
+    "v0.16.0_test_status": "PASS: 104 tests with mocked Siril/file outputs and Astropy import-only stub; 3 real FITS I/O test suites excluded",
+    "v0.16.0_static_validation": "PASS: 73 Python AST, 25 YAML, 1 JSON, 5 BAT ASCII+CRLF",
+    "v0.16.0_real_windows_siril_syqon": "PENDING USER TEST; no live Siril/SyQon run in the build environment"
   },
   "fixes": [
     "Explicit Siril cd to single RAW staging folder before convertraw",
-    "Regression tests verify source preservation, staged path, and failure behavior"
+    "Regression tests verify source preservation, staged path, and failure behavior",
+    "Disable Astropy memory mapping when reading potentially scaled FITS (pixel and header summary)",
+    "Sample large image channels before float64 conversion to reduce peak analysis memory",
+    "Include consolidated requirements, UI terminology, version decisions and validation handoff docs",
+    "Connect previously placeholder CHECK_CALIBRATION_FRAMES GUI to frame registration and real inspection task",
+    "Read FITS calibration metadata from headers only without loading BZERO-scaled pixel arrays",
+    "Read camera RAW calibration frames through temporary Siril normalization and remove temporary FITS",
+    "Compare all frames rather than only median, distinguishing ISO from FITS GAIN",
+    "Display and persist compatibility and errors, never automatically calibrate already-debayered RGB input",
+    "Prevent repeated calibration scan task, require explicit single-image approval to proceed without calibration",
+    "Preserve existing later-stage projects from accidental calibration re-entry",
+    "Allow single-Light projects to skip calibration immediately from CHECK_CALIBRATION_FRAMES even when no frames are registered",
+    "Provide explicit user-approved Gradient/SPCC bypass while retaining accurate metadata",
+    "Allow restoration/denoise on explicitly SPCC-skipped single Linear input",
+    "Enable non-StarNet stretched image to go directly to final FITS/TIFF/PNG export",
+    "Migrate legacy POST_STARNET_SKIPPED projects to EXPORT_READY on reopen"
   ]
 }

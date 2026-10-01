@@ -7,6 +7,7 @@ from .siril import run_script, SirilError
 from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
+from .spcc import make_spcc_task
 
 DEFAULT_GRADIENT_PARAMS = {
     "method": "RBF",
@@ -204,26 +205,7 @@ def apply_gradient(
     p["image_state"]["gradient_corrected"] = True
     p["image_state"]["linearity"] = "LINEAR"
     p["image_state"]["stretched"] = False
-    p["next_task"] = {
-        "task_id": "COLOR_CALIBRATION_SPCC",
-        "title": "SPCC Color Calibration",
-        "summary": "Gradient Correction이 완료되었습니다. 다음 단계는 색 기준을 맞추는 SPCC입니다.",
-        "purpose": "별의 측광 색 정보를 이용해 RGB 밸런스를 보정합니다.",
-        "current_status": "GRADIENT_CORRECTED / LINEAR",
-        "recommendations": {
-            "engine": "Siril 1.4.4 SPCC",
-            "catalog": "Gaia DR3",
-            "white_reference": "Average Spiral Galaxy 기본 시작값",
-        },
-        "cautions": [
-            "SPCC 전에 plate solving과 센서/필터 정보 확인이 필요합니다.",
-        ],
-        "completion_criteria": [
-            "SPCC 성공",
-            "색 균형 확인",
-        ],
-        "actions": ["PREVIEW", "RUN", "EDIT"],
-    }
+    p["next_task"] = make_spcc_task()
     save_project(pdir, project)
 
     log_payload = {
@@ -245,3 +227,21 @@ def apply_gradient(
         encoding="utf-8"
     )
     return project, output, log_payload
+
+
+def skip_gradient(project_dir: Path):
+    """Explicitly retain the Linear image and proceed to SPCC without subsky."""
+    pdir = Path(project_dir)
+    project = load_project(pdir)
+    p = project["project"]
+    if (p.get("next_task") or {}).get("task_id") != "GRADIENT_CORRECTION":
+        raise ValueError("현재 Gradient 단계에서만 생략할 수 있습니다.")
+    current = _current_linear_file(project)
+    p.setdefault("gradient", {})["skipped"] = True
+    p.setdefault("image_state", {})["gradient_corrected"] = False
+    p["current_state"] = "GRADIENT_SKIPPED"
+    p["next_task"] = make_spcc_task(gradient_skipped=True)
+    save_project(pdir, project)
+    append_jsonl(pdir, {"event": "GRADIENT_SKIP", "status": "USER_APPROVED",
+                            "input_file": str(current)})
+    return project
