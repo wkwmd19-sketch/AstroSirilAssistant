@@ -11,6 +11,7 @@ states:
     allowed_next:
       - "SESSIONS_CLASSIFIED"
       - "INPUT_STAGE_CONFIRMED"
+      - "CALIBRATION_CHECKED"
       - "STAR_TRAIL_MODE_CONFIRMED"
       - "REVIEW_REQUIRED"
 
@@ -62,6 +63,7 @@ states:
     allowed_next:
       - "FRAME_QUALITY_CHECKED"
       - "REGISTERED"
+      - "GRADIENT_CORRECTED"
 
   FRAME_QUALITY_CHECKED:
     allowed_next:

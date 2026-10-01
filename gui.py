@@ -32,6 +32,10 @@ from astroauto.state_actions import (
     confirm_calibration_status,
     confirm_star_trail_mode,
 )
+from astroauto.calibration import (
+    FRAME_FOLDERS, import_calibration_folder, scan_project_calibration,
+    skip_project_calibration,
+)
 from astroauto.gradient import preview_gradient, apply_gradient
 from astroauto.spcc import (
     fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc,
@@ -115,6 +119,14 @@ STAGE_FLOW_INFO = {
         "입력 이미지의 캘리브레이션 여부를 확인해 필요한 전처리 경로를 결정하는 단계입니다.",
         "Background / Gradient Correction",
     ),
+    "CHECK_CALIBRATION_FRAMES": (
+        "Dark·Bias·Flat·Dark-flat을 등록하고 Light의 해상도와 촬영 조건을 검사합니다.",
+        "캘리브레이션 검사 결과 확인",
+    ),
+    "REVIEW_CALIBRATION_FRAMES": (
+        "검사 결과를 확인하고 필요하면 프레임을 다시 등록합니다. 보정은 자동 적용하지 않습니다.",
+        "확인 후 Background / Gradient Correction",
+    ),
     "CONFIRM_STAR_TRAIL_MODE": (
         "별 일주사진의 하늘 중심 또는 지상 풍경 포함 처리 경로를 선택하는 단계입니다.",
         "Star Trail Workflow",
@@ -172,7 +184,7 @@ STAGE_FLOW_INFO = {
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.15.2")
+        self.title("AstroSirilAssistant v0.15.3")
         self._apply_screen_aware_geometry()
         self.cfg = load_app_config()
         self.palette = apply_astro_theme(self)
@@ -190,6 +202,7 @@ class App(tk.Tk):
         self.image_info_var = tk.StringVar(value="이미지를 선택하면 형식과 촬영 정보를 확인합니다.")
         self.current_stage_var = tk.StringVar(value="현재 단계 : 이미지를 선택하고 분석을 시작하세요.")
         self.next_stage_var = tk.StringVar(value="다음 작업 : 이미지 분석")
+        self.calibration_type_var = tk.StringVar(value="Dark")
         self._intake_analysis_report = None
         self._intake_analysis_diagnostics = None
         self._intake_analysis_signature = None
@@ -1612,6 +1625,9 @@ class App(tk.Tk):
                 command=lambda: self.confirm_calibration("PRECALIBRATED")
             ).pack(side="left", padx=3)
 
+        elif task_id in ("CHECK_CALIBRATION_FRAMES", "REVIEW_CALIBRATION_FRAMES"):
+            self._build_calibration_controls(controls, reviewed=task_id == "REVIEW_CALIBRATION_FRAMES")
+
         elif task_id == "CONFIRM_STAR_TRAIL_MODE":
             ttk.Button(
                 controls, text="하늘 중심",
@@ -1665,6 +1681,143 @@ class App(tk.Tk):
             ).pack(side="left", padx=3)
 
         self.after_idle(self._ensure_action_visible)
+
+    def _build_calibration_controls(self, parent, reviewed: bool = False):
+        # All controls live in the current stage; no separate window or
+        # repeated options in the project-input area.
+        top = ttk.Frame(parent)
+        top.pack(fill="x", pady=(0, 5))
+        ttk.Label(top, text="프레임 종류").pack(side="left", padx=(0, 6))
+        ttk.Combobox(
+            top, textvariable=self.calibration_type_var, state="readonly", width=12,
+            values=("Dark", "Bias", "Flat", "Dark-flat"),
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(top, text="폴더에서 등록", command=self.import_calibration_frames).pack(side="left", padx=3)
+        ttk.Button(top, text="프레임 폴더 열기", command=self.open_calibration_frame_folder).pack(side="left", padx=3)
+        ttk.Button(top, text="프레임 검사 / 재검사", command=self.check_calibration_frames).pack(side="left", padx=3)
+
+        ttk.Label(
+            parent,
+            text="FITS·카메라 RAW 프레임을 지원합니다. 등록한 원본을 보존하고, 호환성만 검사합니다.",
+        ).pack(anchor="w", pady=(0, 3))
+
+        if not reviewed or not self.project_dir:
+            return
+        project = load_project(self.project_dir)["project"]
+        cal = project.get("calibration", {})
+        status_labels = {
+            "MISSING": "없음", "COMPATIBLE": "조건 일치", "COMPATIBLE_WITH_UNKNOWNS": "일부 정보 미확인",
+            "INCOMPATIBLE": "조건 불일치", "REVIEW": "확인 필요",
+        }
+        compat = cal.get("compatibility") or {}
+        for name, title in (("dark", "Dark"), ("bias", "Bias"), ("flat", "Flat"), ("dark_flat", "Dark-flat")):
+            frame = (cal.get("frames") or {}).get(name, {})
+            rec = compat.get(name, {})
+            status = rec.get("status", "REVIEW")
+            failures = ", ".join(rec.get("failures") or rec.get("unknown_required") or [])
+            errors = frame.get("errors") or []
+            line = f"{title}: {frame.get('count', 0)}장 · {status_labels.get(status, status)}"
+            if failures:
+                line += f" ({failures})"
+            if errors:
+                line += f" · 읽기 오류 {len(errors)}건"
+            ttk.Label(parent, text=line).pack(anchor="w", pady=1)
+
+        ttk.Label(
+            parent,
+            text="이 단계는 검사 전용입니다. 원본 RAW의 정식 캘리브레이션은 Debayer 이전에 해야 합니다.",
+        ).pack(anchor="w", pady=(6, 2))
+        if project.get("input_stage", {}).get("source_stage") == "SINGLE_LIGHT":
+            ttk.Button(
+                parent, text="보정 없이 후처리로 계속", command=self.skip_calibration_frames,
+            ).pack(anchor="w", pady=(5, 0))
+        else:
+            ttk.Label(
+                parent, text="시퀀스는 별도 Calibration / Registration / Stack 워크플로에서 처리하세요.",
+            ).pack(anchor="w", pady=(5, 0))
+
+    def _selected_calibration_key(self):
+        return {"Dark": "dark", "Bias": "bias", "Flat": "flat", "Dark-flat": "dark_flat"}[
+            self.calibration_type_var.get()
+        ]
+
+    def open_calibration_frame_folder(self):
+        if not self._require_project():
+            return
+        folder = self.project_dir / FRAME_FOLDERS[self._selected_calibration_key()]
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            if os.name == "nt":
+                os.startfile(str(folder))
+            else:
+                self.write(f"프레임 폴더: {folder}")
+        except OSError as e:
+            messagebox.showerror("폴더 열기 오류", str(e))
+
+    def import_calibration_frames(self):
+        if not self._require_project():
+            return
+        source = filedialog.askdirectory(title=f"{self.calibration_type_var.get()} 프레임이 있는 폴더 선택")
+        if not source:
+            return
+        frame_type = self._selected_calibration_key()
+
+        def done(info):
+            project = load_project(self.project_dir)
+            self.write(f"{self.calibration_type_var.get()} 등록: 새 파일 {info['imported']}장, 기존 파일 {info['existing']}장\n"
+                       f"저장 위치: {info['path']}\n")
+            self.render_task(project["project"].get("next_task"))
+            self.status_var.set("프레임 등록 완료 · 검사를 실행하세요")
+
+        self.run_bg(
+            lambda: import_calibration_folder(self.project_dir, frame_type, Path(source)),
+            operation="캘리브레이션 프레임 등록", on_success=done,
+        )
+
+    def check_calibration_frames(self):
+        if not self._require_project():
+            return
+
+        def done(result):
+            project, report = result
+            lines = ["캘리브레이션 프레임 검사 완료"]
+            for key, name in (("dark", "Dark"), ("bias", "Bias"), ("flat", "Flat"), ("dark_flat", "Dark-flat")):
+                frame, comp = report["frames"][key], report["compatibility"][key]
+                lines.append(f"{name}: {frame['count']}장 / {comp['status']}")
+                for failure in comp.get("failures", []):
+                    lines.append(f"  - 불일치: {failure}")
+                for error in frame.get("errors", []):
+                    lines.append(f"  - 읽기 실패: {error['file']} / {error['error']}")
+            for warning in report["recommendation"].get("warnings", []):
+                lines.append(f"주의: {warning}")
+            lines.append(f"상세 보고서: {self.project_dir / 'logs' / 'calibration_report.json'}")
+            self.write("\n" + "\n".join(lines) + "\n")
+            self.render_task(project["project"].get("next_task"))
+            self.status_var.set("캘리브레이션 검사 완료 · 결과를 확인하세요")
+
+        self.run_bg(
+            lambda: scan_project_calibration(self.project_dir, self.cfg),
+            operation="캘리브레이션 프레임 검사", on_success=done,
+        )
+
+    def skip_calibration_frames(self):
+        if not self._require_project():
+            return
+        cal = load_project(self.project_dir)["project"].get("calibration", {})
+        total = sum(int(f.get("candidate_count", f.get("count", 0))) for f in (cal.get("frames") or {}).values())
+        details = ("등록한 프레임이 있지만 이 이미지에 적용하지 않습니다.\n"
+                   if total else "등록한 캘리브레이션 프레임이 없습니다.\n")
+        if not messagebox.askyesno(
+            "캘리브레이션 생략 확인",
+            details + "\n원본과 작업용 FITS는 변경하지 않고, 보정 없이 Gradient 단계로 진행할까요?",
+        ):
+            return
+        try:
+            project = skip_project_calibration(self.project_dir)
+            self._show_project_task(project, "사용자 확인: 캘리브레이션 생략")
+            self.status_var.set("Calibration 생략 확인 완료")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
 
     def _build_gradient_controls(self, parent):
         # v0.5.1 Help UX:

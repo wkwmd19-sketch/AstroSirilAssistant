@@ -35,7 +35,7 @@ LABEL_TO_ID = dict(CATEGORIES)
 class SequenceApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("AstroSirilAssistant v0.15.2 · Deep Sky Sequence")
+        self.title("AstroSirilAssistant v0.15.3 · Deep Sky Sequence")
         apply_screen_aware_geometry(self)
         self.palette = apply_astro_theme(self)
 

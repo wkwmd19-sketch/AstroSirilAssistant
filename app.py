@@ -8,7 +8,7 @@ from astroauto.config import load_app_config
 from astroauto.siril import get_siril_info
 from astroauto.project import create_project, load_project, save_project
 from astroauto.analyzer import analyze_project, analyze_input_file, apply_analysis_to_project, confirm_linearity
-from astroauto.calibration import scan_project_calibration
+from astroauto.calibration import scan_project_calibration, import_calibration_folder, skip_project_calibration
 from astroauto.workflow import format_task, next_task_after_analysis
 from astroauto.logging_utils import append_jsonl
 from astroauto.state_actions import confirm_input_stage, confirm_calibration_status, confirm_star_trail_mode
@@ -139,6 +139,23 @@ def cmd_calibration_check(args):
     for w in rec.get("warnings", []):
         print(f"주의: {w}")
     print(f"\n상세 로그: {Path(args.project) / 'logs' / 'calibration_report.json'}")
+    print("이 검사는 픽셀에 캘리브레이션을 적용하지 않습니다. 단일 Light는 승인 후 calibration-skip으로 후처리를 시작할 수 있습니다.")
+    return 0
+
+
+def cmd_calibration_import(args):
+    result = import_calibration_folder(Path(args.project), args.frame_type, Path(args.folder))
+    print(f"{args.frame_type}: 새로 등록 {result['imported']}장 / 이미 존재 {result['existing']}장")
+    print(f"폴더: {result['path']}")
+    return 0
+
+
+def cmd_calibration_skip(args):
+    if not args.yes:
+        raise PermissionError("보정 생략에는 --yes 승인이 필요합니다.")
+    project = skip_project_calibration(Path(args.project))
+    print("사용자 승인: 보정 없이 진행합니다.\n")
+    print(format_task(project["project"]["next_task"]))
     return 0
 
 
@@ -637,6 +654,17 @@ def build_parser():
     p = sub.add_parser("calibration-check")
     p.add_argument("project")
     p.set_defaults(func=cmd_calibration_check)
+
+    p = sub.add_parser("calibration-import", help="원본 FITS/RAW 캘리브레이션 프레임 복사")
+    p.add_argument("project")
+    p.add_argument("frame_type", choices=["dark", "bias", "flat", "dark_flat"])
+    p.add_argument("folder", help="프레임이 들어 있는 원본 폴더")
+    p.set_defaults(func=cmd_calibration_import)
+
+    p = sub.add_parser("calibration-skip", help="검사 후 사용자 승인으로 캘리브레이션 생략")
+    p.add_argument("project")
+    p.add_argument("--yes", action="store_true")
+    p.set_defaults(func=cmd_calibration_skip)
 
 
     p = sub.add_parser("new-sequence", help="FITS Light sequence 프로젝트 생성")

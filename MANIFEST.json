@@ -1,7 +1,7 @@
 {
-  "package": "AstroSirilAssistant_v0.15.2",
-  "version": "0.15.2",
-  "update": "BZERO/BSCALE FITS analysis memmap compatibility hotfix + development handoff docs",
+  "package": "AstroSirilAssistant_v0.15.3",
+  "version": "0.15.3",
+  "update": "Connect Calibration frame import/inspection/review GUI; explicit single-Light skip into Gradient",
   "features": {
     "formats": [
       "FITS",
@@ -25,32 +25,71 @@
     "jpeg_policy": "NONLINEAR",
     "png_tiff_policy": "CONFIRM_LINEARITY",
     "source_metadata_json": true,
-    "legacy_projects_supported": true
+    "legacy_projects_supported": true,
+    "calibration_inspection": {
+      "frame_types": [
+        "dark",
+        "bias",
+        "flat",
+        "dark_flat"
+      ],
+      "input_formats": [
+        "FITS",
+        "Camera RAW via temporary Siril normalization"
+      ],
+      "checks": [
+        "dimensions",
+        "camera",
+        "binning",
+        "ISO",
+        "gain",
+        "exposure for dark/dark-flat",
+        "temperature when available",
+        "filter/bayer/optics when available"
+      ],
+      "report": "logs/calibration_report.json",
+      "manual_skip_for_single_light": true,
+      "master_creation_and_light_calibration": "NOT IMPLEMENTED in the v0.15.3 GUI",
+      "shared_calibration_library_autoscan": false
+    }
   },
   "runtime_status": {
     "existing_fits_pipeline": "USER VERIFIED THROUGH FINAL EXPORT",
     "parallax_safe_band": "USER VERIFIED",
     "v0.15.0_multiformat_windows_runtime": "RAW conversion failed: Siril scanned saved Pictures directory",
     "v0.15.1_cr3_windows_runtime": "RAW decoding and jsonmetadata succeeded; image analysis reported failed",
-    "v0.15.2_cr3_windows_runtime": "PENDING USER TEST"
+    "v0.15.2_cr3_windows_runtime": "USER PROVIDED SCREENSHOTS: image analysis and project creation succeeded",
+    "v0.15.3_calibration_windows_runtime": "PENDING USER TEST"
   },
   "validation": {
-    "note": "Static compile/YAML/available pytest executed in build environment; actual Windows/Siril and Astropy FITS I/O require runtime validation",
+    "note": "Static Python/JSON/YAML and stubbed unit tests executed; real Astropy FITS I/O and Windows/Siril CR3 calibration frame tests pending",
     "actual_windows_cr3_test": "PENDING",
-    "full_suite_astropy_required": "PENDING",
-    "handoff_docs": 9,
-    "python_syntax_parse": "PASS (70 files)",
-    "yaml_parse": "PASS (25 files)",
+    "full_suite_astropy_required": "PENDING (Astropy unavailable in build environment)",
+    "handoff_docs": 10,
+    "python_syntax_parse": "PASS (72 Python files)",
+    "yaml_parse": "PASS (25 YAML files)",
     "dependency_independent_and_stubbed_unit_tests": "PASS (94 tests; Astropy import stub used, 2 real-I/O test files excluded)",
     "new_policy_plus_selected_original_tests": "PASS (17 tests; 1 real-I/O file skipped without Astropy)",
-    "real_astropy_fits_roundtrip": "PENDING (Astropy missing in build environment)",
-    "actual_windows_siril_cr3": "PENDING USER TEST"
+    "real_astropy_fits_roundtrip": "PENDING (Astropy unavailable in build environment)",
+    "actual_windows_siril_cr3": "USER VERIFIED through project creation for v0.15.2; v0.15.3 calibration RAW scan pending",
+    "stubbed_unit_tests": "PASS: 97 tests (Astropy stub, three real FITS I/O suites excluded)",
+    "synthetic_single_cr3_flow": "PASS (mocked FITS header/Siril normalization: scan -> review -> explicit skip -> Gradient)",
+    "synthetic_raw_calibration_import": "PASS (duplicate safety, raw temp cleanup, compatibility report)",
+    "real_astropy_calibration_fits_roundtrip": "PENDING (Astropy unavailable in build environment)",
+    "actual_windows_calibration_scan": "PENDING USER TEST"
   },
   "fixes": [
     "Explicit Siril cd to single RAW staging folder before convertraw",
     "Regression tests verify source preservation, staged path, and failure behavior",
     "Disable Astropy memory mapping when reading potentially scaled FITS (pixel and header summary)",
     "Sample large image channels before float64 conversion to reduce peak analysis memory",
-    "Include consolidated requirements, UI terminology, version decisions and validation handoff docs"
+    "Include consolidated requirements, UI terminology, version decisions and validation handoff docs",
+    "Connect previously placeholder CHECK_CALIBRATION_FRAMES GUI to frame registration and real inspection task",
+    "Read FITS calibration metadata from headers only without loading BZERO-scaled pixel arrays",
+    "Read camera RAW calibration frames through temporary Siril normalization and remove temporary FITS",
+    "Compare all frames rather than only median, distinguishing ISO from FITS GAIN",
+    "Display and persist compatibility and errors, never automatically calibrate already-debayered RGB input",
+    "Prevent repeated calibration scan task, require explicit single-image approval to proceed without calibration",
+    "Preserve existing later-stage projects from accidental calibration re-entry"
   ]
 }
