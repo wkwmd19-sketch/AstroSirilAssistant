@@ -12,6 +12,31 @@ from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
 from .deblur import make_deblur_task
 
+def make_spcc_task(*, gradient_skipped: bool = False) -> dict:
+    return {
+        "task_id": "COLOR_CALIBRATION_SPCC",
+        "title": "SPCC Color Calibration",
+        "summary": (
+            "Gradient를 생략했습니다. Linear 원본의 색을 SPCC로 보정하거나 다음 단계로 넘어갈 수 있습니다."
+            if gradient_skipped else
+            "Gradient Correction이 완료되었습니다. 다음 단계는 색 기준을 맞추는 SPCC입니다."
+        ),
+        "purpose": "별의 측광 색 정보를 이용해 RGB 밸런스를 보정합니다.",
+        "current_status": "GRADIENT_SKIPPED / LINEAR" if gradient_skipped else "GRADIENT_CORRECTED / LINEAR",
+        "recommendations": {
+            "engine": "Siril 1.4.4 SPCC",
+            "catalog": "Gaia DR3",
+            "white_reference": "Average Spiral Galaxy 기본 시작값",
+        },
+        "cautions": [
+            "SPCC 전에 plate solving과 센서/필터 정보 확인이 필요합니다.",
+            "SPCC를 생략하면 측광 색상 보정은 수행되지 않습니다.",
+        ],
+        "completion_criteria": ["SPCC 적용 또는 명시적 생략", "색 균형 확인"],
+        "actions": ["PREVIEW", "RUN", "EDIT", "SKIP"],
+    }
+
+
 SPCC_LIST_TYPES = (
     "oscsensor", "monosensor", "redfilter", "greenfilter",
     "bluefilter", "oscfilter", "osclpf", "whiteref",
@@ -413,3 +438,25 @@ def apply_spcc(project_dir: Path, config: dict, confirmed: bool = False, **param
         encoding="utf-8"
     )
     return project, output, payload
+
+
+def skip_spcc(project_dir: Path):
+    """User-approved SPCC bypass. The image is not mislabeled color-calibrated."""
+    pdir = Path(project_dir)
+    project = load_project(pdir)
+    p = project["project"]
+    if (p.get("next_task") or {}).get("task_id") != "COLOR_CALIBRATION_SPCC":
+        raise ValueError("현재 SPCC 단계에서만 생략할 수 있습니다.")
+    current = _current_linear_file(project)
+    p.setdefault("image_state", {})["color_calibrated"] = False
+    p.setdefault("color_calibration", {})["skipped"] = True
+    p["current_state"] = "COLOR_CALIBRATED"
+    task = make_deblur_task()
+    task["current_status"] = "SPCC_SKIPPED / LINEAR"
+    task["summary"] = "SPCC를 적용하지 않은 Linear 이미지로 Restoration을 시작합니다."
+    task["cautions"].append("SPCC 미적용: 색은 원본 센서/변환 상태 그대로입니다.")
+    p["next_task"] = task
+    save_project(pdir, project)
+    append_jsonl(pdir, {"event": "SPCC_SKIP", "status": "USER_APPROVED",
+                            "input_file": str(current)})
+    return project

@@ -13,6 +13,8 @@ def test_gui_contains_real_calibration_controls():
     assert {"_build_calibration_controls", "import_calibration_frames",
             "check_calibration_frames", "skip_calibration_frames"} <= methods
     assert '"REVIEW_CALIBRATION_FRAMES"' in content
+    assert '"CHECK_CALIBRATION_FRAMES"' in content
+    assert "프레임 없이 바로 후처리로 계속" in content
 
 
 def test_all_updated_python_files_compile():

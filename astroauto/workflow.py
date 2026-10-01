@@ -100,11 +100,14 @@ def next_task_after_analysis(project: dict):
 
     if source_stage in ("LIGHT_SEQUENCE", "SINGLE_LIGHT", "REGISTERED_SEQUENCE") and input_status == "RAW_UNCALIBRATED":
         calibration = p.get("calibration", {})
+        # User-approved bypass does not imply that a frame scan was performed.
+        # v0.15.4 permitted skipping before inspection, so resolution must win
+        # over `checked` while keeping that inspection flag truthful.
+        if calibration.get("resolution") == "SKIPPED" and source_stage == "SINGLE_LIGHT":
+            if linearity == "LINEAR":
+                return _gradient_task(label, stage="SINGLE_LIGHT")
+            return _confirm_light_linearity_task(label)
         if calibration.get("checked"):
-            if calibration.get("resolution") == "SKIPPED" and source_stage == "SINGLE_LIGHT":
-                if linearity == "LINEAR":
-                    return _gradient_task(label, stage="SINGLE_LIGHT")
-                return _confirm_light_linearity_task(label)
             return _review_calibration_task(p, label)
         return {
             "task_id": "CHECK_CALIBRATION_FRAMES",

@@ -732,6 +732,8 @@ def skip_deblur(project_dir: Path):
     project = load_project(pdir)
     p = project["project"]
     state = p.get("current_state")
+    if (p.get("next_task") or {}).get("task_id") != "DEBLUR":
+        raise ValueError("현재 Restoration 단계에서만 생략할 수 있습니다.")
 
     if state not in ("COLOR_CALIBRATED", "DENOISED"):
         raise ValueError(
@@ -739,6 +741,7 @@ def skip_deblur(project_dir: Path):
         )
 
     if state == "COLOR_CALIBRATED":
+        p.setdefault("restoration", {})["skipped"] = True
         from .denoise import make_denoise_task
         p["next_task"] = make_denoise_task()
         p["next_task"]["current_status"] = "COLOR_CALIBRATED / LINEAR / RESTORE_SKIPPED"

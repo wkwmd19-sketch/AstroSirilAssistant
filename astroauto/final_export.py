@@ -9,13 +9,16 @@ from .utils import normalize_siril_path, iso_now
 from .fits_analysis import analyze_pixels
 from .logging_utils import append_jsonl
 
-def make_final_export_task() -> dict:
+def make_final_export_task(*, direct: bool = False) -> dict:
     return {
         "task_id": "FINALIZE_EXPORT",
         "title": "Final / Export",
-        "summary": "재합성 결과를 최종 검토하고 FITS / TIFF / PNG로 내보냅니다.",
+        "summary": (
+            "StarNet을 생략한 Non-linear 이미지를 최종 검토하고 FITS / TIFF / PNG로 내보냅니다."
+            if direct else "재합성 결과를 최종 검토하고 FITS / TIFF / PNG로 내보냅니다."
+        ),
         "purpose": "최종 결과를 작업용 FITS와 배포/편집용 출력 형식으로 안전하게 저장합니다.",
-        "current_status": "RECOMBINED / NONLINEAR",
+        "current_status": "EXPORT_READY / STARNET_SKIPPED / NONLINEAR" if direct else "RECOMBINED / NONLINEAR",
         "recommendations": {
             "final_working": "32-bit FITS",
             "export_fits": "32-bit FITS",
@@ -63,18 +66,33 @@ def migrate_ready_for_final_export(project_dir: Path):
     if p.get("current_state") == "RECOMBINED" and task.get("task_id") == "FINALIZE_EXPORT":
         p["next_task"] = make_final_export_task()
         save_project(pdir, project)
+    elif p.get("current_state") == "EXPORT_READY" and task.get("task_id") == "FINALIZE_EXPORT":
+        p["next_task"] = make_final_export_task(direct=True)
+        save_project(pdir, project)
+    elif p.get("current_state") == "STRETCHED" and task.get("task_id") == "POST_STARNET_SKIPPED":
+        # Older projects were stranded after skipping StarNet. No pixels change.
+        current = Path(p.get("current_file") or "")
+        if (current.is_file() and p.get("image_state", {}).get("linearity") == "NONLINEAR"
+                and p.get("image_state", {}).get("stretched") is True):
+            p.setdefault("separation", {})["skipped"] = True
+            p["separation"]["source_file"] = str(current)
+            p["current_state"] = "EXPORT_READY"
+            p["next_task"] = make_final_export_task(direct=True)
+            save_project(pdir, project)
+            append_jsonl(pdir, {"event": "MIGRATE_STARNET_SKIP", "status": "SUCCESS",
+                                    "next_task": "FINALIZE_EXPORT"})
     return project
 
 def _current_recombined(project: dict) -> Path:
     p = project["project"]
-    if p.get("current_state") != "RECOMBINED":
-        raise ValueError("Final / Export는 RECOMBINED 상태에서 시작합니다.")
+    if p.get("current_state") not in ("RECOMBINED", "EXPORT_READY"):
+        raise ValueError("Final / Export는 RECOMBINED 또는 StarNet 생략(EXPORT_READY) 상태에서 시작합니다.")
     if p.get("image_state", {}).get("linearity") != "NONLINEAR":
         raise ValueError("v0.14 Final / Export는 Non-linear 최종 이미지용입니다.")
 
     current = Path(p["current_file"])
     if not current.exists():
-        raise FileNotFoundError(f"현재 Recombined FITS가 없습니다: {current}")
+        raise FileNotFoundError(f"현재 최종 입력 FITS가 없습니다: {current}")
     return current
 
 def _validate(

@@ -437,15 +437,19 @@ def skip_project_calibration(project_dir: Path):
     project_dir = Path(project_dir)
     project = load_project(project_dir)
     p = project["project"]
-    if (p.get("next_task") or {}).get("task_id") != "REVIEW_CALIBRATION_FRAMES":
-        raise ValueError("캘리브레이션 프레임 검사 후에만 이 단계를 건너뛸 수 있습니다.")
+    current_task = (p.get("next_task") or {}).get("task_id")
+    if current_task not in ("CHECK_CALIBRATION_FRAMES", "REVIEW_CALIBRATION_FRAMES"):
+        raise ValueError("현재 단계에서는 캘리브레이션을 생략할 수 없습니다.")
     if p.get("input_stage", {}).get("source_stage") != "SINGLE_LIGHT":
         raise ValueError("이 경로는 단일 이미지 전용입니다. 시퀀스는 별도 전처리가 필요합니다.")
+    p.setdefault("calibration", {})
+    p["calibration"]["checked"] = bool(p["calibration"].get("checked", False))
     p["calibration"]["resolution"] = "SKIPPED"
     p["calibration"]["recommended_action"] = "USER_APPROVED_SKIP"
     p["current_state"] = "CALIBRATION_SKIPPED"
     p["next_task"] = next_task_after_analysis(project)
     save_project(project_dir, project)
     append_jsonl(project_dir, {"event": "CALIBRATION_SKIP", "status": "USER_APPROVED",
+                               "from_task": current_task,
                                "reason": "Single Light calibration deferred to original RAW/CFA workflow"})
     return project

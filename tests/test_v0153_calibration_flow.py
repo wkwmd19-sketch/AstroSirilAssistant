@@ -53,6 +53,21 @@ def test_unsigned_bzero_header_only_inspection():
         assert meta["instrume"] == "Canon EOS RP"
 
 
+
+
+def test_direct_skip_without_frames_or_scan():
+    with tempfile.TemporaryDirectory() as td:
+        pdir = _make_project(Path(td))
+        p0 = load_project(pdir)["project"]
+        assert p0["next_task"]["task_id"] == "CHECK_CALIBRATION_FRAMES"
+        source_path = Path(p0["current_file"])
+        before = source_path.read_bytes()
+        project = skip_project_calibration(pdir)
+        assert project["project"]["current_state"] == "CALIBRATION_SKIPPED"
+        assert project["project"]["next_task"]["task_id"] == "GRADIENT_CORRECTION"
+        assert project["project"]["calibration"]["resolution"] == "SKIPPED"
+        assert source_path.read_bytes() == before
+
 def test_no_frames_review_skip_and_source_preservation():
     with tempfile.TemporaryDirectory() as td:
         pdir = _make_project(Path(td))

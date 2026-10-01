@@ -36,9 +36,9 @@ from astroauto.calibration import (
     FRAME_FOLDERS, import_calibration_folder, scan_project_calibration,
     skip_project_calibration,
 )
-from astroauto.gradient import preview_gradient, apply_gradient
+from astroauto.gradient import preview_gradient, apply_gradient, skip_gradient
 from astroauto.spcc import (
-    fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc,
+    fetch_spcc_lists, inspect_wcs, preview_spcc, apply_spcc, skip_spcc,
     bgtol_uses_siril_default,
 )
 from astroauto.help_system import HelpSystem
@@ -1701,6 +1701,14 @@ class App(tk.Tk):
             text="FITS·카메라 RAW 프레임을 지원합니다. 등록한 원본을 보존하고, 호환성만 검사합니다.",
         ).pack(anchor="w", pady=(0, 3))
 
+        if self.project_dir:
+            project = load_project(self.project_dir)["project"]
+            if project.get("input_stage", {}).get("source_stage") == "SINGLE_LIGHT":
+                skip_text = "프레임 없이 바로 후처리로 계속" if not reviewed else "보정 없이 후처리로 계속"
+                ttk.Button(
+                    parent, text=skip_text, command=self.skip_calibration_frames,
+                ).pack(anchor="w", pady=(2, 6))
+
         if not reviewed or not self.project_dir:
             return
         project = load_project(self.project_dir)["project"]
@@ -1727,11 +1735,7 @@ class App(tk.Tk):
             parent,
             text="이 단계는 검사 전용입니다. 원본 RAW의 정식 캘리브레이션은 Debayer 이전에 해야 합니다.",
         ).pack(anchor="w", pady=(6, 2))
-        if project.get("input_stage", {}).get("source_stage") == "SINGLE_LIGHT":
-            ttk.Button(
-                parent, text="보정 없이 후처리로 계속", command=self.skip_calibration_frames,
-            ).pack(anchor="w", pady=(5, 0))
-        else:
+        if project.get("input_stage", {}).get("source_stage") != "SINGLE_LIGHT":
             ttk.Label(
                 parent, text="시퀀스는 별도 Calibration / Registration / Stack 워크플로에서 처리하세요.",
             ).pack(anchor="w", pady=(5, 0))
@@ -1845,6 +1849,7 @@ class App(tk.Tk):
 
         ttk.Button(parent, text="미리보기", command=self.gradient_preview).pack(side="left", padx=3)
         ttk.Button(parent, text="승인 후 적용", command=self.gradient_apply).pack(side="left", padx=3)
+        ttk.Button(parent, text="Gradient 생략", command=self.gradient_skip).pack(side="left", padx=3)
 
         self.help.section_help_button(
             parent,
@@ -1961,6 +1966,7 @@ class App(tk.Tk):
         ttk.Button(buttons, text="Plate Solve 확인", command=self.show_wcs_status).pack(side="left", padx=6)
         ttk.Button(buttons, text="미리보기", command=self.spcc_preview).pack(side="left", padx=6)
         ttk.Button(buttons, text="승인 후 적용", command=self.spcc_apply).pack(side="left", padx=6)
+        ttk.Button(buttons, text="SPCC 생략", command=self.spcc_skip).pack(side="left", padx=6)
 
         body.columnconfigure(1, weight=1)
         self._refresh_spcc_mode_ui()
@@ -2105,6 +2111,23 @@ class App(tk.Tk):
             self._open_preview(jpg)
 
         self.run_bg(work, operation="Plate Solve + SPCC 미리보기", on_success=done)
+
+    def spcc_skip(self):
+        if not self._require_project():
+            return
+        if not messagebox.askyesno(
+            "SPCC 생략 확인",
+            "Plate Solve/SPCC를 실행하지 않고 원본 Linear 색상으로 진행할까요?\n"
+            "측광 색상 보정은 적용되지 않습니다.",
+        ):
+            return
+        try:
+            project = skip_spcc(self.project_dir)
+            self.spcc_preview_signature = None
+            self._show_project_task(project, "사용자 확인: SPCC 생략")
+            self.status_var.set("SPCC 생략 완료 · Restoration 단계")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
 
     def spcc_apply(self):
         if not self._require_project():
@@ -3486,14 +3509,14 @@ class App(tk.Tk):
             return
         ok = messagebox.askyesno(
             "StarNet 건너뛰기",
-            "별 분리를 하지 않고 현재 Non-linear 이미지를 그대로 유지할까요?"
+            "별 분리를 하지 않고 현재 Non-linear 이미지를 그대로 최종 내보내기로 진행할까요?"
         )
         if not ok:
             return
         try:
             project = skip_star_separation(self.project_dir)
-            self._show_project_task(project, "StarNet 건너뜀")
-            self.status_var.set("StarNet 건너뜀")
+            self._show_project_task(project, "StarNet 건너뜀 · 최종 내보내기로 이동")
+            self.status_var.set("StarNet 생략 · 최종 내보내기 준비")
         except Exception as e:
             messagebox.showerror("오류", str(e))
 
@@ -4714,7 +4737,7 @@ class App(tk.Tk):
         if not self.final_preview_meta:
             messagebox.showwarning(
                 "미리보기 필요",
-                "현재 Recombined 이미지의 Final 미리보기를 먼저 확인하세요."
+                "현재 이미지의 Final 미리보기를 먼저 확인하세요."
             )
             return
 
@@ -4743,7 +4766,7 @@ class App(tk.Tk):
         copyright_line = f"저작권: {copyright_text}\n" if copyright_text else ""
         ok = messagebox.askyesno(
             "Finalize + Export",
-            "현재 Recombined 결과를 최종본으로 확정합니다.\n\n"
+            "현재 이미지를 최종본으로 확정합니다.\n\n"
             f"생성 형식: {', '.join(selected)}\n"
             f"FITS Checksum: {options['fits_checksum']}\n"
             f"TIFF Deflate: {options['tiff_deflate']}\n"
@@ -5100,6 +5123,23 @@ class App(tk.Tk):
                 messagebox.showinfo("미리보기", f"미리보기 파일:\n{path}")
         except Exception:
             messagebox.showinfo("미리보기", f"미리보기 파일:\n{path}")
+
+    def gradient_skip(self):
+        if not self._require_project():
+            return
+        if not messagebox.askyesno(
+            "Gradient 생략 확인",
+            "배경 추출을 수행하지 않고 현재 Linear 이미지를 유지할까요?\n"
+            "은하수의 넓은 구조를 지키고 싶을 때 사용할 수 있습니다.",
+        ):
+            return
+        try:
+            project = skip_gradient(self.project_dir)
+            self.gradient_preview_signature = None
+            self._show_project_task(project, "사용자 확인: Gradient 생략")
+            self.status_var.set("Gradient 생략 완료 · SPCC 단계")
+        except Exception as e:
+            messagebox.showerror("오류", str(e))
 
     def gradient_apply(self):
         if not self._require_project():

@@ -49,7 +49,8 @@ def migrate_post_spcc_task(project_dir: Path):
     p = project["project"]
     if p.get("current_state") == "COLOR_CALIBRATED":
         task = p.get("next_task") or {}
-        if task.get("task_id") in (None, "POST_SPCC_REVIEW", "DENOISE", "POST_DENOISE_REVIEW"):
+        if (not p.get("restoration", {}).get("skipped", False)
+                and task.get("task_id") in (None, "POST_SPCC_REVIEW", "DENOISE", "POST_DENOISE_REVIEW")):
             from .deblur import make_deblur_task
             p["next_task"] = make_deblur_task()
             p.setdefault("processing_preset", "MANUAL_INSPIRED_SYQON")
@@ -69,8 +70,9 @@ def _current_linear_file(project: dict) -> Path:
         raise ValueError("Denoise는 현재 Linear 처리 경로에서만 실행합니다.")
     if p.get("image_state", {}).get("stretched") is True:
         raise ValueError("이미 Stretch된 입력에는 이 Linear Denoise 경로를 실행하지 않습니다.")
-    if not p.get("image_state", {}).get("color_calibrated", False):
-        raise ValueError("Denoise 경로는 SPCC 완료 이미지에서 시작합니다.")
+    if not (p.get("image_state", {}).get("color_calibrated", False)
+            or p.get("color_calibration", {}).get("skipped", False)):
+        raise ValueError("Denoise는 SPCC를 적용하거나 명시적으로 생략한 Linear 이미지에서 시작합니다.")
     if p.get("current_state") not in ("DEBLURRED", "COLOR_CALIBRATED"):
         raise ValueError(
             "v0.14 Denoise는 Restoration 완료(DEBLURRED) 또는 "
@@ -223,7 +225,8 @@ def apply_denoise(project_dir: Path, config: dict, confirmed: bool = False, **pa
     input_state = p.get("current_state")
     engine = str(params.get("engine", "SYQON_PRISM")).upper()
 
-    if input_state == "DEBLURRED":
+    modern_order = input_state == "DEBLURRED" or bool(p.get("restoration", {}).get("skipped", False))
+    if modern_order:
         out_dir = pdir / "working" / "06_denoise"
         stage_no = "06"
     else:
@@ -311,8 +314,8 @@ def apply_denoise(project_dir: Path, config: dict, confirmed: bool = False, **pa
         "timestamp": iso_now(),
     }
 
-    if input_state == "DEBLURRED":
-        # New v0.14 manual-inspired order.
+    if modern_order:
+        # Modern order: Deblur applied or explicitly skipped, then Denoise.
         p["next_task"] = make_ghs_task(additional=False)
     else:
         # Legacy order needs restoration next.
@@ -351,15 +354,18 @@ def skip_denoise(project_dir: Path):
     project = load_project(pdir)
     p = project["project"]
     state = p.get("current_state")
+    if (p.get("next_task") or {}).get("task_id") != "DENOISE":
+        raise ValueError("현재 Denoise 단계에서만 생략할 수 있습니다.")
 
     if state not in ("DEBLURRED", "COLOR_CALIBRATED"):
         raise ValueError(
             "Denoise 건너뛰기는 DEBLURRED 또는 legacy COLOR_CALIBRATED 상태에서만 사용합니다."
         )
 
-    if state == "DEBLURRED":
+    p.setdefault("denoise", {})["skipped"] = True
+    if state == "DEBLURRED" or p.get("restoration", {}).get("skipped", False):
         p["next_task"] = make_ghs_task(additional=False)
-        p["next_task"]["current_status"] = "DEBLURRED / LINEAR / DENOISE_SKIPPED"
+        p["next_task"]["current_status"] = "RESTORATION_DONE_OR_SKIPPED / LINEAR / DENOISE_SKIPPED"
     else:
         from .deblur import make_deblur_task
         t = make_deblur_task()

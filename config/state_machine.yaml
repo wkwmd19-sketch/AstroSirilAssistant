@@ -64,6 +64,7 @@ states:
       - "FRAME_QUALITY_CHECKED"
       - "REGISTERED"
       - "GRADIENT_CORRECTED"
+      - "GRADIENT_SKIPPED"
 
   FRAME_QUALITY_CHECKED:
     allowed_next:
@@ -85,6 +86,7 @@ states:
       - "REGISTERED"
       - "STACKED_LINEAR"
       - "GRADIENT_CORRECTED"
+      - "GRADIENT_SKIPPED"
 
   REGISTERED:
     allowed_next:
@@ -97,6 +99,7 @@ states:
   STACKED_LINEAR:
     allowed_next:
       - "GRADIENT_CORRECTED"
+      - "GRADIENT_SKIPPED"
       - "COLOR_CALIBRATED"
       - "COMET_REVIEW_PENDING"
       - "PLANETARY_LUNAR_REVIEW_PENDING"
@@ -110,6 +113,9 @@ states:
   GRADIENT_CORRECTED:
     allowed_next: ["COLOR_CALIBRATED"]
 
+  GRADIENT_SKIPPED:
+    allowed_next: ["COLOR_CALIBRATED"]
+
   COLOR_CALIBRATED:
     allowed_next: ["DENOISED", "DEBLURRED", "STRETCHED"]
 
@@ -120,7 +126,10 @@ states:
     allowed_next: ["DENOISED", "STRETCHED"]
 
   STRETCHED:
-    allowed_next: ["STARS_SEPARATED", "FINALIZED"]
+    allowed_next: ["STARS_SEPARATED", "EXPORT_READY", "FINALIZED"]
+
+  EXPORT_READY:
+    allowed_next: ["EXPORTED"]
 
   STARS_SEPARATED:
     allowed_next: ["STARLESS_PROCESSED", "STARS_PROCESSED"]
