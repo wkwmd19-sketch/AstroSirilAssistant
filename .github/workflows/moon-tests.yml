@@ -1,0 +1,27 @@
+name: Moon pipeline checks
+on:
+  pull_request:
+    paths:
+      - "astroauto/moon.py"
+      - "astroauto/moon_gui.py"
+      - "app.py"
+      - "gui.py"
+      - "tests/test_moon_pipeline.py"
+      - "requirements.txt"
+      - ".github/workflows/moon-tests.yml"
+  workflow_dispatch:
+jobs:
+  moon-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install and test
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+          python -m compileall -q app.py gui.py astroauto
+          python -m pytest -q tests
