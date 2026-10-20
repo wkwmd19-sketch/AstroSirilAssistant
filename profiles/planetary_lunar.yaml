@@ -6,15 +6,27 @@ profile:
     - "Jupiter"
     - "Saturn"
   processing_principle:
-    - "딥스카이 장노출 스택과 분리"
-    - "고속 연사 또는 영상 기반 lucky imaging 가능성 고려"
-    - "AutoStakkert 류 외부 도구 연계 가능성 예약"
-  current_limits:
-    implemented_in_v0_3_3:
-      - "예약 프로파일"
-      - "상태머신"
-      - "설계 문서"
+    - "딥스카이 장노출 스택과 완전히 분리"
+    - "Moon 단일 사진, 정렬 스태킹, 모자이크는 독립 Moon 분석형 모드 사용"
+    - "목성/토성 고속 연사·동영상 lucky imaging은 아직 예약"
+  moon_analytical:
+    status: "EXPERIMENTAL"
+    gui_entry: "🌕 Moon 분석형"
+    cli_commands:
+      - "moon-analyze"
+      - "moon-run"
+    modes:
+      - "single"
+      - "stack"
+      - "mosaic"
+    documentation: "docs/MOON_ANALYTICAL_MODE.md"
+    cautions:
+      - "품질 분석은 보수적 출발점이며 실제 크레이터/이음새 육안 검사 필수"
+      - "측정되지 않은 PSF에 자동 디컨볼루션을 강제하지 않음"
+      - "모자이크 패널 연결 실패 시 중단"
+  planetary_video:
+    status: "RESERVED"
     planned_next:
       - "SER/AVI/영상 입력"
-      - "프레임 품질 선별"
+      - "AutoStakkert 연계"
       - "planetary stack/wavelet/sharpen flow"
