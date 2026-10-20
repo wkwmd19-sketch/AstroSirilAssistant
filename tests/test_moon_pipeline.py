@@ -47,11 +47,14 @@ def test_stack_aligns_small_translation_without_moving_reference():
     result, report = _stack([first, translated], metrics)
     assert result.shape == first.shape
     assert len(report["accepted"]) == 2
-    # Disc center must stay close to original after alignment.
+    # The brightest pixel is NOT a reliable lunar center; measure the disk centroid.
     gray = result.mean(axis=2)
-    pos = np.unravel_index(np.argmax(cv2.GaussianBlur(gray, (15, 15), 3)), gray.shape)
-    assert abs(pos[0] - h // 2) < 55
-    assert abs(pos[1] - w // 2) < 55
+    center_mask = gray > 0.50
+    yy, xx = np.nonzero(center_mask)
+    assert len(yy) > 1000
+    # The reference can be either original or shifted by (9,-6).
+    assert abs(float(yy.mean()) - h // 2) < 16
+    assert abs(float(xx.mean()) - w // 2) < 16
 
 
 def test_mosaic_refuses_unmatchable_panels():
