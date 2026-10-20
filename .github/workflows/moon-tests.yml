@@ -23,4 +23,5 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest
-          python -m pytest -q tests/test_moon_pipeline.py
+          python -m compileall -q app.py gui.py astroauto
+          python -m pytest -q tests
