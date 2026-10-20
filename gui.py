@@ -8,6 +8,7 @@ import threading
 import time
 
 from astroauto.config import load_app_config
+from astroauto.moon_gui import open_moon_window
 from astroauto.ui_theme import apply_astro_theme, apply_screen_aware_geometry, style_text_widget, style_canvas
 from astroauto.syqon import detect_syqon
 from astroauto.project import (
@@ -583,6 +584,10 @@ class App(tk.Tk):
         self.create_project_btn.pack(side="left", padx=6)
         self.create_project_btn.state(["disabled"])
         ttk.Button(btns, text="기존 프로젝트 열기", command=self.open_project).pack(side="left", padx=6)
+        ttk.Button(
+            btns, text="🌕 Moon 분석형", command=lambda: open_moon_window(self, self.cfg),
+            style="Accent.TButton",
+        ).pack(side="left", padx=6)
         ttk.Button(
             btns, text="도움말",
             command=lambda: self.help.show_detail("ui.guide"),
