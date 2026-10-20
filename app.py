@@ -26,6 +26,7 @@ from astroauto.final_export import preview_final_export, apply_final_export
 from astroauto.sequence_project import create_sequence_project
 from astroauto.preprocess_engine import build_preprocess_plan, execute_preprocess
 from astroauto.input_formats import describe_input, cleanup_analysis_cache
+from astroauto.moon import collect_inputs, analyze_moon, run_moon
 
 CATEGORIES = [
     "GALAXY", "EMISSION_NEBULA", "REFLECTION_NEBULA", "DARK_NEBULA",
@@ -606,9 +607,53 @@ def cmd_final_preview(args):
     print(f"Highlight clipping: {meta['max_highlight_clip_ratio']}")
     return 0
 
+def cmd_moon_analyze(args):
+    cfg = load_app_config()
+    paths = collect_inputs(args.source, args.pattern)
+    plan = analyze_moon(paths, cfg, mode=args.mode)
+    target = Path(args.output)
+    target.mkdir(parents=True, exist_ok=True)
+    report_path = target / "Moon_analysis_plan.json"
+    report_path.write_text(
+        json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"Moon 분석 완료: {report_path}")
+    print(f"모드: {plan['mode']} / 입력 {len(paths)}장")
+    for frame in plan["frames"]:
+        print(
+            f"  {Path(frame['input']).name}: 품질 {frame['quality_score']:.4f}"
+            f" / {frame['selection_suggestion']}"
+        )
+    for issue in plan["issues"]:
+        print(f"주의: {issue}")
+    print("실제 처리: moon-run --plan <분석 계획 경로> --output <출력 폴더> --yes")
+    return 0
+
+
+def cmd_moon_run(args):
+    cfg = load_app_config()
+    plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+    result = run_moon(plan, cfg, args.output, confirmed=args.yes)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(description="AstroSirilAssistant v0.15.2")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser("moon-analyze", help="달 Single/Stack/Mosaic 입력 분석 및 품질 계획 생성")
+    p.add_argument("--source", required=True, help="원본 파일 또는 Light 폴더")
+    p.add_argument("--mode", choices=["single", "stack", "mosaic"], required=True)
+    p.add_argument("--pattern", default="*", help="폴더 검색 패턴 (예: *.CR3)")
+    p.add_argument("--output", required=True, help="분석/출력 전용 폴더")
+    p.set_defaults(func=cmd_moon_analyze)
+
+    p = sub.add_parser("moon-run", help="분석된 달 프로젝트 안전 실행")
+    p.add_argument("--plan", required=True)
+    p.add_argument("--output", required=True)
+    p.add_argument("--yes", action="store_true", help="원본 보존 및 처리 승인")
+    p.set_defaults(func=cmd_moon_run)
 
     p = sub.add_parser("doctor")
     p.set_defaults(func=cmd_doctor)
